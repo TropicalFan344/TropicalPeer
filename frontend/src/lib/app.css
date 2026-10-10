@@ -1,0 +1,7 @@
+
+/* Theme changes crossfade (theme.svelte.ts starts a view transition). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-out-expo);
+}

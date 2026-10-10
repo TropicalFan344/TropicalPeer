@@ -1,0 +1,915 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T18:26:55.569Z",
+  "title": "Design System: TropicalPeer",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Limestone Ground",
+        "canonical": "#eef0ea",
+        "oklch": "oklch(95.2% 0.008 121.6)",
+        "tonalRamp": [
+          "#0b0c08",
+          "#232520",
+          "#3f403c",
+          "#5d5e59",
+          "#7f817c",
+          "#a4a5a0",
+          "#c9cbc6",
+          "#edefe9"
+        ],
+        "nightGarden": "#111c18"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Pale Stone",
+        "canonical": "#fbfcf9",
+        "oklch": "oklch(98.9% 0.004 121.6)",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#242422",
+          "#3f403e",
+          "#5d5e5b",
+          "#80817e",
+          "#a4a5a2",
+          "#cacbc8",
+          "#eeefec"
+        ],
+        "nightGarden": "#172520"
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Worn Stone",
+        "canonical": "#e3e8df",
+        "oklch": "oklch(92.5% 0.013 130.8)",
+        "tonalRamp": [
+          "#090c07",
+          "#22251f",
+          "#3d413a",
+          "#5b5f58",
+          "#7d827a",
+          "#a2a69e",
+          "#c7ccc4",
+          "#ebf0e7"
+        ],
+        "nightGarden": "#1f3029"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Moss Hairline",
+        "canonical": "#d3dacf",
+        "oklch": "oklch(88.0% 0.017 133.8)",
+        "tonalRamp": [
+          "#080d06",
+          "#21261e",
+          "#3c4239",
+          "#5a6056",
+          "#7c8379",
+          "#a0a79d",
+          "#c6cdc2",
+          "#eaf1e6"
+        ],
+        "nightGarden": "#2b4137"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Basalt Ink",
+        "canonical": "#17211c",
+        "oklch": "oklch(23.6% 0.017 163.1)",
+        "tonalRamp": [
+          "#050d09",
+          "#1d2722",
+          "#38433d",
+          "#55615b",
+          "#77847d",
+          "#9ba8a1",
+          "#c1cec7",
+          "#e5f2eb"
+        ],
+        "nightGarden": "#e2ebe5"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Lichen Muted",
+        "canonical": "#536259",
+        "oklch": "oklch(48.1% 0.023 159.1)",
+        "tonalRamp": [
+          "#030e08",
+          "#1a2820",
+          "#35443b",
+          "#536259",
+          "#75857b",
+          "#99a99f",
+          "#becfc5",
+          "#e2f4e9"
+        ],
+        "nightGarden": "#95a99f"
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "Jungle Rail",
+        "canonical": "#0f3b2d",
+        "oklch": "oklch(31.8% 0.054 168.2)",
+        "tonalRamp": [
+          "#001008",
+          "#002c1f",
+          "#1f493a",
+          "#3d6858",
+          "#608b7a",
+          "#84b09e",
+          "#a9d6c4",
+          "#ccfbe8"
+        ],
+        "nightGarden": "#0f3b2d"
+      },
+      "rail-raised": {
+        "role": "neutral",
+        "displayName": "Raised Rail",
+        "canonical": "#185040",
+        "oklch": "oklch(39.0% 0.064 170.6)",
+        "tonalRamp": [
+          "#000f09",
+          "#002c20",
+          "#114b3b",
+          "#346958",
+          "#578d7b",
+          "#7bb29f",
+          "#a1d9c5",
+          "#c4fde8"
+        ],
+        "nightGarden": "#1a5442"
+      },
+      "rail-ink": {
+        "role": "neutral",
+        "displayName": "Rail Mist",
+        "canonical": "#e8f0ea",
+        "oklch": "oklch(94.7% 0.012 153.7)",
+        "tonalRamp": [
+          "#080d09",
+          "#202621",
+          "#3b423d",
+          "#59605b",
+          "#7b827d",
+          "#9fa7a1",
+          "#c5cdc7",
+          "#e9f1eb"
+        ],
+        "nightGarden": "#e8f0ea"
+      },
+      "rail-muted": {
+        "role": "neutral",
+        "displayName": "Rail Lichen",
+        "canonical": "#a3bdb0",
+        "oklch": "oklch(77.5% 0.034 163.9)",
+        "tonalRamp": [
+          "#000f07",
+          "#132920",
+          "#2f463b",
+          "#4c6458",
+          "#6e877b",
+          "#92ac9f",
+          "#b7d2c5",
+          "#dbf6e8"
+        ],
+        "nightGarden": "#9fbcae"
+      },
+      "rail-ok": {
+        "role": "state",
+        "displayName": "Rail Online",
+        "canonical": "#6fdba6",
+        "oklch": "oklch(81.3% 0.127 160.3)",
+        "tonalRamp": [
+          "#001006",
+          "#002c1a",
+          "#014d30",
+          "#046f49",
+          "#1e9766",
+          "#4fbd89",
+          "#78e4af",
+          "#c3ffde"
+        ],
+        "nightGarden": "#6fdba6"
+      },
+      "rail-alert": {
+        "role": "state",
+        "displayName": "Rail Alert",
+        "canonical": "#f2826a",
+        "oklch": "oklch(72.6% 0.142 33.2)",
+        "tonalRamp": [
+          "#210000",
+          "#490600",
+          "#771400",
+          "#9e3621",
+          "#c65b45",
+          "#f08068",
+          "#ffb6a5",
+          "#fee9e4"
+        ],
+        "nightGarden": "#f2826a"
+      },
+      "rail-alert-ink": {
+        "role": "state",
+        "displayName": "Rail Alert Ink",
+        "canonical": "#2a0f09",
+        "oklch": "oklch(20.9% 0.047 33.9)",
+        "tonalRamp": [
+          "#1b0301",
+          "#371b14",
+          "#56372f",
+          "#76544c",
+          "#9a776e",
+          "#c09b92",
+          "#e7c0b7",
+          "#ffe9e4"
+        ],
+        "nightGarden": "#2a0f09"
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Jungle Leaf",
+        "canonical": "#146c4c",
+        "oklch": "oklch(47.3% 0.095 163.0)",
+        "tonalRamp": [
+          "#001007",
+          "#002c1c",
+          "#024c33",
+          "#176e4e",
+          "#429270",
+          "#69b893",
+          "#8fdeb9",
+          "#c2ffe1"
+        ],
+        "nightGarden": "#3cb483"
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Deep Jungle",
+        "canonical": "#0f5a3e",
+        "oklch": "oklch(41.6% 0.084 162.4)",
+        "tonalRamp": [
+          "#001007",
+          "#002c1c",
+          "#004c33",
+          "#276c4f",
+          "#4d9071",
+          "#72b595",
+          "#97dcba",
+          "#c2ffe0"
+        ],
+        "nightGarden": "#52c595"
+      },
+      "primary-ink": {
+        "role": "primary",
+        "displayName": "Leaf Ink",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ],
+        "nightGarden": "#04221a"
+      },
+      "primary-soft": {
+        "role": "primary",
+        "displayName": "Leaf Wash",
+        "canonical": "#d6eadf",
+        "oklch": "oklch(91.9% 0.026 161.9)",
+        "tonalRamp": [
+          "#020e08",
+          "#182820",
+          "#34443c",
+          "#516259",
+          "#73857b",
+          "#97aaa0",
+          "#bcd0c5",
+          "#e0f4e9"
+        ],
+        "nightGarden": "#143a2c"
+      },
+      "sea": {
+        "role": "secondary",
+        "displayName": "Copacabana Sea",
+        "canonical": "#2357c4",
+        "oklch": "oklch(49.0% 0.180 262.6)",
+        "tonalRamp": [
+          "#000039",
+          "#001963",
+          "#00319c",
+          "#2054c1",
+          "#427aea",
+          "#73a3fe",
+          "#b0cbfe",
+          "#e6efff"
+        ],
+        "nightGarden": "#7aa4f2"
+      },
+      "sea-soft": {
+        "role": "secondary",
+        "displayName": "Sea Wash",
+        "canonical": "#dbe5f7",
+        "oklch": "oklch(92.0% 0.027 262.3)",
+        "tonalRamp": [
+          "#060b16",
+          "#1d2431",
+          "#38404e",
+          "#555e6d",
+          "#788191",
+          "#9ca5b6",
+          "#c1cbdd",
+          "#e6effe"
+        ],
+        "nightGarden": "#182a4b"
+      },
+      "heliconia": {
+        "role": "tertiary",
+        "displayName": "Heliconia",
+        "canonical": "#c2412a",
+        "oklch": "oklch(55.5% 0.169 32.4)",
+        "tonalRamp": [
+          "#210000",
+          "#490400",
+          "#781100",
+          "#a8260e",
+          "#d25038",
+          "#fc765d",
+          "#feb6a7",
+          "#ffe9e4"
+        ],
+        "nightGarden": "#f2826a"
+      },
+      "heliconia-soft": {
+        "role": "tertiary",
+        "displayName": "Heliconia Wash",
+        "canonical": "#f6dfd7",
+        "oklch": "oklch(92.0% 0.028 40.2)",
+        "tonalRamp": [
+          "#150704",
+          "#30201a",
+          "#4d3b35",
+          "#6c5952",
+          "#907b74",
+          "#b59f98",
+          "#dbc5bd",
+          "#ffe9e2"
+        ],
+        "nightGarden": "#4a2218"
+      },
+      "offer": {
+        "role": "tertiary",
+        "displayName": "Offer Heliconia",
+        "canonical": "#a8331d",
+        "oklch": "oklch(49.4% 0.157 32.8)",
+        "tonalRamp": [
+          "#210000",
+          "#490600",
+          "#781200",
+          "#a32e18",
+          "#cc553e",
+          "#f77b62",
+          "#ffb6a6",
+          "#ffe9e4"
+        ],
+        "nightGarden": "#a8331d"
+      },
+      "offer-ink": {
+        "role": "tertiary",
+        "displayName": "Offer White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ],
+        "nightGarden": "#ffffff"
+      },
+      "offer-muted": {
+        "role": "tertiary",
+        "displayName": "Offer Blush",
+        "canonical": "#ffd9ce",
+        "oklch": "oklch(91.4% 0.045 36.7)",
+        "tonalRamp": [
+          "#1a0401",
+          "#371c14",
+          "#55372f",
+          "#75554c",
+          "#99776d",
+          "#bf9b91",
+          "#e6c1b6",
+          "#ffe9e3"
+        ],
+        "nightGarden": "#ffd9ce"
+      },
+      "ok": {
+        "role": "state",
+        "displayName": "Garden OK",
+        "canonical": "#16774b",
+        "oklch": "oklch(55.0% 0.119 157.9)",
+        "tonalRamp": [
+          "#001005",
+          "#002d18",
+          "#004d2d",
+          "#007044",
+          "#329564",
+          "#5bbb88",
+          "#83e2ad",
+          "#c4ffdb"
+        ],
+        "nightGarden": "#4cc38a"
+      },
+      "warn": {
+        "role": "state",
+        "displayName": "Ochre Warn",
+        "canonical": "#8a5e00",
+        "oklch": "oklch(60.2% 0.122 78.2)",
+        "tonalRamp": [
+          "#140900",
+          "#332000",
+          "#553a01",
+          "#7c5500",
+          "#a8760b",
+          "#ce9a40",
+          "#f6c068",
+          "#feeccf"
+        ],
+        "nightGarden": "#e2b341"
+      },
+      "bad": {
+        "role": "state",
+        "displayName": "Heliconia Bad",
+        "canonical": "#bf3229",
+        "oklch": "oklch(53.4% 0.179 28.4)",
+        "tonalRamp": [
+          "#200000",
+          "#4c0001",
+          "#7d0003",
+          "#ac1c17",
+          "#d6493d",
+          "#fe7364",
+          "#ffb5ab",
+          "#fee9e6"
+        ],
+        "nightGarden": "#f06a60"
+      },
+      "wave-ink": {
+        "role": "signature",
+        "displayName": "Wave Basalt",
+        "canonical": "#17211c",
+        "oklch": "oklch(23.6% 0.017 163.1)",
+        "tonalRamp": [
+          "#050d09",
+          "#1d2722",
+          "#38433d",
+          "#55615b",
+          "#77847d",
+          "#9ba8a1",
+          "#c1cec7",
+          "#e5f2eb"
+        ],
+        "nightGarden": "#e2ebe5"
+      },
+      "wave-ground": {
+        "role": "signature",
+        "displayName": "Wave Stone",
+        "canonical": "#fbfcf9",
+        "oklch": "oklch(98.9% 0.004 121.6)",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#242422",
+          "#3f403e",
+          "#5d5e5b",
+          "#80817e",
+          "#a4a5a2",
+          "#cacbc8",
+          "#eeefec"
+        ],
+        "nightGarden": "#1f3029"
+      },
+      "bed-jungle": {
+        "role": "bed",
+        "displayName": "Jungle Bed",
+        "canonical": "#1f5e44",
+        "oklch": "oklch(43.4% 0.078 162.6)",
+        "tonalRamp": [
+          "#001007",
+          "#002c1b",
+          "#054c33",
+          "#2e6b51",
+          "#528f72",
+          "#76b496",
+          "#9cdbbc",
+          "#c2ffe0"
+        ],
+        "nightGarden": "#1f5e44"
+      },
+      "bed-moss": {
+        "role": "bed",
+        "displayName": "Moss Bed",
+        "canonical": "#55732f",
+        "oklch": "oklch(51.6% 0.102 129.3)",
+        "tonalRamp": [
+          "#050f00",
+          "#192a00",
+          "#2e4900",
+          "#4b6824",
+          "#6d8c48",
+          "#90b16c",
+          "#b6d891",
+          "#d9fdb4"
+        ],
+        "nightGarden": "#55732f"
+      },
+      "bed-ochre": {
+        "role": "bed",
+        "displayName": "Ochre Bed",
+        "canonical": "#9a6c0d",
+        "oklch": "oklch(56.5% 0.114 78.1)",
+        "tonalRamp": [
+          "#140900",
+          "#332000",
+          "#563a00",
+          "#7c5500",
+          "#a5771f",
+          "#cc9b4a",
+          "#f3c171",
+          "#feecd0"
+        ],
+        "nightGarden": "#9a6c0d"
+      },
+      "bed-heliconia": {
+        "role": "bed",
+        "displayName": "Heliconia Bed",
+        "canonical": "#b23d27",
+        "oklch": "oklch(52.4% 0.156 32.8)",
+        "tonalRamp": [
+          "#210000",
+          "#490500",
+          "#781200",
+          "#a32f19",
+          "#cc553e",
+          "#f67b62",
+          "#ffb6a6",
+          "#fee9e4"
+        ],
+        "nightGarden": "#b23d27"
+      },
+      "bed-iresine": {
+        "role": "bed",
+        "displayName": "Iresine Bed",
+        "canonical": "#7a2e52",
+        "oklch": "oklch(42.1% 0.113 353.6)",
+        "tonalRamp": [
+          "#1e000d",
+          "#470028",
+          "#6a1f44",
+          "#8d3f62",
+          "#b46285",
+          "#dc86aa",
+          "#feb0cf",
+          "#fee7f0"
+        ],
+        "nightGarden": "#7a2e52"
+      },
+      "bed-sea": {
+        "role": "bed",
+        "displayName": "Sea Bed",
+        "canonical": "#2357c4",
+        "oklch": "oklch(49.0% 0.180 262.6)",
+        "tonalRamp": [
+          "#000039",
+          "#001963",
+          "#00319c",
+          "#2054c1",
+          "#427aea",
+          "#73a3fe",
+          "#b0cbfe",
+          "#e6efff"
+        ],
+        "nightGarden": "#2357c4"
+      },
+      "bed-silver-leaf": {
+        "role": "bed",
+        "displayName": "Silver-leaf Bed",
+        "canonical": "#5f776c",
+        "oklch": "oklch(54.7% 0.033 165.6)",
+        "tonalRamp": [
+          "#000f08",
+          "#132920",
+          "#2f453c",
+          "#4c6459",
+          "#6e877c",
+          "#92aca0",
+          "#b8d2c5",
+          "#dbf6e9"
+        ],
+        "nightGarden": "#5f776c"
+      },
+      "rail-info": {
+        "role": "state",
+        "displayName": "Rail Connecting",
+        "canonical": "#8fb6f7",
+        "nightGarden": "#8fb6f7"
+      }
+    },
+    "themes": {
+      "light": {
+        "selector": ":root",
+        "note": "Limestone day."
+      },
+      "nightGarden": {
+        "selector": "@media (prefers-color-scheme: dark) :root:not([data-theme=\"light\"]), :root[data-theme=\"dark\"]",
+        "note": "Follows Windows unless Light or Dark is picked in Settings (stored per device). Rail and offer tokens keep their values."
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles (h1)."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The rail wordmark; \"Peer\" in rail-muted."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Empty-state headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Peer names and the offer sentence."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Section headings on Transfers and Settings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text and controls; tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Rail count badges and server status line."
+      },
+      "mono-id": {
+        "displayName": "Mono ID",
+        "purpose": "Device IDs under names; selectable."
+      },
+      "mono-code": {
+        "displayName": "Mono Code",
+        "purpose": "Pairing codes shown and typed in Add peer."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 2px rgb(23 33 28 / 0.06), 0 6px 20px -8px rgb(23 33 28 / 0.18)",
+        "nightGarden": "0 1px 2px rgb(0 0 0 / 0.35), 0 6px 20px -8px rgb(0 0 0 / 0.5)",
+        "purpose": "Peer card hover; selected add-peer tab."
+      },
+      {
+        "name": "float",
+        "value": "0 2px 4px rgb(23 33 28 / 0.08), 0 18px 40px -12px rgb(23 33 28 / 0.35)",
+        "nightGarden": "0 2px 4px rgb(0 0 0 / 0.4), 0 18px 40px -12px rgb(0 0 0 / 0.7)",
+        "purpose": "Dialogs, menus, toasts, the live drop-target card."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--primary); outline-offset: 2px",
+        "purpose": "Global :focus-visible."
+      },
+      {
+        "name": "field-focus",
+        "value": "0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent)",
+        "purpose": "Field focus ring alongside a primary border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Drop-target swell (scale 1.03, 300ms) and toast rise."
+      },
+      {
+        "name": "wave-lay",
+        "value": "width 300ms ease-out",
+        "purpose": "The wave band laying itself as bytes move."
+      },
+      {
+        "name": "wave-drift",
+        "value": "mask-position 0 to 28px, 1.6s linear infinite",
+        "purpose": "Whole band at 35% opacity while connecting or waiting; off under prefers-reduced-motion."
+      },
+      {
+        "name": "offer-slide",
+        "value": "slide 220ms",
+        "purpose": "Offer strips entering and leaving."
+      },
+      {
+        "name": "toast-rise",
+        "value": "fly y 12px, 220ms, ease-out-expo",
+        "purpose": "Toasts."
+      },
+      {
+        "name": "dialog-in",
+        "value": "scale from 0.96, 160ms; scrim fade 150ms",
+        "purpose": "Dialogs."
+      },
+      {
+        "name": "state-change",
+        "value": "color/background transitions ~150ms",
+        "purpose": "Buttons, nav items, fields."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "page-max",
+        "value": "1040px",
+        "purpose": "Content column maximum width."
+      },
+      {
+        "name": "peer-column-min",
+        "value": "19rem",
+        "purpose": "Peer grid auto-fill minimum; two columns at the default window, three when each keeps 19rem."
+      },
+      {
+        "name": "rail",
+        "value": "240px",
+        "purpose": "Fixed rail width."
+      }
+    ],
+    "gardenBeds": {
+      "outlines": [
+        "M9 15C15 4 31 1 42 6C52 10 55 23 51 32C48 40 39 38 34 45C28 52 14 54 7 46C1 39 3 25 9 15Z",
+        "M18 4C27 1 33 9 41 8C50 7 55 16 52 25C50 31 54 38 50 45C45 53 33 52 26 50C17 47 6 50 3 40C0 31 7 26 7 18C7 11 11 6 18 4Z",
+        "M28 3C37 3 41 11 48 14C55 18 54 29 49 35C44 41 46 49 38 52C29 55 22 47 15 46C7 44 2 37 4 28C6 20 12 19 15 12C18 6 22 3 28 3Z",
+        "M7 22C8 10 20 3 31 5C42 7 46 15 52 21C56 27 54 37 47 43C40 49 31 47 24 50C15 53 6 46 5 37C4 31 6 27 7 22Z"
+      ],
+      "viewBox": "0 0 56 56",
+      "selection": "h = fold(id, h*31 + charCode) >>> 0; outline = h % 4; colour = (h >>> 3) % 7",
+      "initials": "white Jost 560, 19px for two letters, 22px for one",
+      "sizes": {
+        "rail": 36,
+        "card": 48,
+        "offer": 44,
+        "transferRow": 40
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action per view (Add peer, Save changes, Pair).",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg> Add peer</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:8px 16px;font:500 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;cursor:default;transition:background-color .15s,border-color .15s,color .15s;border:0;background:var(--primary);color:var(--primary-ink);}.ds-btn-primary:hover{background:var(--primary-hover);}.ds-btn-primary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}.ds-btn-primary:disabled{opacity:.45;cursor:not-allowed;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions: Browse, Cancel, Clear finished.",
+      "html": "<button class=\"ds-btn-secondary\">Clear finished</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:8px 16px;font:500 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;cursor:default;transition:background-color .15s,border-color .15s,color .15s;border:1px solid var(--line);background:var(--surface);color:var(--ink);}.ds-btn-secondary:hover{background:var(--surface-2);border-color:color-mix(in srgb,var(--muted) 50%,transparent);}.ds-btn-secondary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Row actions on transfers: Cancel, Retry, Open folder.",
+      "html": "<button class=\"ds-btn-quiet\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/></svg> Cancel</button>",
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;border-radius:6px;padding:6px 10px;font:500 14px/1.25 \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;color:var(--muted);transition:background-color .15s,color .15s;}.ds-btn-quiet:hover{background:var(--surface-2);color:var(--ink);}.ds-btn-quiet:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive confirmation inside dialogs only.",
+      "html": "<button class=\"ds-btn-danger\">Remove</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:8px 16px;font:500 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;cursor:default;transition:background-color .15s,border-color .15s,color .15s;border:0;background:var(--bad);color:#fff;transition:opacity .15s;}.ds-btn-danger:hover{opacity:.9;}.ds-btn-danger:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Text and number inputs; selectable text, primary focus ring.",
+      "html": "<input class=\"ds-field\" value=\"DESKTOP-4F2K9QX\" aria-label=\"Device name\">",
+      "css": ".ds-field{border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:8px 12px;font:400 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",system-ui,sans-serif;outline:none;caret-color:var(--primary);transition:border-color .15s,box-shadow .15s;}.ds-field::placeholder{color:var(--muted);}.ds-field:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 25%,transparent);}"
+    },
+    {
+      "name": "Jungle Rail Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "The rail with its shoreline edge; current item on raised rail.",
+      "html": "<nav class=\"ds-rail\"><div class=\"ds-rail-mark\">Tropical<span>Peer</span></div><button class=\"ds-rail-item ds-current\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg> Peers<span class=\"ds-rail-badge\">1</span></button><button class=\"ds-rail-item\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 3 4 7l4 4\"/><path d=\"M4 7h16\"/><path d=\"m16 21 4-4-4-4\"/><path d=\"M20 17H4\"/></svg> Transfers</button></nav>",
+      "css": ".ds-rail{position:relative;width:240px;padding:28px 12px 20px;background:var(--rail);color:var(--rail-ink);display:flex;flex-direction:column;gap:2px;}.ds-rail::after{content:\"\";position:absolute;top:0;bottom:0;right:-11px;width:12px;background:var(--rail);mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 100' preserveAspectRatio='none'%3E%3Cpath d='M0 0h3c8 22 9 40 4 58S2 88 6 100H0z'/%3E%3C/svg%3E\") no-repeat 0 0/100% 100%;}.ds-rail-mark{padding:0 12px 32px;font:500 22px/1 \"Jost Variable\",sans-serif;letter-spacing:-.02em;}.ds-rail-mark span{color:var(--rail-muted);}.ds-rail-item{display:flex;align-items:center;gap:12px;border:0;border-radius:6px;padding:8px 12px;background:transparent;color:var(--rail-muted);font:500 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif;text-align:left;transition:background-color .15s,color .15s;}.ds-rail-item:hover{background:color-mix(in srgb,var(--rail-raised) 60%,transparent);color:var(--rail-ink);}.ds-rail-item.ds-current{background:var(--rail-raised);color:var(--rail-ink);}.ds-rail-item:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}.ds-rail-badge{margin-left:auto;min-width:20px;border-radius:9999px;padding:0 6px;background:var(--rail-alert);color:var(--rail-alert-ink);font-size:12px;font-weight:600;text-align:center;}"
+    },
+    {
+      "name": "Peer Card",
+      "kind": "card",
+      "refersTo": "peer-card",
+      "description": "Whole-card send target: garden bed, Jost name, mono ID, policy line, wave foot while sending.",
+      "html": "<article class=\"ds-peer\" tabindex=\"0\"><svg width=\"48\" height=\"48\" viewBox=\"0 0 56 56\" aria-hidden=\"true\"><path d=\"M9 15C15 4 31 1 42 6C52 10 55 23 51 32C48 40 39 38 34 45C28 52 14 54 7 46C1 39 3 25 9 15Z\" fill=\"#1f5e44\"/><text x=\"28\" y=\"29\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"#fff\" font-family=\"Jost Variable, sans-serif\" font-weight=\"560\" font-size=\"19\">ML</text></svg><div class=\"ds-peer-body\"><div class=\"ds-peer-name\">Moon Laptop</div><div class=\"ds-peer-id\">K3GH-ULVS-22KS-TWCC</div><div class=\"ds-peer-policy\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\"/></svg> Auto-accepts up to 1 MB</div></div></article>",
+      "css": ".ds-peer{display:flex;align-items:center;gap:16px;width:320px;padding:16px 48px 16px 16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);transition:transform .3s cubic-bezier(.16,1,.3,1),border-color .3s cubic-bezier(.16,1,.3,1),box-shadow .3s cubic-bezier(.16,1,.3,1);}.ds-peer:hover{border-color:color-mix(in srgb,var(--muted) 40%,transparent);box-shadow:var(--shadow);}.ds-peer:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}.ds-peer:active{transform:scale(1.03);border-color:var(--primary);box-shadow:var(--shadow-float);}.ds-peer-body{min-width:0;flex:1;}.ds-peer-name{font:500 17px/1.25 \"Jost Variable\",sans-serif;letter-spacing:-.01em;}.ds-peer-id{font:400 11px/1.45 \"Cascadia Mono\",Consolas,monospace;color:var(--muted);}.ds-peer-policy{margin-top:6px;display:flex;align-items:center;gap:6px;font:400 14px/1.25 \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif;color:var(--primary);}"
+    },
+    {
+      "name": "Wave Band",
+      "kind": "custom",
+      "refersTo": "wave-band",
+      "description": "Signature progress: Copacabana wave pavement laid to the share of bytes moved, square leading edge.",
+      "html": "<div class=\"ds-wave\" role=\"progressbar\" aria-valuenow=\"42\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-label=\"Receiving holiday-video.mp4\"><div class=\"ds-wave-laid\" style=\"width:42%\"><div class=\"ds-wave-fill\"></div><div class=\"ds-wave-edge\"></div></div></div>",
+      "css": ".ds-wave{position:relative;width:360px;height:12px;overflow:hidden;border-radius:9999px;background:var(--wave-ground);box-shadow:inset 0 0 0 1px var(--line);}.ds-wave-laid{position:absolute;top:0;bottom:0;left:0;transition:width .3s ease-out;}.ds-wave-fill{position:absolute;inset:0;background-color:var(--wave-ink);mask:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 12' preserveAspectRatio='none'%3E%3Cpath d='M0 3c7 0 7 7 14 7s7-7 14-7v9H0z'/%3E%3C/svg%3E\") repeat-x 0 0/28px 100%;}.ds-wave-edge{position:absolute;top:0;bottom:0;right:0;width:2px;background:var(--wave-ink);}.ds-wave:hover .ds-wave-fill{animation:ds-wave-drift 1.6s linear infinite;}@keyframes ds-wave-drift{to{mask-position:28px 0;}}@media (prefers-reduced-motion:reduce){.ds-wave-fill{animation:none!important;}}"
+    },
+    {
+      "name": "Offer Strip",
+      "kind": "custom",
+      "refersTo": "offer-strip",
+      "description": "The one loud surface: a full heliconia field asking to accept incoming files.",
+      "html": "<section class=\"ds-offer\"><svg width=\"44\" height=\"44\" viewBox=\"0 0 56 56\" aria-hidden=\"true\"><path d=\"M28 3C37 3 41 11 48 14C55 18 54 29 49 35C44 41 46 49 38 52C29 55 22 47 15 46C7 44 2 37 4 28C6 20 12 19 15 12C18 6 22 3 28 3Z\" fill=\"#5f776c\"/><text x=\"28\" y=\"29\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"#fff\" font-family=\"Jost Variable, sans-serif\" font-weight=\"560\" font-size=\"19\">ML</text></svg><div class=\"ds-offer-body\"><h2>Moon Laptop wants to send you holiday-video.mp4</h2><div class=\"ds-offer-meta\"><b>500 MB</b> …\\Downloads</div></div><span class=\"ds-offer-timer\">Declines in 2:56</span><button class=\"ds-offer-decline\">Decline</button><button class=\"ds-offer-accept\">Accept</button></section>",
+      "css": ".ds-offer{display:flex;align-items:center;gap:20px;padding:16px 40px;background:var(--offer);color:var(--offer-ink);font:400 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif;}.ds-offer-body{min-width:0;flex:1;}.ds-offer h2{margin:0;font:500 17px/1.375 \"Jost Variable\",sans-serif;letter-spacing:-.01em;}.ds-offer-meta{margin-top:2px;color:var(--offer-muted);}.ds-offer-meta b{font-weight:500;color:var(--offer-ink);margin-right:12px;}.ds-offer-timer{color:var(--offer-muted);white-space:nowrap;font-variant-numeric:tabular-nums;}.ds-offer-decline,.ds-offer-accept{border-radius:6px;padding:8px 16px;font:500 14px/1.45 \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif;white-space:nowrap;}.ds-offer-decline{border:1px solid color-mix(in srgb,var(--offer-ink) 60%,transparent);background:transparent;color:var(--offer-ink);transition:background-color .15s;}.ds-offer-decline:hover{background:color-mix(in srgb,var(--offer-ink) 10%,transparent);}.ds-offer-accept{border:0;background:var(--offer-ink);color:var(--offer);transition:opacity .15s;}.ds-offer-accept:hover{opacity:.9;}.ds-offer-decline:focus-visible,.ds-offer-accept:focus-visible{outline:2px solid var(--offer-ink);outline-offset:2px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Burle Marx Garden",
+    "overview": "Grown-up tropical modernism after Roberto Burle Marx. A deep jungle-green rail meets a cool limestone-pavement ground along one long curved shoreline; every peer is a flat, organic garden bed of colour; and every transfer is laid as Copacabana wave pavement, basalt waves on white stone, whose length is the share of bytes moved. The app refuses the category default of white cards, avatar bubbles on a radar and a single blue button.\n\nIt is a desktop tool (Wails / WebView2, Windows first) for short, mid-task visits, so the density is calm and compact: hairline rules carry structure instead of padding, the ground is quiet, and colour arrives as flat fields that mean something (a peer's identity, an incoming offer, a state). Exactly one surface is loud: the full heliconia incoming-offer strip. Two themes ship from one token set: limestone day, and the \"night garden\" (dark, following Windows unless overridden in Settings); the rail stays the same jungle green in both.\n\nMotion has one authored moment: the wave laying itself and drifting while waiting. Everything else is quiet state change, and drop targets swell slightly on an exponential ease-out.",
+    "keyCharacteristics": [
+      "Jungle-green rail with a single curved shoreline edge; limestone ground; basalt ink.",
+      "Neutrals are all tinted from jungle or stone; no stray greys.",
+      "Organic garden-bed peer marks: 4 hand-drawn outlines x 7 flat bed colours, picked deterministically from the device ID.",
+      "Copacabana wave pavement is the filled part of every progress bar, and appears nowhere else but the rail's shoreline.",
+      "Jost geometric display over the Segoe UI Variable platform face; Cascadia Mono for IDs and pairing codes.",
+      "Hairlines (1px line colour) over padding and over shadow."
+    ],
+    "rules": [
+      {
+        "name": "The Tinted Neutral Rule",
+        "body": "Every neutral is tinted from jungle or stone. A pure grey or pure black in chrome is a defect.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Loud Field Rule",
+        "body": "Full-saturation colour as a surface belongs to the incoming-offer strip alone. Everywhere else colour is a bed, a line of text, or a small mark.",
+        "section": "colors"
+      },
+      {
+        "name": "The Beds Are Identity Rule",
+        "body": "A peer's bed colour and outline come from its device ID and look the same on every screen (rail, card, offer, transfer row).",
+        "section": "colors"
+      },
+      {
+        "name": "The Display For Names Rule",
+        "body": "h1, h2 and peer names take Jost with -0.01em tracking and balanced wrapping; controls and body text never do.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Body text is tabular-numeral by default so sizes, speeds and countdowns do not jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Structure comes from 1px line-colour rules and dividers, not from extra padding or nested cards.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-At-Rest Rule",
+        "body": "Nothing on the page carries a shadow at rest. Shadow is state (hover, drop) or a floating layer.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two Curves Rule",
+        "body": "Organic curves are reserved for garden beds and the wave/shoreline. Containers stay gently rectangular.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do use the Copacabana wave only as the filled part of a progress bar (length = bytes moved) and as the rail's shoreline.",
+      "Do mark every peer with its garden bed, everywhere the peer appears, from the device ID hash.",
+      "Do keep components on token names (ground, surface, line, ink, primary...) so the night garden switches in the global stylesheet alone.",
+      "Do separate with 1px line-colour hairlines and dividers before reaching for padding or shadow.",
+      "Do set page titles, section headings and peer names in Jost 500 with -0.01em tracking; set everything operable in Segoe UI Variable at 14px.",
+      "Do show device IDs and pairing codes in Cascadia Mono, selectable.",
+      "Do give the incoming offer the full heliconia field, with Accept as the one solid white button."
+    ],
+    "donts": [
+      "Don't use pure greys or pure black in chrome; tint every neutral from jungle or stone.",
+      "Don't fill any surface other than the offer strip with full-saturation colour.",
+      "Don't use bed colours for status, buttons or chrome.",
+      "Don't use the wave as decoration, a divider or a loading spinner unrelated to a transfer.",
+      "Don't add shadows to surfaces at rest.",
+      "Don't fall back to circular avatar bubbles, a radar of devices, or white cards with a single blue button."
+    ]
+  }
+}

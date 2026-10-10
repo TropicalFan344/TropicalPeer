@@ -1,0 +1,41 @@
+# ---- Secrets: never commit ----
+# Android release signing key and its passwords (see README, "Signing").
+frontend/android/keystore/
+*.jks
+*.keystore
+keystore.properties
+# Personal DuckDNS updater with its token (scripts/duckdns.example.ps1 is the template).
+duckdns.ps1
+scripts/duckdns.ps1
+
+# ---- Build output ----
+/bin/
+/release/
+build/bin/
+build/android/
+frontend/dist/
+*.apk
+*.aab
+*.exe
+*.exe~
+*.dmg
+
+# ---- Dependencies and caches ----
+node_modules/
+.gradle/
+
+# ---- Machine-specific ----
+local.properties
+.idea/
+.vscode/
+.DS_Store
+*.stackdump
+*.log
+mobile/android-probe/app/build/
+mobile/android-probe/.gradle/
+mobile/android-probe/.kotlin/
+
+# ---- Design tooling scratch (screenshots of real devices, caches) ----
+.impeccable/review/
+.impeccable/questions/
+.impeccable/hook.cache.json

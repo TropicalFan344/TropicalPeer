@@ -1,0 +1,357 @@
+@import "tailwindcss";
+@import "@fontsource-variable/jost";
+
+/* Burle Marx Garden: limestone pavement ground, a jungle-green rail, basalt
+   ink, flat garden-bed colours. Every neutral is tinted from jungle or stone.
+   Components use the Tailwind names in @theme below; only this file knows
+   the values, so light and night-garden (dark) switch here. */
+:root {
+  --ground: #eef0ea;
+  --surface: #fbfcf9;
+  --surface-2: #e3e8df;
+  --line: #d3dacf;
+  --ink: #17211c;
+  --muted: #536259;
+
+  --rail: #0f3b2d;
+  --rail-raised: #185040;
+  --rail-ink: #e8f0ea;
+  --rail-muted: #a3bdb0;
+  /* The rail is the same jungle green in both themes, so its state colours are too. */
+  --rail-ok: #6fdba6;
+  --rail-info: #8fb6f7;
+  --rail-alert: #f2826a;
+  --rail-alert-ink: #2a0f09;
+
+  --primary: #146c4c;
+  --primary-hover: #0f5a3e;
+  --primary-ink: #ffffff;
+  --primary-soft: #d6eadf;
+
+  --sea: #2357c4;
+  --sea-soft: #dbe5f7;
+  --heliconia: #c2412a;
+  --heliconia-soft: #f6dfd7;
+  /* The incoming-offer field: full heliconia, the one loud surface in the app. */
+  --offer: #a8331d;
+  --offer-ink: #ffffff;
+  --offer-muted: #ffd9ce;
+
+  --ok: #16774b;
+  --warn: #8a5e00;
+  --bad: #bf3229;
+
+  /* Garden beds (peer marks): jungle, moss, ochre, heliconia, iresine, sea,
+     silver-leaf. Dark enough for white initials in both themes. */
+  --bed-1: #1f5e44;
+  --bed-2: #55732f;
+  --bed-3: #9a6c0d;
+  --bed-4: #b23d27;
+  --bed-5: #7a2e52;
+  --bed-6: #2357c4;
+  --bed-7: #5f776c;
+  /* Behind dialogs: shade tinted from the jungle, never plain black. */
+  --scrim: rgb(9 32 24 / 0.42);
+
+  /* The Copacabana pavement: basalt waves laid on white stone. */
+  --wave-ink: #17211c;
+  --wave-ground: #fbfcf9;
+
+  --shadow: 0 1px 2px rgb(23 33 28 / 0.06), 0 6px 20px -8px rgb(23 33 28 / 0.18);
+  --shadow-float: 0 2px 4px rgb(23 33 28 / 0.08), 0 18px 40px -12px rgb(23 33 28 / 0.35);
+  color-scheme: light;
+}
+
+/* Night garden: when the OS is dark (unless Light was picked in Settings),
+   or when Dark was picked. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111c18;
+    --surface: #172520;
+    --surface-2: #1f3029;
+    --line: #2b4137;
+    --ink: #e2ebe5;
+    --muted: #95a99f;
+
+    --rail: #0f3b2d;
+    --rail-raised: #1a5442;
+    --rail-ink: #e8f0ea;
+    --rail-muted: #9fbcae;
+
+    --primary: #3cb483;
+    --primary-hover: #52c595;
+    --primary-ink: #04221a;
+    --primary-soft: #143a2c;
+
+    --sea: #7aa4f2;
+    --sea-soft: #182a4b;
+    --heliconia: #f2826a;
+    --heliconia-soft: #4a2218;
+
+    --ok: #4cc38a;
+    --warn: #e2b341;
+    --bad: #f06a60;
+
+    --wave-ink: #e2ebe5;
+    --wave-ground: #1f3029;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 20px -8px rgb(0 0 0 / 0.5);
+    --shadow-float: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 40px -12px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111c18;
+  --surface: #172520;
+  --surface-2: #1f3029;
+  --line: #2b4137;
+  --ink: #e2ebe5;
+  --muted: #95a99f;
+
+  --rail: #0f3b2d;
+  --rail-raised: #1a5442;
+  --rail-ink: #e8f0ea;
+  --rail-muted: #9fbcae;
+
+  --primary: #3cb483;
+  --primary-hover: #52c595;
+  --primary-ink: #04221a;
+  --primary-soft: #143a2c;
+
+  --sea: #7aa4f2;
+  --sea-soft: #182a4b;
+  --heliconia: #f2826a;
+  --heliconia-soft: #4a2218;
+
+  --ok: #4cc38a;
+  --warn: #e2b341;
+  --bad: #f06a60;
+
+  --wave-ink: #e2ebe5;
+  --wave-ground: #1f3029;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 20px -8px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 40px -12px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rail: var(--rail);
+  --color-rail-raised: var(--rail-raised);
+  --color-rail-ink: var(--rail-ink);
+  --color-rail-muted: var(--rail-muted);
+  --color-rail-ok: var(--rail-ok);
+  --color-rail-info: var(--rail-info);
+  --color-rail-alert: var(--rail-alert);
+  --color-rail-alert-ink: var(--rail-alert-ink);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+  --color-sea: var(--sea);
+  --color-sea-soft: var(--sea-soft);
+  --color-heliconia: var(--heliconia);
+  --color-heliconia-soft: var(--heliconia-soft);
+  --color-scrim: var(--scrim);
+  --color-offer: var(--offer);
+  --color-offer-ink: var(--offer-ink);
+  --color-offer-muted: var(--offer-muted);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-float);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Jost Variable", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+/* Phone system bars. Capacitor's SystemBars plugin sets --safe-area-inset-*
+   on Android; env() covers other browsers; 0 on desktop. */
+:root {
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sal: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --sar: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  /* The phone tab bar's height above the bottom inset. */
+  --tabbar: 64px;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  /* A desktop app, not a web page. Opt back in with .selectable. */
+  user-select: none;
+  cursor: default;
+  caret-color: var(--primary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch: every control a fingertip can hit without aiming (44px). */
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .field {
+    min-height: 44px;
+  }
+  .btn-quiet {
+    min-height: 40px;
+  }
+  /* 16px keeps typing legible and stops browsers zooming into fields. */
+  .field {
+    font-size: 16px;
+  }
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.selectable {
+  user-select: text;
+}
+
+/* Touch has no hover, so presses answer instead. */
+@media (hover: none) {
+  .btn-primary:active {
+    background: var(--primary-hover);
+  }
+  .btn-secondary:active,
+  .btn-quiet:active {
+    background: var(--surface-2);
+  }
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Scrollbars carry the palette too. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+@layer components {
+  .field {
+    @apply rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition-colors
+      placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/25;
+    user-select: text;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-medium
+      text-primary-ink transition-colors hover:bg-primary-hover
+      disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-primary;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-surface px-4 py-2
+      font-medium text-ink transition-colors hover:border-muted/50 hover:bg-surface-2
+      disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface;
+  }
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted
+      transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-45;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-bad px-4 py-2 font-medium text-white
+      transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .page {
+    @apply mx-auto flex w-full max-w-[1040px] flex-col gap-8 px-10 pt-9 pb-12;
+    @apply max-sm:gap-6 max-sm:px-4 max-sm:pt-5 max-sm:pb-8;
+  }
+  .page-title {
+    @apply text-[28px] leading-tight font-medium;
+  }
+  .section-title {
+    @apply text-base font-medium;
+  }
+}
+
+/* ---- The Copacabana wave pavement ----
+   One tile of the promenade's black-and-white wave, used as a mask so the
+   same shape takes the right ink in light and dark. */
+.wave-fill {
+  background-color: var(--wave-ink);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 12' preserveAspectRatio='none'%3E%3Cpath d='M0 3c7 0 7 7 14 7s7-7 14-7v9H0z'/%3E%3C/svg%3E")
+    repeat-x 0 0 / 28px 100%;
+}
+.wave-track {
+  background: var(--wave-ground);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Laid pavement ends square at its leading edge, like the last row of stones. */
+.wave-laid {
+  width: 2px;
+  background: var(--wave-ink);
+}
+.wave-drift {
+  animation: wave-drift 1.6s linear infinite;
+}
+@keyframes wave-drift {
+  to {
+    mask-position: 28px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave-drift {
+    animation: none;
+  }
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* A peer card picked up to be moved (sortable.ts): it rises off the
+   pavement on the float shadow while the others make way. */
+[data-slot][data-lifted] {
+  z-index: 30;
+}
+[data-slot] > article {
+  transition:
+    scale 200ms var(--ease-out-expo),
+    box-shadow 200ms var(--ease-out-expo),
+    border-color 300ms var(--ease-out-expo);
+}
+[data-slot][data-lifted] > article {
+  scale: 1.03;
+  box-shadow: var(--shadow-float);
+  border-color: var(--primary);
+}
+body.sorting,
+body.sorting * {
+  cursor: grabbing !important;
+}
