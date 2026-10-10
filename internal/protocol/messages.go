@@ -50,13 +50,18 @@ func (o Offer) TotalSize() int64 {
 }
 
 // Hello opens every control stream: a new offer, a join of an existing
-// transfer from a new connection, or a receiver's request to resume one.
+// transfer from a new connection, a receiver's request to resume one, or
+// news that one was cancelled while nothing connected the two sides.
 type Hello struct {
 	Offer *Offer `json:"offer,omitempty"`
 	Join  string `json:"join,omitempty"` // transfer ID
 	// Resume asks the sender to continue a paused or interrupted transfer
 	// (by its transfer ID); the receiver sends it. Answered with a JoinAck.
 	Resume string `json:"resume,omitempty"`
+	// Cancel tells the other side that a transfer with no connection left
+	// (paused or interrupted) was cancelled here, by the sender's transfer
+	// ID. Either side sends it. Answered with a JoinAck.
+	Cancel string `json:"cancel,omitempty"`
 }
 
 type Response struct {

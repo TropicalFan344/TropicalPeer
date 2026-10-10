@@ -188,6 +188,7 @@ func (c *Core) startNode() error {
 		OnNetwork:       func(node.NetworkInfo) { c.emit("network:changed", c.GetNetwork()) },
 		OnPathChanged:   c.onPathChanged,
 		OnResumeRequest: c.onResumeRequest,
+		OnCancelNotice:  c.onCancelNotice,
 	})
 	if err != nil {
 		return err

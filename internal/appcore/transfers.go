@@ -273,17 +273,21 @@ func (c *Core) CancelTransfer(id string) {
 		return
 	}
 	if st.dto.Status == StatusPaused {
-		// Nothing is running: just drop it. Partial files kept here go too;
-		// the other side cleans up its own after a while.
+		// Nothing is running, so no connection carries the cancel: drop it
+		// here (with any partial files) and tell the other side separately.
 		receive := st.dto.Direction == string(transfer.Receiving)
-		peerID, remoteID := st.dto.PeerID, st.remoteID
-		delete(c.stopped, incomingKey(peerID, remoteID))
+		peerID, sharedID := st.dto.PeerID, st.dto.ID
+		if receive {
+			sharedID = st.remoteID
+			delete(c.stopped, incomingKey(peerID, sharedID))
+		}
 		st.dto.Status, st.dto.PausedByPeer = StatusCancelled, false
 		c.mu.Unlock()
 		if receive {
-			c.n().DiscardPartials(peerID, remoteID)
+			c.n().DiscardPartials(peerID, sharedID)
 		}
 		c.emitTransfer(st)
+		go c.notifyCancel(peerID, sharedID)
 		return
 	}
 	cancel := st.cancel
@@ -338,6 +342,55 @@ func (c *Core) ResumeTransfer(id string) (TransferDTO, error) {
 	default:
 		return TransferDTO{}, c.errT("transfer.resumeAskFailed", "name", name)
 	}
+}
+
+// cancelNoticeWaits: the other device may be offline when a paused transfer
+// is cancelled; keep trying to tell it for a minute or so.
+var cancelNoticeWaits = []time.Duration{0, 5 * time.Second, 15 * time.Second, 40 * time.Second}
+
+// notifyCancel tells the peer that a transfer we had paused (transferID is
+// the sender's ID) was cancelled here.
+func (c *Core) notifyCancel(peerID, transferID string) {
+	for _, wait := range cancelNoticeWaits {
+		select {
+		case <-time.After(wait):
+		case <-c.ctx.Done():
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.ctx, 30*time.Second)
+		err := c.n().NotifyCancel(ctx, peerID, transferID)
+		cancel()
+		var refused *transfer.ResumeRefusedError
+		if err == nil || errors.As(err, &refused) {
+			return
+		}
+	}
+}
+
+// onCancelNotice: the peer cancelled a paused or interrupted transfer
+// between us. Our row says so; partial files we kept are deleted.
+func (c *Core) onCancelNotice(peer peers.Peer, transferID string) {
+	key := incomingKey(peer.ID, transferID)
+	c.mu.Lock()
+	st := c.stopped[key]
+	if st != nil {
+		delete(c.stopped, key)
+	} else if s, ok := c.transfers[transferID]; ok && s.dto.Direction == string(transfer.Sending) && s.dto.PeerID == peer.ID {
+		st = s
+	}
+	if st == nil || st.dto.active() || st.dto.Status == StatusDone || st.dto.Status == StatusCancelled {
+		c.mu.Unlock()
+		return
+	}
+	receive := st.dto.Direction == string(transfer.Receiving)
+	d := &st.dto
+	d.Status, d.PausedByPeer, d.Resuming = StatusFailed, false, false
+	d.Error = c.T("transfer.peerCancelled", "name", peer.Name)
+	c.mu.Unlock()
+	if receive {
+		c.n().DiscardPartials(peer.ID, transferID)
+	}
+	c.emitTransfer(st)
 }
 
 // onResumeRequest answers a receiver asking us to continue a transfer we

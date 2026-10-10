@@ -46,6 +46,10 @@ type Events struct {
 	// interrupted transfer continued; transferID is ours. ok means it is
 	// being sent again; reason explains a refusal.
 	OnResumeRequest func(peer peers.Peer, transferID string) (ok bool, reason string)
+	// OnCancelNotice reports that the peer cancelled a transfer between us
+	// while nothing connected us (it was paused or interrupted).
+	// transferID is the sender's ID for it.
+	OnCancelNotice func(peer peers.Peer, transferID string)
 	// OnProgress reports progress of incoming transfers. (Outgoing transfers
 	// report through SendOptions.)
 	OnProgress func(peer peers.Peer, p transfer.Progress)
@@ -339,6 +343,14 @@ func (n *Node) handleIncoming(ctx context.Context, conn *quic.Conn, relayed bool
 		n.joinIncoming(ctx, peer, conn, ctrl, relayed)
 		return
 	}
+	if ctrl.Hello.Cancel != "" {
+		if n.events.OnCancelNotice != nil {
+			n.events.OnCancelNotice(peer, ctrl.Hello.Cancel)
+		}
+		ctrl.Answer(true, "")
+		<-time.After(time.Second) // let the answer go out before hanging up
+		return
+	}
 	if ctrl.Hello.Resume != "" {
 		ok, reason := false, "nothing here can resume it"
 		if n.events.OnResumeRequest != nil {
@@ -562,9 +574,20 @@ func (n *Node) DiscardPartials(peerID, transferID string) {
 	n.partials.discard(peerID, transferID)
 }
 
+// NotifyCancel tells a peer that a transfer between us (transferID is the
+// sender's ID) was cancelled here while we weren't connected.
+func (n *Node) NotifyCancel(ctx context.Context, peerID, transferID string) error {
+	return n.ask(ctx, peerID, func(conn *quic.Conn) error { return transfer.NotifyCancel(ctx, conn, transferID) })
+}
+
 // RequestResume asks a peer that sent us files to continue transferID (its
 // ID for the transfer), after either side paused it or it broke off.
 func (n *Node) RequestResume(ctx context.Context, peerID, transferID string) error {
+	return n.ask(ctx, peerID, func(conn *quic.Conn) error { return transfer.RequestResume(ctx, conn, transferID) })
+}
+
+// ask connects to a peer just to deliver one request.
+func (n *Node) ask(ctx context.Context, peerID string, do func(*quic.Conn) error) error {
 	select {
 	case <-n.ready:
 	default:
@@ -579,5 +602,5 @@ func (n *Node) RequestResume(ctx context.Context, peerID, transferID string) err
 		return err
 	}
 	defer conn.CloseWithError(0, "")
-	return transfer.RequestResume(ctx, conn, transferID)
+	return do(conn)
 }

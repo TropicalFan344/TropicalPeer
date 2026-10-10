@@ -122,6 +122,9 @@ function upsertTransfer(x: Transfer) {
   else app.transfers.unshift(x)
 
   // Announce how a transfer ended, once.
+  // The other side cancelled while it was paused: nothing was running, so
+  // the check below wouldn't notice.
+  if (prev?.status === 'paused' && x.status === 'failed' && x.error) toast(x.error, 'info', 6000)
   if (prev && isActive(prev) && !isActive(x)) {
     const what = describe(x.files)
     const name = x.peerName

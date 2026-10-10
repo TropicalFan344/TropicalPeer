@@ -78,9 +78,9 @@ func AcceptControl(ctx context.Context, conn *quic.Conn) (*Control, error) {
 		st.CancelRead(0)
 		return nil, err
 	}
-	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" {
+	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" && c.Hello.Cancel == "" {
 		st.CancelRead(0)
-		return nil, errors.New("control stream opened without an offer, join or resume")
+		return nil, errors.New("control stream opened without an offer, join, resume or cancel")
 	}
 	return c, nil
 }
@@ -93,13 +93,24 @@ func (c *Control) Answer(ok bool, reason string) {
 
 // RequestResume asks the sender on conn to continue transferID.
 func RequestResume(ctx context.Context, conn *quic.Conn, transferID string) error {
+	return ask(ctx, conn, protocol.Hello{Resume: transferID})
+}
+
+// NotifyCancel tells the peer on conn that transferID (the sender's ID) was
+// cancelled here while the two weren't connected.
+func NotifyCancel(ctx context.Context, conn *quic.Conn, transferID string) error {
+	return ask(ctx, conn, protocol.Hello{Cancel: transferID})
+}
+
+// ask opens a control stream with hello and waits for the JoinAck.
+func ask(ctx context.Context, conn *quic.Conn, hello protocol.Hello) error {
 	st, err := conn.OpenStreamSync(ctx)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
 	w := wire.NewConn(st)
-	if err := w.Send(protocol.Hello{Resume: transferID}); err != nil {
+	if err := w.Send(hello); err != nil {
 		return err
 	}
 	var ack protocol.JoinAck

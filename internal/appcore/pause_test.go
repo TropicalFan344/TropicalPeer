@@ -34,6 +34,7 @@ func testCore(t *testing.T, ctx context.Context, addr, name string) (*Core, *rec
 		OnReceived:      c.onReceived,
 		OnPathChanged:   c.onPathChanged,
 		OnResumeRequest: c.onResumeRequest,
+		OnCancelNotice:  c.onCancelNotice,
 	})
 	return c, rec, downloads
 }
@@ -166,12 +167,55 @@ func TestPauseAndResume(t *testing.T) {
 		}
 	})
 
+	t.Run("the sender cancels while paused: the friend hears and drops the part", func(t *testing.T) {
+		d, err := me.SendSources(friend.node.Identity.ID(), []transfer.Source{slowSource("third.mov", data)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		in3 := friendRec.latestIncoming(t, 1)
+		myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Done > 1<<20 })
+		me.PauseTransfer(d.ID)
+		friendRec.waitFor(t, in3.ID, func(d TransferDTO) bool { return d.Status == StatusPaused })
+		part3 := filepath.Join(downloads, "third.mov.part")
+		if _, err := os.Stat(part3); err != nil {
+			t.Fatalf("part not kept while paused: %v", err)
+		}
+		me.CancelTransfer(d.ID)
+		myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Status == StatusCancelled })
+		theirs := friendRec.waitFor(t, in3.ID, func(d TransferDTO) bool { return d.Status == StatusFailed })
+		if theirs.Error != "Me cancelled the transfer." {
+			t.Fatalf("friend's row says %q", theirs.Error)
+		}
+		if _, err := os.Stat(part3); err == nil {
+			t.Fatal("the friend kept the part after the sender cancelled")
+		}
+	})
+
+	t.Run("the friend cancels while paused: the sender hears", func(t *testing.T) {
+		d, err := me.SendSources(friend.node.Identity.ID(), []transfer.Source{slowSource("fourth.mov", data)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		in4 := friendRec.latestIncoming(t, 2)
+		myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Done > 1<<20 })
+		friend.PauseTransfer(in4.ID)
+		myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Status == StatusPaused })
+		friend.CancelTransfer(in4.ID)
+		mine := myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Status == StatusFailed })
+		if mine.Error != "Friend cancelled the transfer." {
+			t.Fatalf("sender's row says %q", mine.Error)
+		}
+		if _, err := os.Stat(filepath.Join(downloads, "fourth.mov.part")); err == nil {
+			t.Fatal("the friend kept its own part after cancelling")
+		}
+	})
+
 	t.Run("cancelling a paused incoming transfer deletes the part", func(t *testing.T) {
 		d, err := me.SendSources(friend.node.Identity.ID(), []transfer.Source{slowSource("second.mov", data)})
 		if err != nil {
 			t.Fatal(err)
 		}
-		in2 := friendRec.latestIncoming(t, 1)
+		in2 := friendRec.latestIncoming(t, 3)
 		myRec.waitFor(t, d.ID, func(d TransferDTO) bool { return d.Done > 1<<20 })
 		friend.PauseTransfer(in2.ID)
 		friendRec.waitFor(t, in2.ID, func(d TransferDTO) bool { return d.Status == StatusPaused })
