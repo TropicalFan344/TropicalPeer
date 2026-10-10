@@ -3,9 +3,11 @@
 package appcore
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,12 +24,26 @@ import (
 //   - TROPICALPEER_DEV_LOG=<file> writes the log there (a GUI app has no console).
 //   - TROPICALPEER_DEV_DEMO_TRANSFERS=1 adds two finished sample transfers:
 //     one that stayed on the relay and one that moved to a direct path.
+//   - TROPICALPEER_DEV_ACCEPT=1 accepts every offer as if a person clicked.
+//   - TROPICALPEER_DEV_PAUSE_AT=<bytes> pauses the first transfer (either
+//     direction) once that much has moved; TROPICALPEER_DEV_CANCEL_AFTER=<dur>
+//     (e.g. 5s) then cancels it that long after it paused.
+//
+// With a log file, every transfer's status changes are logged too.
 func (c *Core) runDevHooks() {
 	if path := os.Getenv("TROPICALPEER_DEV_LOG"); path != "" {
 		if f, err := os.Create(path); err == nil {
 			log.SetOutput(f)
 			log.SetFlags(log.Ltime | log.Lmicroseconds)
+			go c.devWatchTransfers()
 		}
+	}
+	if os.Getenv("TROPICALPEER_DEV_ACCEPT") == "1" {
+		go c.devAcceptOffers()
+	}
+	if at, err := strconv.ParseInt(os.Getenv("TROPICALPEER_DEV_PAUSE_AT"), 10, 64); err == nil {
+		after, _ := time.ParseDuration(os.Getenv("TROPICALPEER_DEV_CANCEL_AFTER"))
+		go c.devPauseThenCancel(at, after)
 	}
 	if os.Getenv("TROPICALPEER_DEV_DEMO_TRANSFERS") == "1" {
 		c.addDemoTransfers()
@@ -44,6 +60,70 @@ func (c *Core) runDevHooks() {
 	if _, err := c.SendFiles(parts[0], parts[1:]); err != nil {
 		log.Printf("devhooks: send: %v", err)
 	}
+}
+
+// devTick runs fn every 100ms until the app stops or fn returns false.
+func (c *Core) devTick(fn func() bool) {
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+		}
+		if !fn() {
+			return
+		}
+	}
+}
+
+func (c *Core) devWatchTransfers() {
+	seen := map[string]string{}
+	c.devTick(func() bool {
+		for _, d := range c.ListTransfers() {
+			state := fmt.Sprintf("%s %s pausedByPeer=%v done=%d/%d error=%q", d.Direction, d.Status, d.PausedByPeer, d.Done, d.Total, d.Error)
+			key := d.Direction + d.Status + d.Error + strconv.FormatBool(d.PausedByPeer)
+			if seen[d.ID] != key {
+				seen[d.ID] = key
+				log.Printf("devhooks: transfer %s %s", d.ID, state)
+			}
+		}
+		return true
+	})
+}
+
+func (c *Core) devAcceptOffers() {
+	c.devTick(func() bool {
+		for _, o := range c.ListOffers() {
+			log.Printf("devhooks: accepting %s from %s", o.ID, o.PeerName)
+			c.RespondOffer(o.ID, true)
+		}
+		return true
+	})
+}
+
+func (c *Core) devPauseThenCancel(at int64, after time.Duration) {
+	var id string
+	c.devTick(func() bool {
+		for _, d := range c.ListTransfers() {
+			if d.active() && d.Done >= at {
+				id = d.ID
+				log.Printf("devhooks: pausing %s at %d bytes", id, d.Done)
+				c.PauseTransfer(id)
+				return false
+			}
+		}
+		return true
+	})
+	if id == "" || after <= 0 {
+		return
+	}
+	select {
+	case <-time.After(after):
+	case <-c.ctx.Done():
+		return
+	}
+	log.Printf("devhooks: cancelling %s", id)
+	c.CancelTransfer(id)
 }
 
 func (c *Core) devAdjustNetwork(out *NetworkDTO) {
