@@ -25,13 +25,23 @@ func TestPauseThroughRealRelay(t *testing.T) {
 
 	srv := server.New(log.New(io.Discard, "", 0))
 	srv.RelayRate = 8 << 20
-	udp, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ln, err := net.Listen("tcp", "127.0.0.1:"+portOf(udp.LocalAddr()))
-	if err != nil {
-		t.Fatal(err)
+	// The server takes TCP and UDP on one port: try free UDP ports until
+	// the same TCP port is free too.
+	var (
+		udp net.PacketConn
+		ln  net.Listener
+		err error
+	)
+	for try := 0; ln == nil; try++ {
+		if udp, err = net.ListenPacket("udp", "127.0.0.1:0"); err != nil {
+			t.Fatal(err)
+		}
+		if ln, err = net.Listen("tcp", "127.0.0.1:"+portOf(udp.LocalAddr())); err != nil {
+			udp.Close()
+			if try == 20 {
+				t.Fatal(err)
+			}
+		}
 	}
 	go srv.Serve(ctx, ln)
 	go srv.ServeUDP(ctx, udp)
