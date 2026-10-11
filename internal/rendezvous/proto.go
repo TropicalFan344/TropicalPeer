@@ -23,8 +23,6 @@ const DefaultAddr = "localhost:7777"
 const (
 	TypeRegister      = "register"
 	TypeRegistered    = "registered"
-	TypeLookup        = "lookup"
-	TypeLookupResult  = "lookup_result"
 	TypePairCreate    = "pair_create"
 	TypePairCreated   = "pair_created"
 	TypePairJoin      = "pair_join"
@@ -35,8 +33,11 @@ const (
 	TypeConnect      = "connect"       // device → server: set up a path to device To
 	TypeConnectInfo  = "connect_info"  // server → requester: the target's candidates
 	TypeConnectOffer = "connect_offer" // server → target: someone wants to connect
-	TypeNATInfo      = "nat_info"      // device → server: what its router is like
-	TypeError        = "error"
+	// target → server: whether it takes the connection (only paired devices
+	// get a yes). Until it says yes, the requester learns nothing about it.
+	TypeConnectAnswer = "connect_answer"
+	TypeNATInfo       = "nat_info" // device → server: what its router is like
+	TypeError         = "error"
 )
 
 // Msg is the envelope for every message. Only the fields relevant to Type are set.
@@ -50,6 +51,7 @@ type Msg struct {
 	Port      int               `json:"port,omitempty"`
 	Time      int64             `json:"time,omitempty"`
 	Sig       []byte            `json:"sig,omitempty"`
+	Caps      []string          `json:"caps,omitempty"` // what this client supports (CapAnswer)
 
 	// registered: the address the server saw us connect from, and the
 	// server's second UDP port for router detection (0 = none)
@@ -59,8 +61,8 @@ type Msg struct {
 	// nat_info: our router; connect_info/connect_offer: the other device's
 	NAT *NATProfile `json:"nat,omitempty"`
 
-	// lookup_result
-	Online bool `json:"online,omitempty"`
+	// connect_answer
+	Accept bool `json:"accept,omitempty"`
 
 	// pair_*
 	Nameplate string `json:"nameplate,omitempty"`
@@ -77,6 +79,10 @@ type Msg struct {
 
 	Error string `json:"error,omitempty"`
 }
+
+// CapAnswer: the device answers connect offers (connect_answer), so the
+// server shares its addresses only with devices it accepts.
+const CapAnswer = "answer"
 
 // RegisterPayload is the byte string a device signs to prove it owns its ID.
 func RegisterPayload(id string, unixTime int64, port int, addrs []string) []byte {

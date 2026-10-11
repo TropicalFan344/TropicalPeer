@@ -28,15 +28,18 @@ const (
 )
 
 type partialEntry struct {
-	Peer     string    `json:"peer"`
-	Transfer string    `json:"transfer"`
-	Index    int       `json:"index"`
-	Name     string    `json:"name"`
-	Size     int64     `json:"size"`
-	Part     string    `json:"part,omitempty"`  // while the file is incomplete
-	Final    string    `json:"final,omitempty"` // the path it is meant to get
-	Saved    string    `json:"saved,omitempty"` // once it arrived in full
-	Updated  time.Time `json:"updated"`
+	Peer     string `json:"peer"`
+	Transfer string `json:"transfer"`
+	Index    int    `json:"index"`
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	Part     string `json:"part,omitempty"`  // while the file is incomplete
+	Final    string `json:"final,omitempty"` // the path it is meant to get
+	Saved    string `json:"saved,omitempty"` // once it arrived in full
+	// Offer fingerprints the accepted offer's file list: only that exact
+	// offer may continue without asking again.
+	Offer   string    `json:"offer,omitempty"`
+	Updated time.Time `json:"updated"`
 }
 
 type partials struct {
@@ -138,13 +141,16 @@ func (p *partials) remove(drop func(e partialEntry) bool) bool {
 	return changed
 }
 
-// knows reports whether an earlier attempt of this transfer left anything
-// behind: the person already accepted it, so it continues without asking.
-func (p *partials) knows(peer, transferID string) bool {
+// accepted reports whether this exact offer (same transfer, same files)
+// was accepted before and left something behind: then it continues without
+// asking again. A different offer reusing the transfer ID is asked about
+// like any new one.
+func (p *partials) accepted(peer string, offer protocol.Offer) bool {
+	fp := offer.Fingerprint()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, e := range p.entries {
-		if e.Peer == peer && e.Transfer == transferID {
+		if e.Peer == peer && e.Transfer == offer.TransferID && e.Offer == fp {
 			return true
 		}
 	}
@@ -224,14 +230,14 @@ func (v peerPartials) Saved(transferID string, index int) (string, bool) {
 	return "", false
 }
 
-func (v peerPartials) Started(transferID string, index int, f protocol.FileInfo, part, final string) {
+func (v peerPartials) Started(transferID, fingerprint string, index int, f protocol.FileInfo, part, final string) {
 	v.p.mu.Lock()
 	v.p.remove(func(e partialEntry) bool {
 		return e.Part == part || (e.Peer == v.peer && e.Transfer == transferID && e.Index == index)
 	})
 	v.p.entries = append(v.p.entries, partialEntry{
 		Peer: v.peer, Transfer: transferID, Index: index, Name: f.Name, Size: f.Size,
-		Part: part, Final: final, Updated: time.Now(),
+		Part: part, Final: final, Offer: fingerprint, Updated: time.Now(),
 	})
 	now := f.Size >= partialsSaveNow
 	if !now {

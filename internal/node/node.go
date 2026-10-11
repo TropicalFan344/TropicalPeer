@@ -395,7 +395,7 @@ func (n *Node) handleIncoming(ctx context.Context, conn *quic.Conn, relayed bool
 		n.unregisterRecv(key, sess)
 		close(sess.done)
 	}()
-	resuming := n.partials.knows(peer.ID, in.Offer.TransferID)
+	resuming := n.partials.accepted(peer.ID, in.Offer)
 
 	decide := func(ctx context.Context, offer protocol.Offer) (bool, string) {
 		accept := false

@@ -30,6 +30,9 @@ const (
 	pairExchangeTime = 2 * time.Minute
 	pairByteLimit    = 256 * 1024 // pairing is a few small messages; this is not a relay
 	maxClockSkew     = 5 * time.Minute
+	// How long a device has to answer a connect offer. No answer counts as
+	// no: the device asking is told the other one is offline.
+	answerTimeout = 10 * time.Second
 )
 
 type presence struct {
@@ -46,6 +49,8 @@ type presence struct {
 	reflexive   string
 	reflexiveAt time.Time
 	nat         *rendezvous.NATProfile // as last reported by the device
+
+	answers bool // answers connect offers (rendezvous.CapAnswer)
 }
 
 func (p *presence) send(m rendezvous.Msg) error {
@@ -74,6 +79,7 @@ type Server struct {
 	online     map[string]*presence
 	nameplates map[string]*pending
 	sessions   map[uint64]*relaySession
+	waiting    map[string]*waitingAnswer // connect offers awaiting the target's answer, by session
 	udp        net.PacketConn
 	alt        net.PacketConn // second UDP port for router detection
 	altPort    int
@@ -87,7 +93,14 @@ func New(logger *log.Logger) *Server {
 		online:     map[string]*presence{},
 		nameplates: map[string]*pending{},
 		sessions:   map[uint64]*relaySession{},
+		waiting:    map[string]*waitingAnswer{},
 	}
+}
+
+// waitingAnswer is a connect offer sent to a device that answers offers.
+type waitingAnswer struct {
+	to     *presence
+	answer chan bool
 }
 
 // Serve accepts connections until ctx is cancelled.
@@ -126,8 +139,6 @@ func (s *Server) handle(nc net.Conn) {
 	switch m.Type {
 	case rendezvous.TypeRegister:
 		err = s.handleRegister(nc, conn, m)
-	case rendezvous.TypeLookup:
-		err = s.handleLookup(conn, m)
 	case rendezvous.TypePairCreate:
 		err = s.handlePairCreate(nc, conn)
 		return // connection ownership passes to the pipe
@@ -164,6 +175,11 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 	}
 
 	p := &presence{id: m.ID, pub: m.PublicKey, addrs: addrs, nc: nc, conn: conn}
+	for _, c := range m.Caps {
+		if c == rendezvous.CapAnswer {
+			p.answers = true
+		}
+	}
 	s.mu.Lock()
 	if old, ok := s.online[m.ID]; ok {
 		old.nc.Close() // newest registration wins
@@ -201,13 +217,29 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 			s.mu.Lock()
 			p.nat = req.NAT
 			s.mu.Unlock()
+		case rendezvous.TypeConnectAnswer:
+			s.mu.Lock()
+			w := s.waiting[req.Session]
+			s.mu.Unlock()
+			if w != nil && w.to == p { // only the device asked may answer
+				select {
+				case w.answer <- req.Accept:
+				default:
+				}
+			}
 		}
 	}
 }
 
-// handleConnect introduces two online devices to each other: each learns the
-// other's candidate addresses at the same moment so both can start punching,
-// and, when relaying is on, both get the same relay session ID.
+// handleConnect introduces two online devices to each other: the target
+// hears about the requester first, and once it accepts (it only accepts
+// devices it is paired with) the requester learns the target's candidate
+// addresses, so both punch at about the same time. When relaying is on,
+// both get the same relay session ID.
+//
+// Anyone can register a key and ask, so the requester is told nothing
+// about the target (not even that it is online) unless the target says yes.
+// Devices that predate answering are introduced right away, as before.
 func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 	reply := rendezvous.Msg{Type: rendezvous.TypeConnectInfo, Req: m.Req, To: m.To}
 
@@ -219,13 +251,19 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 		from.send(reply)
 		return
 	}
-	fromCands, toCands := s.candidatesLocked(from), s.candidatesLocked(to)
-	fromNAT, toNAT := from.nat, to.nat
+	fromCands, fromNAT := s.candidatesLocked(from), from.nat
 	session, nonce := randomHex(rendezvous.SessionIDLen), randomHex(16)
 	relay := s.Relay && !m.NoRelay
+	var sessKey uint64
 	if relay {
 		id, _ := rendezvous.ParseSession(session)
-		s.sessions[rendezvous.SessionKey(id)] = newRelaySession(from.id, to.id, s.RelayRate)
+		sessKey = rendezvous.SessionKey(id)
+		s.sessions[sessKey] = newRelaySession(from.id, to.id, s.RelayRate)
+	}
+	var w *waitingAnswer
+	if to.answers {
+		w = &waitingAnswer{to: to, answer: make(chan bool, 1)}
+		s.waiting[session] = w
 	}
 	s.mu.Unlock()
 
@@ -233,9 +271,39 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 		Type: rendezvous.TypeConnectOffer, From: from.id,
 		Candidates: fromCands, Session: session, Nonce: nonce, Relay: relay, NAT: fromNAT,
 	})
-	reply.Candidates, reply.Session, reply.Nonce, reply.Relay, reply.NAT = toCands, session, nonce, relay, toNAT
-	from.send(reply)
-	s.Logger.Printf("connect %s -> %s (relay %v)", from.id, to.id, relay)
+
+	introduce := func() {
+		s.mu.Lock()
+		reply.Candidates, reply.NAT = s.candidatesLocked(to), to.nat
+		s.mu.Unlock()
+		reply.Session, reply.Nonce, reply.Relay = session, nonce, relay
+		from.send(reply)
+		s.Logger.Printf("connect %s -> %s (relay %v)", from.id, to.id, relay)
+	}
+	if w == nil {
+		introduce()
+		return
+	}
+	// Wait for the answer without holding up the requester's other messages.
+	go func() {
+		accepted := false
+		select {
+		case accepted = <-w.answer:
+		case <-time.After(answerTimeout):
+		}
+		s.mu.Lock()
+		delete(s.waiting, session)
+		if !accepted && relay {
+			delete(s.sessions, sessKey)
+		}
+		s.mu.Unlock()
+		if !accepted {
+			reply.Error = "offline" // same as not being there at all
+			from.send(reply)
+			return
+		}
+		introduce()
+	}()
 }
 
 // candidatesLocked lists where a device may be reached: its real UDP mapping
@@ -246,17 +314,6 @@ func (s *Server) candidatesLocked(p *presence) []string {
 		out = append(out, p.reflexive)
 	}
 	return dedupe(append(out, p.addrs...))
-}
-
-func (s *Server) handleLookup(conn *rendezvous.Conn, m rendezvous.Msg) error {
-	s.mu.Lock()
-	p, ok := s.online[m.ID]
-	var addrs []string
-	if ok {
-		addrs = append(addrs, p.addrs...)
-	}
-	s.mu.Unlock()
-	return conn.Send(rendezvous.Msg{Type: rendezvous.TypeLookupResult, ID: m.ID, Online: ok, Addrs: addrs})
 }
 
 func (s *Server) handlePairCreate(nc net.Conn, conn *rendezvous.Conn) error {

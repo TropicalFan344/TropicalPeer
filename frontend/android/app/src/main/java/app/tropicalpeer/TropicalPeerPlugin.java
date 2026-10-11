@@ -102,7 +102,10 @@ public class TropicalPeerPlugin extends Plugin {
                 Uri one = intent.getParcelableExtra(Intent.EXTRA_STREAM);
                 if (one != null) uris.add(one);
             }
-            for (Uri u : uris) files.put(describe(u));
+            for (Uri u : uris) {
+                if (Engine.mayRead(u)) files.put(describe(u));
+                else android.util.Log.w(Engine.TAG, "ignored a shared file this app may not send: " + u);
+            }
             // Shared text (a link, a note) with no file: send it as a small text file.
             CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
             if (uris.isEmpty() && text != null && text.length() > 0) files.put(textFile(text.toString()));

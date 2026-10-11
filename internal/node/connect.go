@@ -166,8 +166,13 @@ func (n *Node) punch(ctx context.Context, candidates []string, nonce string) {
 }
 
 // onConnectOffer runs on the receiving side when a peer wants to reach us.
-func (n *Node) onConnectOffer(m rendezvous.Msg) {
-	if _, err := n.Peers.Get(m.From); err != nil {
+// Only a paired device gets a yes; until then the server tells the asking
+// device nothing about us, not even that we're online.
+func (n *Node) onConnectOffer(p *rendezvous.Presence, m rendezvous.Msg) {
+	_, err := n.Peers.Get(m.From)
+	paired := err == nil
+	p.Answer(m, paired)
+	if !paired {
 		return // not a paired device: don't open anything for it
 	}
 	n.mu.RLock()

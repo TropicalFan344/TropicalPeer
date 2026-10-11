@@ -262,10 +262,41 @@ final class Engine {
         }
     };
 
+    /**
+     * Whether a file another app handed us (share sheet, picker) may be read
+     * and sent. Opening a URI uses this app's own permissions, so without
+     * this check another app could "share" TropicalPeer's private files, its
+     * identity key included, and have them sent on. Allowed: other apps'
+     * content providers, and the text notes this app writes for shared text.
+     */
+    static boolean mayRead(Uri uri) {
+        if (uri == null || uri.getScheme() == null) return false;
+        switch (uri.getScheme()) {
+            case ContentResolver.SCHEME_CONTENT: {
+                String authority = uri.getAuthority();
+                // Our own FileProvider serves this app's files: never from outside.
+                return authority != null && !authority.startsWith(app.getPackageName());
+            }
+            case ContentResolver.SCHEME_FILE: {
+                try {
+                    String path = new File(uri.getPath()).getCanonicalPath();
+                    String notes = new File(app.getCacheDir(), "shared").getCanonicalPath() + File.separator;
+                    return path.startsWith(notes);
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+            default:
+                return false;
+        }
+    }
+
     private static final Documents documents = new Documents() {
         @Override
         public long openFD(String uri) throws Exception {
-            ParcelFileDescriptor pfd = app.getContentResolver().openFileDescriptor(Uri.parse(uri), "r");
+            Uri u = Uri.parse(uri);
+            if (!mayRead(u)) throw new SecurityException("that file can't be sent");
+            ParcelFileDescriptor pfd = app.getContentResolver().openFileDescriptor(u, "r");
             if (pfd == null) throw new Exception("can't open the file");
             return pfd.detachFd();
         }

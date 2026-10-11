@@ -8,7 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"filippo.io/cpace"
 	"golang.org/x/crypto/chacha20poly1305"
@@ -182,5 +185,29 @@ func openCard(pakeKey []byte, sender string, box []byte) (*Result, error) {
 	if len(c.PublicKey) != ed25519.PublicKeySize {
 		return nil, errors.New("peer sent an invalid public key")
 	}
-	return &Result{ID: identity.DeviceID(c.PublicKey), Name: c.Name, PublicKey: c.PublicKey}, nil
+	return &Result{ID: identity.DeviceID(c.PublicKey), Name: cleanName(c.Name), PublicKey: c.PublicKey}, nil
+}
+
+// maxNameRunes bounds the device name the other side sends.
+const maxNameRunes = 64
+
+// cleanName makes the other device's chosen name safe to show: no control
+// or text-direction characters (which could make it pass for another name
+// in the list) and a sane length.
+func cleanName(name string) string {
+	var b strings.Builder
+	n := 0
+	for _, r := range name {
+		if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) || r == utf8.RuneError {
+			continue
+		}
+		if n++; n > maxNameRunes {
+			break
+		}
+		b.WriteRune(r)
+	}
+	if s := strings.TrimSpace(b.String()); s != "" {
+		return s
+	}
+	return "TropicalPeer device"
 }

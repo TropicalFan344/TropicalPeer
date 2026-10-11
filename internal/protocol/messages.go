@@ -27,6 +27,12 @@
 // too, so sending a file again after both apps restarted also continues it.
 package protocol
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+)
+
 const SHA256Size = 32
 
 type FileInfo struct {
@@ -39,6 +45,17 @@ type Offer struct {
 	Files      []FileInfo `json:"files"`
 	// Resumable says the sender understands Response.Resume.
 	Resumable bool `json:"resumable,omitempty"`
+}
+
+// Fingerprint identifies exactly which files an offer lists (names and
+// sizes, in order), so a later offer can be checked against one already
+// accepted.
+func (o Offer) Fingerprint() string {
+	h := sha256.New()
+	for _, f := range o.Files {
+		fmt.Fprintf(h, "%d:%s %d;", len(f.Name), f.Name, f.Size)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (o Offer) TotalSize() int64 {

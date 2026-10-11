@@ -159,7 +159,7 @@ It listens on port **7777** (TCP and UDP), plus UDP **7877** for router detectio
 
 Other options: `-listen :PORT`, `-relay=false` (no relaying), `-relay-rate MB/s` (the default cap is 32), and `-alt-port`. Run `tropicalpeer-server -h` for all of them.
 
-The server never sees file contents or pairing codes. Relayed traffic is end-to-end encrypted between the two devices.
+The server never sees file contents or pairing codes, and it tells a device where another one is only after that device confirms they are paired (devices on 0.1.5 or older skip that check until they update). Relayed traffic is end-to-end encrypted between the two devices.
 
 ## Develop
 

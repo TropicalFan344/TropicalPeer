@@ -24,26 +24,6 @@ func (c *Client) dial(ctx context.Context) (net.Conn, *Conn, error) {
 	return nc, NewConn(nc), nil
 }
 
-// Lookup asks the server where a peer can currently be reached.
-func (c *Client) Lookup(ctx context.Context, peerID string) (online bool, addrs []string, err error) {
-	nc, conn, err := c.dial(ctx)
-	if err != nil {
-		return false, nil, err
-	}
-	defer nc.Close()
-	stopDeadline := context.AfterFunc(ctx, func() { nc.SetDeadline(time.Now()) })
-	defer stopDeadline()
-
-	if err := conn.Send(Msg{Type: TypeLookup, ID: peerID}); err != nil {
-		return false, nil, err
-	}
-	m, err := conn.RecvMsg()
-	if err != nil {
-		return false, nil, err
-	}
-	return m.Online, m.Addrs, nil
-}
-
 // PairSession is an open pairing channel that the server pipes to the other device.
 type PairSession struct {
 	Nameplate string

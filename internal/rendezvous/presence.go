@@ -37,8 +37,9 @@ type Presence struct {
 
 // StartPresence registers this device. port is the local QUIC port;
 // lanAddrs are extra addresses (host:port) peers on the same network can try.
-// onOffer runs (on its own goroutine) for every connect offer pushed to us.
-func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string, onOffer func(Msg)) (*Presence, error) {
+// onOffer runs (on its own goroutine) for every connect offer pushed to us;
+// it should Answer it on the Presence it came from.
+func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string, onOffer func(*Presence, Msg)) (*Presence, error) {
 	nc, conn, err := c.dial(ctx)
 	if err != nil {
 		return nil, err
@@ -53,6 +54,7 @@ func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string,
 		Port:      port,
 		Time:      now,
 		Sig:       ed25519.Sign(c.ID.PrivateKey, RegisterPayload(id, now, port, lanAddrs)),
+		Caps:      []string{CapAnswer},
 	})
 	if err != nil {
 		nc.Close()
@@ -76,7 +78,7 @@ func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string,
 	return p, nil
 }
 
-func (p *Presence) readLoop(onOffer func(Msg)) {
+func (p *Presence) readLoop(onOffer func(*Presence, Msg)) {
 	for {
 		var m Msg
 		if err := p.conn.Recv(&m); err != nil {
@@ -101,10 +103,18 @@ func (p *Presence) readLoop(onOffer func(Msg)) {
 			}
 		case TypeConnectOffer:
 			if onOffer != nil {
-				go onOffer(m)
+				go onOffer(p, m)
 			}
 		}
 	}
+}
+
+// Answer tells the server whether we take a connect offer. Only after a yes
+// does the device asking learn where we are.
+func (p *Presence) Answer(offer Msg, accept bool) error {
+	p.wmu.Lock()
+	defer p.wmu.Unlock()
+	return p.conn.Send(Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: accept})
 }
 
 // SendNAT tells the server what this device's router is like, so it can

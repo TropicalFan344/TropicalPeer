@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/quic-go/quic-go"
 
@@ -36,8 +37,9 @@ type Partials interface {
 	// Saved returns where an earlier attempt of this same transfer saved
 	// file index in full.
 	Saved(transferID string, index int) (path string, ok bool)
-	// Started records that part is being written for file index.
-	Started(transferID string, index int, f protocol.FileInfo, part, final string)
+	// Started records that part is being written for file index of the
+	// offer with this fingerprint (see protocol.Offer.Fingerprint).
+	Started(transferID, fingerprint string, index int, f protocol.FileInfo, part, final string)
 	// Finished records file index saved in full at path; its part is gone.
 	Finished(transferID string, index int, path string)
 	// Discard forgets part, which has been deleted.
@@ -444,7 +446,7 @@ func (in *Incoming) receiveFile(ctx context.Context, index int, f protocol.FileI
 		}
 	}
 	if in.Parts != nil {
-		in.Parts.Started(in.Offer.TransferID, index, f, part, final)
+		in.Parts.Started(in.Offer.TransferID, in.Offer.Fingerprint(), index, f, part, final)
 	}
 	m.start(offset)
 	// fail keeps the part for a later attempt, unless it is corrupt or no
@@ -510,6 +512,7 @@ func (in *Incoming) receiveFile(ctx context.Context, index int, f protocol.FileI
 	if err := os.Rename(part, final); err != nil {
 		return fail(err)
 	}
+	markDownloaded(final)
 	if in.Parts != nil {
 		in.Parts.Finished(in.Offer.TransferID, index, final)
 	}
@@ -586,6 +589,10 @@ func SafeName(name string) string {
 	for _, r := range name {
 		switch {
 		case r < 32 || r == 127, strings.ContainsRune(`<>:"|?*`, r):
+			b.WriteRune('_')
+		case unicode.Is(unicode.Bidi_Control, r):
+			// Text-direction controls (such as U+202E) can make
+			// "invoice<RLO>fdp.exe" display as "invoiceexe.pdf".
 			b.WriteRune('_')
 		default:
 			b.WriteRune(r)
