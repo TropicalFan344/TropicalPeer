@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -147,14 +150,51 @@ func abortOnCancel(ctx context.Context, conns func() []*quic.Conn, err *error) f
 
 // IsCancelledByPeer reports whether err means the other device cancelled.
 func IsCancelledByPeer(err error) bool {
-	var appErr *quic.ApplicationError
-	return errors.As(err, &appErr) && appErr.Remote && appErr.ErrorCode == ErrCodeCancelled
+	code, ok := PeerCloseCode(err)
+	return ok && code == ErrCodeCancelled
 }
 
 // IsPausedByPeer reports whether err means the other device paused.
 func IsPausedByPeer(err error) bool {
+	code, ok := PeerCloseCode(err)
+	return ok && code == ErrCodePaused
+}
+
+// remoteClose matches how quic-go words a connection the other side closed.
+var remoteClose = regexp.MustCompile(`Application error (0x[0-9a-fA-F]+) \(remote\)`)
+
+// PeerCloseCode returns the code the other device closed the connection
+// with, if that is what err is about. It reads the structured QUIC error,
+// and falls back to its wording should a layer in between have kept only
+// the text: a pause or cancel from the other side must never surface as a
+// raw connection error.
+func PeerCloseCode(err error) (quic.ApplicationErrorCode, bool) {
+	if err == nil {
+		return 0, false
+	}
 	var appErr *quic.ApplicationError
-	return errors.As(err, &appErr) && appErr.Remote && appErr.ErrorCode == ErrCodePaused
+	if errors.As(err, &appErr) {
+		return appErr.ErrorCode, appErr.Remote
+	}
+	if m := remoteClose.FindStringSubmatch(err.Error()); m != nil {
+		if n, perr := strconv.ParseUint(m[1], 0, 64); perr == nil {
+			return quic.ApplicationErrorCode(n), true
+		}
+	}
+	return 0, false
+}
+
+// Describe spells out err with the type of every error in its chain, for
+// logs that must show why a transfer ended the way it did.
+func Describe(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	var types []string
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		types = append(types, fmt.Sprintf("%T", e))
+	}
+	return fmt.Sprintf("%v [%s]", err, strings.Join(types, " > "))
 }
 
 // copyExactly copies exactly n bytes, failing on a short stream.

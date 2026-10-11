@@ -4,6 +4,7 @@ export namespace appcore {
 	    name: string;
 	    id: string;
 	    port: number;
+	    version: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DeviceInfo(source);
@@ -14,6 +15,7 @@ export namespace appcore {
 	        this.name = source["name"];
 	        this.id = source["id"];
 	        this.port = source["port"];
+	        this.version = source["version"];
 	    }
 	}
 	export class FileDTO {

@@ -442,6 +442,11 @@
       </div>
     </section>
 
+    <section class="row">
+      <SettingLabel title={t('settings.version')} hint={t('settings.versionHint')} />
+      <p class="tabular-nums text-muted select-all">TropicalPeer {app.device?.version ?? ''}</p>
+    </section>
+
     <!-- Phone: the bar rises only when there is something to save. -->
     {#if !phone || dirty || error || saving}
     <div

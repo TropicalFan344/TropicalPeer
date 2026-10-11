@@ -280,6 +280,8 @@
     "restartHint": "重新连接，并应用需要重启的设置。",
     "restartDetail": "更改接收端口之后，或连接似乎卡住时使用。应用会保持打开；进行中的传输会停止，之后可以重试。",
     "restartButton": "重新启动",
+    "version": "版本",
+    "versionHint": "这台设备运行的 TropicalPeer 版本。报告问题时请一并提供。",
     "restarting": "正在重新启动…",
     "restarted": "TropicalPeer 已重新启动",
     "restartNow": "立即重新启动",

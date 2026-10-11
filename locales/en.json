@@ -280,6 +280,8 @@
     "restartHint": "Reconnects and applies settings that need a restart.",
     "restartDetail": "Use it after changing the listening port, or if connections seem stuck. The app stays open; transfers in progress stop and can be retried.",
     "restartButton": "Restart",
+    "version": "Version",
+    "versionHint": "Which build of TropicalPeer this device runs. Mention it when reporting a problem.",
     "restarting": "Restarting…",
     "restarted": "TropicalPeer restarted",
     "restartNow": "Restart now",

@@ -280,6 +280,8 @@
     "restartHint": "Vuelve a conectar y aplica los ajustes que necesitan un reinicio.",
     "restartDetail": "Úsalo después de cambiar el puerto de escucha o si las conexiones parecen atascadas. La app sigue abierta; las transferencias en curso se detienen y se pueden reintentar.",
     "restartButton": "Reiniciar",
+    "version": "Versión",
+    "versionHint": "La versión de TropicalPeer de este dispositivo. Indícala al informar de un problema.",
     "restarting": "Reiniciando…",
     "restarted": "TropicalPeer se reinició",
     "restartNow": "Reiniciar ahora",

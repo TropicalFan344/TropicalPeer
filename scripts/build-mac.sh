@@ -27,14 +27,14 @@ step 'Checking the language files'
 go test ./locales
 
 step "Building the app (installs the interface's packages the first time)"
-wails build -clean -platform darwin/universal
+version=$(sed -n 's/.*"productVersion": *"\([^"]*\)".*/\1/p' wails.json)
+wails build -clean -platform darwin/universal -ldflags "-X TropicalPeer/internal/appcore.Version=$version"
 
 app=build/bin/TropicalPeer.app
 # Not notarized: sign ad hoc so macOS sees one consistent app. The first
 # launch on another Mac needs right-click > Open (see README).
 codesign --force --deep --sign - "$app"
 
-version=$(sed -n 's/.*"productVersion": *"\([^"]*\)".*/\1/p' wails.json)
 mkdir -p release
 dmg="release/TropicalPeer-$version.dmg"
 

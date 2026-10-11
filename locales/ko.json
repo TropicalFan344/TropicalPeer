@@ -280,6 +280,8 @@
     "restartHint": "다시 연결하고, 다시 시작해야 적용되는 설정을 반영합니다.",
     "restartDetail": "수신 포트를 바꾼 뒤나 연결이 멈춘 것 같을 때 사용하세요. 앱은 열린 채로 유지되고, 진행 중인 전송은 멈추며 나중에 다시 시도할 수 있습니다.",
     "restartButton": "다시 시작",
+    "version": "버전",
+    "versionHint": "이 기기에서 실행 중인 TropicalPeer 버전입니다. 문제를 알릴 때 함께 알려 주세요.",
     "restarting": "다시 시작하는 중…",
     "restarted": "TropicalPeer를 다시 시작했습니다",
     "restartNow": "지금 다시 시작",

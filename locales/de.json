@@ -280,6 +280,8 @@
     "restartHint": "Verbindet neu und übernimmt Einstellungen, die einen Neustart brauchen.",
     "restartDetail": "Nutze das nach einer Änderung des Empfangsports oder wenn Verbindungen zu hängen scheinen. Die App bleibt offen; laufende Übertragungen stoppen und lassen sich wiederholen.",
     "restartButton": "Neu starten",
+    "version": "Version",
+    "versionHint": "Welche TropicalPeer-Version auf diesem Gerät läuft. Gib sie an, wenn du ein Problem meldest.",
     "restarting": "Starte neu…",
     "restarted": "TropicalPeer wurde neu gestartet",
     "restartNow": "Jetzt neu starten",

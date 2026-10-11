@@ -244,7 +244,11 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 	results := make(chan dialResult, len(info.Candidates)+1)
 	attempts := 0
 	directFailed := make(chan struct{}, len(info.Candidates))
-	for _, c := range info.Candidates {
+	candidates := info.Candidates
+	if DevRelayOnly && info.Relay {
+		candidates = nil
+	}
+	for _, c := range candidates {
 		addr, err := net.ResolveUDPAddr("udp", c)
 		if err != nil {
 			continue
@@ -312,6 +316,11 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 	}
 	return winner.conn, winner.relayed, nil
 }
+
+// DevRelayOnly makes outgoing connections skip direct paths and go through
+// the relay. Only dev builds set it (TROPICALPEER_DEV_RELAY_ONLY), to test
+// relayed transfers between devices that could reach each other directly.
+var DevRelayOnly bool
 
 // platformIPs, when set, replaces asking the OS for this device's addresses.
 var platformIPs atomic.Pointer[[]net.IP]

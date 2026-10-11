@@ -30,8 +30,10 @@ Push-Location $root
 try {
   # arm64 for current phones, arm for older 32-bit ones, amd64 for the emulator
   # (release APKs leave the emulator one out; see frontend/android/app/build.gradle).
+  # The app's version, from the Android project, shows in Settings and the log.
+  $version = (Select-String -Path frontend\android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value
   gomobile bind -target='android/arm,android/arm64,android/amd64' -androidapi 24 -javapkg app.tropicalpeer `
-    -o build\android\tropicalpeer.aar ./mobile
+    -ldflags "-X TropicalPeer/internal/appcore.Version=$version" -o build\android\tropicalpeer.aar ./mobile
   if ($LASTEXITCODE -ne 0) { throw "gomobile bind failed" }
   Write-Host "Built build\android\tropicalpeer.aar"
 } finally {

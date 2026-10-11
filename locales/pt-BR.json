@@ -280,6 +280,8 @@
     "restartHint": "Reconecta e aplica as configurações que precisam de reinício.",
     "restartDetail": "Use depois de mudar a porta de escuta ou se as conexões parecerem travadas. O app continua aberto; as transferências em andamento param e podem ser repetidas.",
     "restartButton": "Reiniciar",
+    "version": "Versão",
+    "versionHint": "A versão do TropicalPeer neste dispositivo. Informe-a ao relatar um problema.",
     "restarting": "Reiniciando…",
     "restarted": "TropicalPeer reiniciado",
     "restartNow": "Reiniciar agora",

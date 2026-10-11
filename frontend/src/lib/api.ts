@@ -9,6 +9,7 @@ export interface DeviceInfo {
   name: string
   id: string
   port: number
+  version: string
 }
 
 export interface ServerStatus {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"TropicalPeer/internal/node"
 	"TropicalPeer/internal/transfer"
 )
 
@@ -25,6 +26,8 @@ import (
 //   - TROPICALPEER_DEV_DEMO_TRANSFERS=1 adds two finished sample transfers:
 //     one that stayed on the relay and one that moved to a direct path.
 //   - TROPICALPEER_DEV_ACCEPT=1 accepts every offer as if a person clicked.
+//   - TROPICALPEER_DEV_RELAY_ONLY=1 sends through the relay even when a
+//     direct path exists (the upgrader still looks for one).
 //   - TROPICALPEER_DEV_PAUSE_AT=<bytes> pauses the first transfer (either
 //     direction) once that much has moved; TROPICALPEER_DEV_CANCEL_AFTER=<dur>
 //     (e.g. 5s) then cancels it that long after it paused.
@@ -37,6 +40,10 @@ func (c *Core) runDevHooks() {
 			log.SetFlags(log.Ltime | log.Lmicroseconds)
 			go c.devWatchTransfers()
 		}
+	}
+	if os.Getenv("TROPICALPEER_DEV_RELAY_ONLY") == "1" {
+		node.DevRelayOnly = true
+		log.Printf("devhooks: outgoing connections use the relay only")
 	}
 	if os.Getenv("TROPICALPEER_DEV_ACCEPT") == "1" {
 		go c.devAcceptOffers()
@@ -80,8 +87,8 @@ func (c *Core) devWatchTransfers() {
 	seen := map[string]string{}
 	c.devTick(func() bool {
 		for _, d := range c.ListTransfers() {
-			state := fmt.Sprintf("%s %s pausedByPeer=%v done=%d/%d error=%q", d.Direction, d.Status, d.PausedByPeer, d.Done, d.Total, d.Error)
-			key := d.Direction + d.Status + d.Error + strconv.FormatBool(d.PausedByPeer)
+			state := fmt.Sprintf("%s %s pausedByPeer=%v relayed=%v upgraded=%v done=%d/%d error=%q", d.Direction, d.Status, d.PausedByPeer, d.Relayed, d.Upgraded, d.Done, d.Total, d.Error)
+			key := fmt.Sprint(d.Direction, d.Status, d.Error, d.PausedByPeer, d.Relayed, d.Upgraded)
 			if seen[d.ID] != key {
 				seen[d.ID] = key
 				log.Printf("devhooks: transfer %s %s", d.ID, state)

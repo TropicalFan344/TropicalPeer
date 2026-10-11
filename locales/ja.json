@@ -280,6 +280,8 @@
     "restartHint": "接続し直し、再起動が必要な設定を反映します。",
     "restartDetail": "受信ポートを変えたあとや、接続が止まっているように見えるときに使います。アプリは開いたままで、進行中の転送は停止します（あとで再試行できます）。",
     "restartButton": "再起動",
+    "version": "バージョン",
+    "versionHint": "このデバイスで動いている TropicalPeer のバージョンです。問題を報告するときに伝えてください。",
     "restarting": "再起動しています…",
     "restarted": "TropicalPeer を再起動しました",
     "restartNow": "今すぐ再起動",

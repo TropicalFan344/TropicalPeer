@@ -11,7 +11,9 @@ package appcore
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -85,6 +87,8 @@ type DeviceInfo struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
 	Port int    `json:"port"`
+	// Version is this app's version (see Version).
+	Version string `json:"version"`
 }
 
 type ServerStatus struct {
@@ -172,7 +176,39 @@ func (c *Core) setNode(n *node.Node) {
 // An error means the app can't run at all (e.g. the data folder is unusable).
 func (c *Core) Start(ctx context.Context) error {
 	c.ctx = ctx
+	openLog(c.dataDir)
 	return c.startNode()
+}
+
+// logFile is a small diary of how transfers ended, in the profile folder,
+// so a problem on someone's machine can be explained afterwards.
+const (
+	logFile    = "tropicalpeer.log"
+	logMaxSize = 1 << 20 // then it starts over (the previous one is kept as .old)
+)
+
+func openLog(dir string) {
+	path := filepath.Join(dir, logFile)
+	if st, err := os.Stat(path); err == nil && st.Size() > logMaxSize {
+		os.Rename(path, path+".old")
+	}
+	log.SetOutput(appendFile(path))
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	log.Printf("TropicalPeer %s starting", Version)
+}
+
+// appendFile writes each log line by opening the file, appending and
+// closing it again: lines are rare, and the file is never held open (so the
+// profile folder can always be moved or deleted).
+type appendFile string
+
+func (p appendFile) Write(b []byte) (int, error) {
+	f, err := os.OpenFile(string(p), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return len(b), nil // logging must never break the app
+	}
+	defer f.Close()
+	return f.Write(b)
 }
 
 // startNode loads the node from disk (settings included) and runs it until
@@ -294,7 +330,7 @@ func (c *Core) GetDevice() DeviceInfo {
 	if c.n() == nil {
 		return DeviceInfo{}
 	}
-	return DeviceInfo{Name: c.n().Identity.Name, ID: c.n().Identity.ID(), Port: c.n().Port()}
+	return DeviceInfo{Name: c.n().Identity.Name, ID: c.n().Identity.ID(), Port: c.n().Port(), Version: Version}
 }
 
 // SetDeviceName changes the name other devices see when pairing.

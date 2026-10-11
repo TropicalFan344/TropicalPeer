@@ -3,6 +3,7 @@ package appcore
 import (
 	"context"
 	"errors"
+	"log"
 	"sort"
 	"time"
 
@@ -172,6 +173,10 @@ func (c *Core) onReceived(peer peers.Peer, offer protocol.Offer, files []transfe
 	}
 	c.mu.Unlock()
 
+	defer func() {
+		d := c.snapshot(st)
+		log.Printf("transfer %s: receive from %s ended %s (paused by peer %v, relayed %v): %s", d.ID, d.PeerName, d.Status, d.PausedByPeer, d.Relayed, transfer.Describe(err))
+	}()
 	c.updateTransfer(st, func(d *TransferDTO) {
 		d.EndedAt = time.Now().UnixMilli()
 		d.Speed = 0

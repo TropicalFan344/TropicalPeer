@@ -217,6 +217,10 @@ func (c *Core) sendOnce(ctx context.Context, st *transferState, peer peers.Peer,
 }
 
 func (c *Core) finishSend(st *transferState, err error) {
+	defer func() {
+		d := c.snapshot(st)
+		log.Printf("transfer %s: send to %s ended %s (paused by peer %v, relayed %v): %s", d.ID, d.PeerName, d.Status, d.PausedByPeer, d.Relayed, transfer.Describe(err))
+	}()
 	c.updateTransfer(st, func(d *TransferDTO) {
 		d.EndedAt = time.Now().UnixMilli()
 		d.Speed, d.Resuming, d.PausedByPeer = 0, false, false

@@ -182,6 +182,10 @@ go test ./...                # engine tests (run once a build has produced front
 | `build/icon/` | The app icon sources ([how to regenerate](build/icon/README.md)) |
 | `DESIGN.md`, `PRODUCT.md` | The design system and product brief |
 
+## Troubleshooting
+
+Each device keeps a short log of how its transfers ended, `tropicalpeer.log`, in its profile folder (`%APPDATA%\TropicalPeer` on Windows, `~/Library/Application Support/TropicalPeer` on macOS, `~/.config/TropicalPeer` on Linux). Settings shows which version a device runs. Please include both when reporting a problem.
+
 ## Status
 
 This is early software. Known gaps: no folder sending (files only), and the receiving app has to be open, or on Android "Stay ready to receive" has to be on.

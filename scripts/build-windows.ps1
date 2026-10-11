@@ -30,10 +30,10 @@ try {
   if ($running) { throw 'TropicalPeer is running from build\bin. Close it first, then build again.' }
 
   Step 'Building the app (installs the interface''s packages the first time)'
-  wails build -clean -platform windows/amd64
+  $version = (Get-Content wails.json -Raw | ConvertFrom-Json).info.productVersion
+  wails build -clean -platform windows/amd64 -ldflags "-X TropicalPeer/internal/appcore.Version=$version"
   Check 'The app build'
 
-  $version = (Get-Content wails.json -Raw | ConvertFrom-Json).info.productVersion
   New-Item -ItemType Directory -Force release | Out-Null
   $exe = "release\TropicalPeer-$version.exe"
   Copy-Item build\bin\TropicalPeer.exe $exe -Force
