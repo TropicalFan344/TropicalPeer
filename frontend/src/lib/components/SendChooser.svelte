@@ -26,7 +26,8 @@
   <div class="grid grid-cols-3 gap-3">
     {#each choices as c (c.kind)}
       <button
-        class="flex flex-col items-center gap-3 rounded-lg bg-surface-2 px-2 pt-5 pb-4 text-sm transition-colors active:bg-line"
+        class="flex flex-col items-center gap-3 rounded-lg bg-surface-2 px-2 pt-5 pb-4 text-sm
+          transition-[background-color,scale] duration-160 ease-out-expo active:scale-[0.97] active:bg-line"
         onclick={() => choose(c.kind)}
       >
         <span class="grid size-12 place-items-center rounded-full bg-surface text-primary">

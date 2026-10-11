@@ -95,7 +95,8 @@
 
 <article
   data-peer-id={peer.id}
-  class="group relative rounded-lg border bg-surface {menuOpen ? 'z-20' : ''} transition-[transform,border-color,box-shadow] duration-300 ease-out-expo
+  class="group relative rounded-lg border bg-surface {menuOpen ? 'z-20' : ''} transition-[transform,scale,border-color,box-shadow] duration-300 ease-out-expo
+    has-[>button:active]:scale-[0.985]
     {dropHere
     ? 'z-10 scale-[1.03] border-primary shadow-float'
     : drag.active
@@ -137,7 +138,7 @@
 
   {#if sending.length}
     <div class="pointer-events-none px-4 pb-3.5" transition:slide={{ duration: dur(220), easing: easeOutExpo }}>
-      <WaveBand value={sendingShare} waiting={sendingWaiting} height={6} label={t('peer.sendingTo', { name: peer.name })} />
+      <WaveBand value={sendingShare} waiting={sendingWaiting} flowing={!sendingWaiting} height={6} label={t('peer.sendingTo', { name: peer.name })} />
     </div>
   {/if}
 

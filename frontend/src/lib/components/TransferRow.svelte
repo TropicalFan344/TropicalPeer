@@ -101,6 +101,7 @@
         <WaveBand
           value={t.total > 0 ? t.done / t.total : 0}
           waiting={waiting && !paused}
+          flowing={t.status === 'sending' || t.status === 'receiving'}
           label={tr(sending ? 'transfer.sendingLabel' : 'transfer.receivingLabel', { title })}
         />
       </div>

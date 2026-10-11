@@ -88,7 +88,7 @@
           {@const selected = policy === opt}
           <div class="transition-colors {selected ? 'bg-primary-soft/45' : 'hover:bg-surface-2'}">
             <label class="flex cursor-pointer items-start gap-3 px-4 py-3">
-              <input class="mt-1 size-4 shrink-0 accent-[var(--primary)]" type="radio" name="policy" value={opt} bind:group={policy} />
+              <input class="radio mt-1 shrink-0" type="radio" name="policy" value={opt} bind:group={policy} />
               <span>
                 <span class="block font-medium {opt === 'block' ? 'text-bad' : ''}">{t(`peerSettings.${opt}Title`)}</span>
                 <span class="block text-sm text-muted">{t(`peerSettings.${opt}Desc`)}</span>
@@ -97,7 +97,7 @@
             {#if opt === 'auto' && selected}
               <div class="flex flex-wrap items-center gap-2 pr-4 pb-3 pl-11 text-sm" transition:slide={{ duration: 150 }}>
                 <label class="flex cursor-pointer items-center gap-2">
-                  <input type="checkbox" class="size-4 accent-[var(--primary)]" bind:checked={limitOn} />
+                  <input type="checkbox" class="check" bind:checked={limitOn} />
                   {t('peerSettings.onlyUpTo')}
                 </label>
                 <input

@@ -311,7 +311,7 @@
           <label class="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
-              class="mt-0.5 size-4 shrink-0 accent-[var(--primary)] pointer-coarse:size-5"
+              class="check mt-0.5 shrink-0"
               checked={ready.on}
               disabled={readyBusy}
               onchange={toggleReady}
@@ -408,7 +408,7 @@
         <label class="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
-            class="mt-0.5 size-4 shrink-0 accent-[var(--primary)] pointer-coarse:size-5"
+            class="check mt-0.5 shrink-0"
             bind:checked={form.portMapping}
           />
           <span class="text-sm">
@@ -490,7 +490,7 @@
           <label class="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
-              class="mt-0.5 size-4 shrink-0 accent-[var(--primary)] pointer-coarse:size-5"
+              class="check mt-0.5 shrink-0"
               checked={up.auto}
               onchange={(e) => setAutoUpdate(e.currentTarget.checked)}
             />

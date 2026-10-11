@@ -270,21 +270,31 @@ h2,
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-medium
-      text-primary-ink transition-colors hover:bg-primary-hover
-      disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-primary;
+      text-primary-ink transition-[color,background-color,scale] hover:bg-primary-hover active:scale-[0.97]
+      disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-primary disabled:active:scale-100;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-surface px-4 py-2
-      font-medium text-ink transition-colors hover:border-muted/50 hover:bg-surface-2
-      disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface;
+      font-medium text-ink transition-[color,background-color,border-color,scale] hover:border-muted/50 hover:bg-surface-2
+      active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface disabled:active:scale-100;
   }
   .btn-quiet {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted
-      transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-45;
+      transition-[color,background-color,scale] hover:bg-surface-2 hover:text-ink active:scale-[0.97]
+      disabled:opacity-45 disabled:active:scale-100;
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-md bg-bad px-4 py-2 font-medium text-white
-      transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45;
+      transition-[opacity,scale] hover:opacity-90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45
+      disabled:active:scale-100;
+  }
+  /* Press feedback: a quick press-in, the same on every button. */
+  .btn-primary,
+  .btn-secondary,
+  .btn-quiet,
+  .btn-danger {
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out-expo);
   }
   .page {
     @apply mx-auto flex w-full max-w-[1040px] flex-col gap-8 px-10 pt-9 pb-12;
@@ -315,18 +325,119 @@ h2,
   width: 2px;
   background: var(--wave-ink);
 }
-.wave-drift {
-  animation: wave-drift 1.6s linear infinite;
+/* Waves that move: the pattern sits one tile wider than its box and slides
+   by one tile, forever (transform only, so it stays off the paint path).
+   Waiting drifts the whole faint band; flowing runs the laid waves forward
+   while bytes move. Paused is the absence of either. */
+.wave-run {
+  position: absolute;
+  inset: 0 0 0 -28px;
 }
-@keyframes wave-drift {
+.wave-drift {
+  animation: wave-run 1.6s linear infinite;
+}
+.wave-flow {
+  animation: wave-run 2.4s linear infinite;
+}
+@keyframes wave-run {
   to {
-    mask-position: 28px 0;
+    transform: translateX(28px);
   }
+}
+/* The laid length follows progress at a steady pace: updates come about
+   every 100 ms, and a linear glide between them reads as one motion where
+   an ease-out would lurch at each. */
+.wave-laid-length {
+  transition: clip-path 300ms linear;
+}
+.wave-edge {
+  transition: transform 300ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
-  .wave-drift {
+  .wave-drift,
+  .wave-flow {
     animation: none;
   }
+}
+
+/* Checkboxes are drawn here rather than by the engine, so they look the
+   same everywhere: on the Mac (WebKit) the native box vanished once checked. */
+.check {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.check::before {
+  content: "";
+  width: 0.625rem;
+  height: 0.625rem;
+  background: var(--primary-ink);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 120ms var(--ease-out-expo);
+}
+.check:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.check:checked::before {
+  transform: scale(1);
+}
+.check:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .check {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .check::before {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+
+/* Radio buttons, drawn the same way. */
+.radio {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 9999px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 120ms;
+}
+.radio::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  transform: scale(0);
+  transition: transform 120ms var(--ease-out-expo);
+}
+.radio:checked {
+  border-color: var(--primary);
+}
+.radio:checked::before {
+  transform: scale(1);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
