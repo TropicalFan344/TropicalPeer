@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, Send } from '@lucide/svelte'
+  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, FolderUp, Send } from '@lucide/svelte'
   import Bed from './Bed.svelte'
   import Dialog from './Dialog.svelte'
   import WaveBand from './WaveBand.svelte'
@@ -156,6 +156,15 @@
           class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-surface-2 pointer-coarse:py-3"
           onclick={() => {
             menuOpen = false
+            pickAndSend(peer, true)
+          }}
+        >
+          <FolderUp size={15} strokeWidth={1.75} /> {t('peer.menuSendFolder')}
+        </button>
+        <button
+          class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-surface-2 pointer-coarse:py-3"
+          onclick={() => {
+            menuOpen = false
             settingsOpen = true
           }}
         >
@@ -187,6 +196,15 @@
         }}
       >
         <Send size={20} strokeWidth={1.75} class="text-muted" /> {t('peer.sheetSend')}
+      </button>
+      <button
+        class="flex min-h-13 items-center gap-4 rounded-md px-3 text-left active:bg-surface-2"
+        onclick={() => {
+          sheetOpen = false
+          pickAndSend(peer, true)
+        }}
+      >
+        <FolderUp size={20} strokeWidth={1.75} class="text-muted" /> {t('peer.sheetSendFolder')}
       </button>
       <button
         class="flex min-h-13 items-center gap-4 rounded-md px-3 text-left active:bg-surface-2"

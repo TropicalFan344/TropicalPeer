@@ -38,6 +38,8 @@ export function PauseTransfer(arg1:string):Promise<void>;
 
 export function PickFiles():Promise<Array<string>>;
 
+export function PickFolder():Promise<Array<string>>;
+
 export function PostponeUpdate():Promise<void>;
 
 export function RecheckNetwork():Promise<void>;

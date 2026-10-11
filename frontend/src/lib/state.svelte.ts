@@ -186,11 +186,11 @@ export async function sendTo(peer: Peer, files: PickedFile[]) {
   }
 }
 
-/** Opens the file picker, then sends the chosen files. */
-export async function pickAndSend(peer: Peer) {
+/** Opens the file picker (or the folder picker), then sends what was chosen. */
+export async function pickAndSend(peer: Peer, folder = false) {
   let files: PickedFile[]
   try {
-    files = await api.pickFiles()
+    files = await (folder ? api.pickFolder() : api.pickFiles())
   } catch (e) {
     toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
     return

@@ -302,6 +302,76 @@ public class TropicalPeerPlugin extends Plugin {
         call.resolve(res);
     }
 
+    /** Opens Android's folder picker → { files: [{ uri, name: "Folder/sub/file", size }] } (empty if cancelled). */
+    @PluginMethod
+    public void pickFolder(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(call, intent, "folderPicked");
+    }
+
+    @ActivityCallback
+    private void folderPicked(PluginCall call, ActivityResult result) {
+        Intent data = result.getData();
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || data == null || data.getData() == null) {
+            JSObject res = new JSObject();
+            res.put("files", new JSArray());
+            call.resolve(res);
+            return;
+        }
+        Uri tree = data.getData();
+        try {
+            // Keep access across restarts so a failed send can be retried.
+            getContext().getContentResolver().takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException ignored) {
+            // This session still can read it.
+        }
+        // A big folder takes a while to list; not on the main thread.
+        new Thread(() -> {
+            try {
+                String root = DocumentsContract.getTreeDocumentId(tree);
+                JSArray files = new JSArray();
+                listFolder(tree, root, folderName(tree, root), files);
+                JSObject res = new JSObject();
+                res.put("files", files);
+                call.resolve(res);
+            } catch (Exception e) {
+                call.reject(e.getMessage() != null ? e.getMessage() : "can't read the folder");
+            }
+        }).start();
+    }
+
+    private String folderName(Uri tree, String id) {
+        try (Cursor c = getContext().getContentResolver().query(DocumentsContract.buildDocumentUriUsingTree(tree, id),
+            new String[] { DocumentsContract.Document.COLUMN_DISPLAY_NAME }, null, null, null)) {
+            if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getString(0);
+        }
+        return "Folder";
+    }
+
+    /** Adds the files under the folder id to out, named by their path from the chosen folder. */
+    private void listFolder(Uri tree, String id, String path, JSArray out) {
+        Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id);
+        try (Cursor c = getContext().getContentResolver().query(children, new String[] {
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE,
+        }, null, null, null)) {
+            while (c != null && c.moveToNext()) {
+                String child = c.getString(0);
+                String name = c.isNull(1) ? "file" : c.getString(1);
+                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(c.getString(2))) {
+                    listFolder(tree, child, path + "/" + name, out);
+                    continue;
+                }
+                JSObject f = new JSObject();
+                f.put("uri", DocumentsContract.buildDocumentUriUsingTree(tree, child).toString());
+                f.put("name", path + "/" + name);
+                f.put("size", c.isNull(3) ? -1 : c.getLong(3));
+                out.put(f);
+            }
+        }
+    }
+
     private JSObject describe(Uri uri) {
         String name = "file";
         long size = -1;

@@ -216,7 +216,7 @@ func (c *Core) saveDirFor(p peers.Peer) string {
 func toFileDTOs(files []protocol.FileInfo) []FileDTO {
 	out := make([]FileDTO, len(files))
 	for i, f := range files {
-		out[i] = FileDTO{Name: transfer.SafeName(f.Name), Size: f.Size}
+		out[i] = FileDTO{Name: transfer.SafePath(f.Name), Size: f.Size}
 	}
 	return out
 }

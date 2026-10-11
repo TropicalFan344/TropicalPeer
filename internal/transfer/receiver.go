@@ -293,6 +293,7 @@ func (in *Incoming) Receive(ctx, decideCtx context.Context, saveDir string, deci
 		in.startReader(ctx, c)
 	}
 
+	folders := in.folders(saveDir, resume)
 	total := offer.TotalSize()
 	var done int64
 	var results []Result
@@ -310,7 +311,7 @@ func (in *Incoming) Receive(ctx, decideCtx context.Context, saveDir string, deci
 			done += f.Size
 			continue
 		}
-		path, err := in.receiveFile(ctx, i, f, saveDir, m, held, resume[i])
+		path, err := in.receiveFile(ctx, i, f, folders, m, held, resume[i])
 		res := protocol.FileResult{Index: i, OK: err == nil}
 		if err != nil {
 			res.Error = err.Error()
@@ -418,7 +419,62 @@ func (in *Incoming) nextSegment(ctx context.Context, index int, offset int64, re
 	}
 }
 
-func (in *Incoming) receiveFile(ctx context.Context, index int, f protocol.FileInfo, dir string, m *meter, held map[[2]int64]segment, from *resumeFrom) (string, error) {
+// folders maps each top-level folder in the offer to the folder it is saved
+// in: a new one, "Photos (1)" if "Photos" exists, so a folder sent twice
+// doesn't mix with the first copy. Files an earlier attempt kept decide it
+// for their folder, so a resumed transfer continues in the same one.
+func (in *Incoming) folders(saveDir string, resume map[int]*resumeFrom) *folderMap {
+	fm := &folderMap{dir: saveDir, names: map[string]string{}}
+	for i, r := range resume {
+		top, _, ok := strings.Cut(SafePath(in.Offer.Files[i].Name), "/")
+		if !ok {
+			continue
+		}
+		path := r.saved
+		if path == "" {
+			path = r.final
+		}
+		if rel, err := filepath.Rel(saveDir, path); err == nil {
+			if first, _, ok := strings.Cut(filepath.ToSlash(rel), "/"); ok && first != ".." {
+				fm.names[top] = first
+			}
+		}
+	}
+	return fm
+}
+
+type folderMap struct {
+	dir   string
+	names map[string]string // offered top-level folder -> saved as
+}
+
+// target returns the folder to save the offered file name in, creating it,
+// and the file's own name.
+func (fm *folderMap) target(name string) (dir, file string, err error) {
+	parts := strings.Split(SafePath(name), "/")
+	file = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return fm.dir, file, nil
+	}
+	top, ok := fm.names[parts[0]]
+	if !ok {
+		top = parts[0]
+		for i := 1; i < 10000; i++ {
+			if _, err := os.Lstat(filepath.Join(fm.dir, top)); errors.Is(err, os.ErrNotExist) {
+				break
+			}
+			top = fmt.Sprintf("%s (%d)", parts[0], i)
+		}
+		if err := os.Mkdir(filepath.Join(fm.dir, top), 0o755); err != nil {
+			return "", "", err
+		}
+		fm.names[parts[0]] = top
+	}
+	dir = filepath.Join(append([]string{fm.dir, top}, parts[1:len(parts)-1]...)...)
+	return dir, file, os.MkdirAll(dir, 0o755)
+}
+
+func (in *Incoming) receiveFile(ctx context.Context, index int, f protocol.FileInfo, folders *folderMap, m *meter, held map[[2]int64]segment, from *resumeFrom) (string, error) {
 	var (
 		final, part string
 		out         *os.File
@@ -441,7 +497,11 @@ func (in *Incoming) receiveFile(ctx context.Context, index int, f protocol.FileI
 		}
 	}
 	if out == nil {
-		if final, part, out, err = createUnique(dir, SafeName(f.Name)); err != nil {
+		dir, name, err := folders.target(f.Name)
+		if err != nil {
+			return "", err
+		}
+		if final, part, out, err = createUnique(dir, name); err != nil {
 			return "", err
 		}
 	}
@@ -533,14 +593,14 @@ func freeName(path string) string {
 }
 
 func validate(o protocol.Offer) error {
-	if len(o.Files) == 0 || len(o.Files) > maxFilesPerOffer {
-		return fmt.Errorf("offer must contain 1 to %d files", maxFilesPerOffer)
+	if len(o.Files) == 0 || len(o.Files) > MaxFilesPerOffer {
+		return fmt.Errorf("offer must contain 1 to %d files", MaxFilesPerOffer)
 	}
 	for _, f := range o.Files {
 		if f.Size < 0 {
 			return errors.New("negative file size")
 		}
-		if SafeName(f.Name) == "" {
+		if SafePath(f.Name) == "" {
 			return fmt.Errorf("invalid file name %q", f.Name)
 		}
 	}
@@ -575,6 +635,29 @@ var reservedWindowsNames = map[string]bool{
 	"CON": true, "PRN": true, "AUX": true, "NUL": true,
 	"COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
 	"LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
+}
+
+// maxFolderDepth bounds how deep a sent folder may nest.
+const maxFolderDepth = 32
+
+// SafePath reduces a sender-supplied relative path ("Photos/2024/a.jpg") to
+// one that stays inside the download folder: each part made safe by
+// SafeName, empty, "." and ".." parts dropped, joined with "/". It returns
+// "" if no file name is left.
+func SafePath(name string) string {
+	var parts []string
+	for _, p := range strings.Split(strings.ReplaceAll(name, "\\", "/"), "/") {
+		if p = SafeName(p); p != "" {
+			parts = append(parts, p)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	if len(parts) > maxFolderDepth {
+		parts = append(parts[:maxFolderDepth-1], parts[len(parts)-1])
+	}
+	return strings.Join(parts, "/")
 }
 
 // SafeName reduces a sender-supplied name to a plain file name that cannot

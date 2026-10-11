@@ -139,6 +139,7 @@ export const api = {
   cancelInvite: () => call<void>('CancelInvite'),
   joinWithCode: (code: string) => call<Peer>('JoinWithCode', code),
   pickFiles: backend.pickFiles,
+  pickFolder: backend.pickFolder,
   sendFiles: (peerId: string, files: PickedFile[]) =>
     call<Transfer>(isAndroid ? 'SendDocuments' : 'SendFiles', peerId, files),
   cancelTransfer: (id: string) => call<void>('CancelTransfer', id),

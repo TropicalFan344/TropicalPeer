@@ -48,7 +48,7 @@ func (e *RejectedError) Error() string {
 
 // limits on what a receiver will even consider.
 const (
-	maxFilesPerOffer = 10000
+	MaxFilesPerOffer = 10000
 	progressInterval = 100 * time.Millisecond
 	copyBufferSize   = 256 * 1024
 )

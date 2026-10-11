@@ -4,6 +4,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
@@ -82,6 +83,7 @@ final class Engine {
         String dataDir = app.getFilesDir().getPath();
         File dl = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
         String downloads = (dl != null ? dl : new File(app.getFilesDir(), "downloads")).getPath();
+        downloadsDir = new File(downloads);
         String name = Settings.Global.getString(app.getContentResolver(), "device_name");
         if (name == null || name.isEmpty()) name = Build.MODEL;
 
@@ -210,6 +212,22 @@ final class Engine {
         void fail(String message);
     }
 
+    /** Where the engine saves received files before they are published. */
+    private static File downloadsDir;
+
+    /** The folders a received file sits in under downloadsDir ("Photos/2024"), or "" for none. */
+    private static String folderOf(File f) {
+        try {
+            String root = downloadsDir.getCanonicalPath() + File.separator;
+            String parent = f.getParentFile().getCanonicalPath() + File.separator;
+            if (!parent.startsWith(root)) return "";
+            String rel = parent.substring(root.length());
+            return rel.endsWith(File.separator) ? rel.substring(0, rel.length() - 1) : rel;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     /** The MediaStore copy of a received file, if it was published. */
     static Uri publicCopy(String path) {
         return publicCopies.get(path);
@@ -333,6 +351,9 @@ final class Engine {
         Uri doc = null;
         try {
             Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+            for (String dir : folderOf(f).split("/")) {
+                if (!dir.isEmpty()) parent = childFolder(resolver, tree, parent, dir);
+            }
             String ext = MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(f).toString());
             String mime = ext == null ? null : MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase());
             doc = DocumentsContract.createDocument(resolver, parent, mime != null ? mime : "application/octet-stream", f.getName());
@@ -356,6 +377,23 @@ final class Engine {
         }
     }
 
+    /** The folder called name in parent, created if there isn't one yet. */
+    private static Uri childFolder(ContentResolver resolver, Uri tree, Uri parent, String name) throws Exception {
+        Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent));
+        try (Cursor c = resolver.query(children, new String[] {
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE,
+        }, null, null, null)) {
+            while (c != null && c.moveToNext()) {
+                if (name.equals(c.getString(1)) && DocumentsContract.Document.MIME_TYPE_DIR.equals(c.getString(2))) {
+                    return DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0));
+                }
+            }
+        }
+        Uri dir = DocumentsContract.createDocument(resolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name);
+        if (dir == null) throw new Exception("couldn't create folder " + name);
+        return dir;
+    }
+
     /** Copies a finished incoming transfer into Downloads/TropicalPeer, where people look for it. */
     private static void publishReceived(String json) {
         if (Build.VERSION.SDK_INT < 29) return; // older Androids: files stay in the app's folder
@@ -367,13 +405,20 @@ final class Engine {
             if (saved == null) return;
             String peer = t.optString("peerName");
             boolean announce = !foreground;
-            for (int i = 0; i < saved.length(); i++) {
-                String path = saved.getString(i);
-                work.execute(() -> {
+            List<String> paths = new ArrayList<>();
+            for (int i = 0; i < saved.length(); i++) paths.add(saved.getString(i));
+            work.execute(() -> {
+                Uri first = null;
+                for (String path : paths) {
                     Uri uri = publish(path);
-                    if (announce) Notifier.received(app, new File(path).getName(), peer, uri);
-                });
-            }
+                    if (first == null) first = uri;
+                }
+                // One notification per transfer: a folder can hold hundreds of files.
+                if (announce && !paths.isEmpty()) {
+                    if (paths.size() == 1) Notifier.received(app, new File(paths.get(0)).getName(), peer, first);
+                    else Notifier.received(app, Notifier.t("common.files", "count", paths.size()), peer, null);
+                }
+            });
         } catch (Exception e) {
             Log.w(TAG, "couldn't read transfer update", e);
         }
@@ -395,7 +440,8 @@ final class Engine {
         ContentResolver resolver = app.getContentResolver();
         ContentValues values = new ContentValues();
         values.put(MediaStore.Downloads.DISPLAY_NAME, f.getName());
-        values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/TropicalPeer");
+        String folder = folderOf(f);
+        values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/TropicalPeer" + (folder.isEmpty() ? "" : "/" + folder));
         values.put(MediaStore.Downloads.IS_PENDING, 1);
         Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
         if (uri == null) return null;

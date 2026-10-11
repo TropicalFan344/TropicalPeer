@@ -129,6 +129,16 @@ func (a *App) PickFiles() ([]string, error) {
 	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{Title: "Choose files to send"})
 }
 
+// PickFolder opens the system folder picker for choosing a folder to send.
+// It returns nothing if cancelled.
+func (a *App) PickFolder() ([]string, error) {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Choose a folder to send"})
+	if err != nil || dir == "" {
+		return nil, err
+	}
+	return []string{dir}, nil
+}
+
 // ChooseFolder opens the system folder picker. It returns "" if cancelled.
 func (a *App) ChooseFolder(title, start string) (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{

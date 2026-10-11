@@ -17,6 +17,7 @@ export type PickedFile = string | { uri: string; name: string; size: number }
 interface TropicalPeerPlugin {
   call(o: { method: string; args: string }): Promise<{ json: string }>
   pickFiles(): Promise<{ files: { uri: string; name: string; size: number }[] }>
+  pickFolder(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   showFile(o: { path: string }): Promise<void>
   openFolder(): Promise<void>
   getReady(): Promise<ReadyState>
@@ -123,6 +124,17 @@ export async function pickFiles(): Promise<PickedFile[]> {
   if (!native) return (await Go.PickFiles()) ?? []
   try {
     return (await native.pickFiles()).files
+  } catch (e) {
+    throw message(e)
+  }
+}
+
+/** Opens the system folder picker; an empty list means cancelled. On
+ *  Android the folder arrives as its files, named "Folder/sub/file". */
+export async function pickFolder(): Promise<PickedFile[]> {
+  if (!native) return (await Go.PickFolder()) ?? []
+  try {
+    return (await native.pickFolder()).files
   } catch (e) {
     throw message(e)
   }

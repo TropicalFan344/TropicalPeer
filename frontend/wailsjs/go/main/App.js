@@ -74,6 +74,10 @@ export function PickFiles() {
   return window['go']['main']['App']['PickFiles']();
 }
 
+export function PickFolder() {
+  return window['go']['main']['App']['PickFolder']();
+}
+
 export function PostponeUpdate() {
   return window['go']['main']['App']['PostponeUpdate']();
 }

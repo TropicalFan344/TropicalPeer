@@ -3,10 +3,13 @@ package appcore
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"TropicalPeer/internal/node"
@@ -102,9 +105,12 @@ func (c *Core) SendSources(peerID string, sources []transfer.Source) (TransferDT
 	if len(sources) == 0 {
 		return TransferDTO{}, c.errT("transfer.chooseFile")
 	}
+	if len(sources) > transfer.MaxFilesPerOffer {
+		return TransferDTO{}, c.errT("transfer.tooManyFiles", "count", strconv.Itoa(transfer.MaxFilesPerOffer))
+	}
 	files := make([]FileDTO, len(sources))
 	for i, src := range sources {
-		files[i] = FileDTO{Name: transfer.SafeName(src.Name), Size: src.Size}
+		files[i] = FileDTO{Name: transfer.SafePath(src.Name), Size: src.Size}
 	}
 
 	st := &transferState{
@@ -524,7 +530,12 @@ func (c *Core) describeFiles(paths []string) ([]transfer.Source, error) {
 			return nil, c.errT("transfer.cantRead", "name", filepath.Base(p))
 		}
 		if st.IsDir() {
-			return nil, c.errT("transfer.isFolder", "name", filepath.Base(p))
+			sources, err := c.describeFolder(p)
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, sources...)
+			continue
 		}
 		if !st.Mode().IsRegular() {
 			return nil, c.errT("transfer.notRegular", "name", filepath.Base(p))
@@ -537,6 +548,50 @@ func (c *Core) describeFiles(paths []string) ([]transfer.Source, error) {
 	}
 	return files, nil
 }
+
+// skipInFolder are files the system leaves in folders, not worth sending.
+var skipInFolder = map[string]bool{".ds_store": true, "thumbs.db": true, "desktop.ini": true}
+
+// describeFolder lists the files in a folder, named by their path inside it
+// ("Photos/2024/a.jpg") so the other device rebuilds the folder. Links and
+// other special files are left out.
+func (c *Core) describeFolder(root string) ([]transfer.Source, error) {
+	base := filepath.Base(root)
+	var files []transfer.Source
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.Type().IsRegular() || skipInFolder[strings.ToLower(d.Name())] {
+			return nil
+		}
+		if len(files) >= transfer.MaxFilesPerOffer {
+			return errTooMany
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		src, err := transfer.FileSource(path)
+		if err != nil {
+			return err
+		}
+		src.Name = base + "/" + filepath.ToSlash(rel)
+		files = append(files, src)
+		return nil
+	})
+	switch {
+	case errors.Is(err, errTooMany):
+		return nil, c.errT("transfer.tooManyFiles", "count", strconv.Itoa(transfer.MaxFilesPerOffer))
+	case err != nil:
+		return nil, c.errT("transfer.cantRead", "name", base)
+	case len(files) == 0:
+		return nil, c.errT("transfer.emptyFolder", "name", base)
+	}
+	return files, nil
+}
+
+var errTooMany = errors.New("too many files")
 
 func (c *Core) friendlyTransferError(err error) string {
 	msg := err.Error()

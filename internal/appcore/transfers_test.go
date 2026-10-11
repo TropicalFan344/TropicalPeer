@@ -290,9 +290,41 @@ func TestAppTransfers(t *testing.T) {
 		}
 	})
 
-	t.Run("folders are refused up front", func(t *testing.T) {
-		if _, err := app.SendFiles(friendID, []string{src}); err == nil || !strings.Contains(err.Error(), "folder") {
-			t.Fatalf("want folder error, got %v", err)
+	t.Run("a folder arrives as a folder", func(t *testing.T) {
+		album := filepath.Join(t.TempDir(), "Album")
+		os.MkdirAll(filepath.Join(album, "2024", "June"), 0o755)
+		os.MkdirAll(filepath.Join(album, "empty"), 0o755)
+		os.WriteFile(filepath.Join(album, "cover.jpg"), []byte("cover"), 0o644)
+		os.WriteFile(filepath.Join(album, "2024", "June", "beach.jpg"), []byte("beach"), 0o644)
+		os.WriteFile(filepath.Join(album, "Thumbs.db"), []byte("junk"), 0o644)
+		for _, want := range []string{"Album", "Album (1)"} { // sent twice: the copies stay apart
+			d, err := app.SendFiles(friendID, []string{album})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(d.Files) != 2 || d.Files[0].Name != "Album/2024/June/beach.jpg" {
+				t.Fatalf("offered %+v", d.Files)
+			}
+			if final := rec.waitFinal(t, d.ID); final.Status != StatusDone {
+				t.Fatalf("final = %+v", final)
+			}
+			for name, data := range map[string]string{"cover.jpg": "cover", "2024/June/beach.jpg": "beach"} {
+				got, err := os.ReadFile(filepath.Join(friendDownloads, want, filepath.FromSlash(name)))
+				if err != nil || string(got) != data {
+					t.Fatalf("%s/%s: %q, %v", want, name, got, err)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(friendDownloads, want, "Thumbs.db")); err == nil {
+				t.Fatal("sent Thumbs.db")
+			}
+		}
+	})
+
+	t.Run("an empty folder is refused up front", func(t *testing.T) {
+		empty := filepath.Join(t.TempDir(), "Nothing")
+		os.MkdirAll(filepath.Join(empty, "inside"), 0o755)
+		if _, err := app.SendFiles(friendID, []string{empty}); err == nil || !strings.Contains(err.Error(), "Nothing") {
+			t.Fatalf("want empty folder error, got %v", err)
 		}
 	})
 
