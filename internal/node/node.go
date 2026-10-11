@@ -50,6 +50,9 @@ type Events struct {
 	// while nothing connected us (it was paused or interrupted).
 	// transferID is the sender's ID for it.
 	OnCancelNotice func(peer peers.Peer, transferID string)
+	// OnRemovedUs reports that a peer removed this device (it told us, or
+	// refused our certificate): sending to it fails until we pair again.
+	OnRemovedUs func(peer peers.Peer)
 	// OnProgress reports progress of incoming transfers. (Outgoing transfers
 	// report through SendOptions.)
 	OnProgress func(peer peers.Peer, p transfer.Progress)
@@ -70,6 +73,9 @@ type Node struct {
 
 	mu       sync.RWMutex
 	settings Settings
+
+	tellMu sync.Mutex
+	told   map[string]time.Time // last removal notice tried, by peer ID
 
 	// ListenPacket, when set, replaces real UDP sockets (port 0 = any port).
 	// ServerUDPAddr, when set, replaces resolving the server's UDP address
@@ -242,6 +248,12 @@ func (n *Node) Run(ctx context.Context) error {
 	n.mu.Unlock()
 	n.restartPresence()
 	n.restartPortMapping()
+	go func() {
+		// Removal notices that didn't get through last time.
+		if _, err := n.waitPresence(ctx); err == nil {
+			n.tellAllRemoved()
+		}
+	}()
 
 	go n.acceptLoop(ctx, relayLn, true)
 	return n.acceptLoop(ctx, ln, false)
@@ -341,6 +353,12 @@ func (n *Node) handleIncoming(ctx context.Context, conn *quic.Conn, relayed bool
 	}
 	if ctrl.Hello.Join != "" {
 		n.joinIncoming(ctx, peer, conn, ctrl, relayed)
+		return
+	}
+	if ctrl.Hello.Unpaired {
+		ctrl.Answer(true, "")
+		n.markRemovedUs(peer)
+		<-time.After(time.Second) // let the answer go out before hanging up
 		return
 	}
 	if ctrl.Hello.Cancel != "" {
@@ -531,12 +549,15 @@ func (n *Node) SendSources(ctx context.Context, peerID, transferID string, files
 	if err != nil {
 		return err
 	}
+	if peer.RemovedUs {
+		return &RemovedUsError{Name: peer.Name}
+	}
 	if opts.OnPhase != nil {
 		opts.OnPhase(PhaseConnecting)
 	}
 	conn, relayed, err := n.connect(ctx, peer, true)
 	if err != nil {
-		return err
+		return n.refused(peer, err)
 	}
 	defer conn.CloseWithError(0, "")
 	if opts.OnConnected != nil {
@@ -565,7 +586,7 @@ func (n *Node) SendSources(ctx context.Context, peerID, transferID string, files
 	if opts.OnPhase != nil {
 		opts.OnPhase(PhaseWaiting)
 	}
-	return transfer.Send(ctx, conn, transferID, files, topts)
+	return n.refused(peer, transfer.Send(ctx, conn, transferID, files, topts))
 }
 
 // DiscardPartials deletes what an interrupted or paused incoming transfer
@@ -597,10 +618,13 @@ func (n *Node) ask(ctx context.Context, peerID string, do func(*quic.Conn) error
 	if err != nil {
 		return err
 	}
+	if peer.RemovedUs {
+		return &RemovedUsError{Name: peer.Name}
+	}
 	conn, _, err := n.connect(ctx, peer, true)
 	if err != nil {
-		return err
+		return n.refused(peer, err)
 	}
 	defer conn.CloseWithError(0, "")
-	return do(conn)
+	return n.refused(peer, do(conn))
 }

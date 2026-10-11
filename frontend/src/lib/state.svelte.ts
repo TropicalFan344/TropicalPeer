@@ -72,6 +72,7 @@ export async function initState() {
   on('peers:changed', (p) => {
     app.peers = p
   })
+  on('peer:removedUs', (p) => toast(t('peer.removedUsToast', { name: p.name }), 'info', 8000))
   on('transfer:update', upsertTransfer)
   on('transfers:cleared', () => {
     app.transfers = app.transfers.filter(isActive)
@@ -186,11 +187,14 @@ export async function sendTo(peer: Peer, files: PickedFile[]) {
   }
 }
 
-/** Opens the file picker (or the folder picker), then sends what was chosen. */
-export async function pickAndSend(peer: Peer, folder = false) {
+/** What to choose before sending: files, a folder, or photos and videos (Android). */
+export type PickKind = 'files' | 'folder' | 'media'
+
+/** Opens the picker for kind, then sends what was chosen. */
+export async function pickAndSend(peer: Peer, kind: PickKind = 'files') {
   let files: PickedFile[]
   try {
-    files = await (folder ? api.pickFolder() : api.pickFiles())
+    files = await (kind === 'folder' ? api.pickFolder() : kind === 'media' ? api.pickMedia() : api.pickFiles())
   } catch (e) {
     toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
     return

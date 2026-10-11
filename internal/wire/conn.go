@@ -16,12 +16,17 @@ var ErrLineTooLong = errors.New("protocol message too long")
 
 // Conn wraps a stream with line-delimited JSON framing.
 type Conn struct {
-	r *bufio.Reader
-	w io.Writer
+	r   *bufio.Reader
+	w   io.Writer
+	max int
 }
 
-func NewConn(rw io.ReadWriter) *Conn {
-	return &Conn{r: bufio.NewReaderSize(rw, 4096), w: rw}
+func NewConn(rw io.ReadWriter) *Conn { return NewConnMax(rw, MaxLine) }
+
+// NewConnMax is NewConn for a stream whose messages may be up to max bytes,
+// such as a transfer offer listing a whole folder.
+func NewConnMax(rw io.ReadWriter, max int) *Conn {
+	return &Conn{r: bufio.NewReaderSize(rw, 4096), w: rw, max: max}
 }
 
 // Reader exposes the buffered reader so callers that switch to raw bytes
@@ -42,7 +47,7 @@ func Write(w io.Writer, m any) error {
 }
 
 func (c *Conn) Recv(m any) error {
-	line, err := ReadLine(c.r)
+	line, err := ReadLineMax(c.r, c.max)
 	if err != nil {
 		return err
 	}
@@ -50,7 +55,10 @@ func (c *Conn) Recv(m any) error {
 }
 
 // ReadLine reads one newline-terminated line of at most MaxLine bytes.
-func ReadLine(r *bufio.Reader) ([]byte, error) {
+func ReadLine(r *bufio.Reader) ([]byte, error) { return ReadLineMax(r, MaxLine) }
+
+// ReadLineMax reads one newline-terminated line of at most max bytes.
+func ReadLineMax(r *bufio.Reader, max int) ([]byte, error) {
 	var buf []byte
 	for {
 		chunk, isPrefix, err := r.ReadLine()
@@ -58,7 +66,7 @@ func ReadLine(r *bufio.Reader) ([]byte, error) {
 			return nil, err
 		}
 		buf = append(buf, chunk...)
-		if len(buf) > MaxLine {
+		if len(buf) > max {
 			return nil, ErrLineTooLong
 		}
 		if !isPrefix {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,6 +50,9 @@ func (e *RejectedError) Error() string {
 // limits on what a receiver will even consider.
 const (
 	MaxFilesPerOffer = 10000
+	// maxControlLine bounds a message on a transfer's control stream: an
+	// offer of MaxFilesPerOffer files with their folder paths fits.
+	maxControlLine   = 4 << 20
 	progressInterval = 100 * time.Millisecond
 	copyBufferSize   = 256 * 1024
 )
@@ -122,6 +126,32 @@ var ErrPaused = errors.New("transfer paused")
 
 // ErrCorrupted means a file's checksum didn't match; it has been discarded.
 var ErrCorrupted = errors.New("checksum mismatch, file corrupted in transit")
+
+// ErrOfferTooBig: the list of files is too long to offer in one transfer.
+var ErrOfferTooBig = errors.New("too many files for one transfer")
+
+// ErrOfferTooBigForPeer: the other device runs a version that can't take a
+// list of files this long.
+var ErrOfferTooBigForPeer = errors.New("the other device can't take this many files at once")
+
+// IsRefusedByPeer reports whether the other device refused our certificate:
+// it doesn't know this device (any more), because it removed us or lost
+// its peers. TLS sends bad_certificate (42) or certificate_unknown (46).
+func IsRefusedByPeer(err error) bool {
+	var te *quic.TransportError
+	if errors.As(err, &te) && te.Remote {
+		const cryptoError = 0x100 // QUIC carries TLS alert n as 0x100+n
+		code := te.ErrorCode
+		return code == cryptoError+42 || code == cryptoError+46
+	}
+	return false
+}
+
+// encodedSize is how long m is on the wire.
+func encodedSize(m any) int {
+	b, _ := json.Marshal(m)
+	return len(b) + 1
+}
 
 // abortOnCancel closes every connection of a transfer as soon as ctx is
 // cancelled, because stream reads and writes don't watch ctx. The returned

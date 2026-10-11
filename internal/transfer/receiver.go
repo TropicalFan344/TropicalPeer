@@ -75,12 +75,12 @@ func AcceptControl(ctx context.Context, conn *quic.Conn) (*Control, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Control{stream: st, conn: conn, wire: wire.NewConn(st)}
+	c := &Control{stream: st, conn: conn, wire: wire.NewConnMax(st, maxControlLine)}
 	if err := c.wire.Recv(&c.Hello); err != nil {
 		st.CancelRead(0)
 		return nil, err
 	}
-	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" && c.Hello.Cancel == "" {
+	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" && c.Hello.Cancel == "" && !c.Hello.Unpaired {
 		st.CancelRead(0)
 		return nil, errors.New("control stream opened without an offer, join, resume or cancel")
 	}
@@ -104,6 +104,11 @@ func NotifyCancel(ctx context.Context, conn *quic.Conn, transferID string) error
 	return ask(ctx, conn, protocol.Hello{Cancel: transferID})
 }
 
+// NotifyUnpaired tells the peer on conn that it was removed here.
+func NotifyUnpaired(ctx context.Context, conn *quic.Conn) error {
+	return ask(ctx, conn, protocol.Hello{Unpaired: true})
+}
+
 // ask opens a control stream with hello and waits for the JoinAck.
 func ask(ctx context.Context, conn *quic.Conn, hello protocol.Hello) error {
 	st, err := conn.OpenStreamSync(ctx)
@@ -111,7 +116,7 @@ func ask(ctx context.Context, conn *quic.Conn, hello protocol.Hello) error {
 		return err
 	}
 	defer st.Close()
-	w := wire.NewConn(st)
+	w := wire.NewConnMax(st, maxControlLine)
 	if err := w.Send(hello); err != nil {
 		return err
 	}

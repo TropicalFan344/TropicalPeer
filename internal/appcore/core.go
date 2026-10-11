@@ -132,6 +132,9 @@ type PeerDTO struct {
 	MaxAutoSize int64  `json:"maxAutoSize"`
 	SaveDir     string `json:"saveDir"`
 	AddedAt     int64  `json:"addedAt"` // unix milliseconds
+	// RemovedUs: the peer removed this device; sending fails until the two
+	// pair again.
+	RemovedUs bool `json:"removedUs"`
 }
 
 // Invite describes a pairing code being shown to the user.
@@ -230,6 +233,7 @@ func (c *Core) startNode() error {
 		OnPathChanged:   c.onPathChanged,
 		OnResumeRequest: c.onResumeRequest,
 		OnCancelNotice:  c.onCancelNotice,
+		OnRemovedUs:     c.onRemovedUs,
 	})
 	if err != nil {
 		return err
@@ -493,7 +497,7 @@ func (c *Core) UpdatePeer(id string, u PeerUpdate) (PeerDTO, error) {
 }
 
 func (c *Core) RemovePeer(id string) error {
-	if err := c.n().Peers.Remove(id); err != nil {
+	if err := c.n().RemovePeer(id); err != nil {
 		return err
 	}
 	c.emitPeersChanged()
@@ -521,6 +525,7 @@ func toPeerDTO(p peers.Peer) PeerDTO {
 		MaxAutoSize: p.MaxAutoSize,
 		SaveDir:     p.SaveDir,
 		AddedAt:     p.AddedAt.UnixMilli(),
+		RemovedUs:   p.RemovedUs,
 	}
 }
 

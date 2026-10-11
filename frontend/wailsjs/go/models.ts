@@ -129,6 +129,7 @@ export namespace appcore {
 	    maxAutoSize: number;
 	    saveDir: string;
 	    addedAt: number;
+	    removedUs: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new PeerDTO(source);
@@ -142,6 +143,7 @@ export namespace appcore {
 	        this.maxAutoSize = source["maxAutoSize"];
 	        this.saveDir = source["saveDir"];
 	        this.addedAt = source["addedAt"];
+	        this.removedUs = source["removedUs"];
 	    }
 	}
 	export class PeerUpdate {

@@ -38,17 +38,47 @@ type Peer struct {
 	// Order is the peer's place in the list the user arranged (1 = first).
 	// Zero means never placed: those follow, by name.
 	Order int `json:"order,omitempty"`
+	// RemovedUs: the peer removed this device, so it refuses our
+	// connections until the two pair again.
+	RemovedUs bool `json:"removedUs,omitempty"`
 }
+
+// Removed is a peer this device removed whose notice of it hasn't reached
+// the peer yet. It is kept until the notice is delivered or the two pair
+// again, so the peer learns why it can't send instead of seeing "offline".
+type Removed struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	PublicKey ed25519.PublicKey `json:"publicKey"`
+	RemovedAt time.Time         `json:"removedAt"`
+}
+
+// removedKeep is how long a removal notice is waited on before it is
+// given up on.
+const removedKeep = 90 * 24 * time.Hour
+
+const removedFile = "removed.json"
 
 // Store is a thread-safe, JSON-file-backed list of paired peers.
 type Store struct {
-	mu    sync.RWMutex
-	path  string
-	peers map[string]*Peer
+	mu      sync.RWMutex
+	path    string
+	peers   map[string]*Peer
+	removed map[string]Removed
 }
 
 func Open(dir string) (*Store, error) {
-	s := &Store{path: filepath.Join(dir, fileName), peers: map[string]*Peer{}}
+	s := &Store{path: filepath.Join(dir, fileName), peers: map[string]*Peer{}, removed: map[string]Removed{}}
+	if data, err := os.ReadFile(filepath.Join(dir, removedFile)); err == nil {
+		var list []Removed
+		if json.Unmarshal(bytes.TrimPrefix(data, utf8BOM), &list) == nil {
+			for _, r := range list {
+				if time.Since(r.RemovedAt) < removedKeep {
+					s.removed[r.ID] = r
+				}
+			}
+		}
+	}
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -156,6 +186,11 @@ func (s *Store) Add(p Peer) error {
 		}
 	}
 	s.peers[p.ID] = &p
+	if _, ok := s.removed[p.ID]; ok {
+		// Paired again: nothing left to tell it.
+		delete(s.removed, p.ID)
+		s.saveRemovedLocked()
+	}
 	return s.saveLocked()
 }
 
@@ -199,14 +234,68 @@ func (s *Store) Reorder(ids []string) error {
 	return s.saveLocked()
 }
 
+// Remove forgets a peer. Unless it had removed us first, it is kept as
+// Removed until it has been told.
 func (s *Store) Remove(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.peers[id]; !ok {
+	p, ok := s.peers[id]
+	if !ok {
 		return ErrNotFound
 	}
 	delete(s.peers, id)
+	if !p.RemovedUs {
+		s.removed[id] = Removed{ID: p.ID, Name: p.Name, PublicKey: p.PublicKey, RemovedAt: time.Now()}
+		s.saveRemovedLocked()
+	}
 	return s.saveLocked()
+}
+
+// RemovedPeer returns a peer this device removed and hasn't told yet.
+func (s *Store) RemovedPeer(id string) (Removed, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	r, ok := s.removed[id]
+	return r, ok
+}
+
+// RemovedPeers lists the peers this device removed and hasn't told yet.
+func (s *Store) RemovedPeers() []Removed {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Removed, 0, len(s.removed))
+	for _, r := range s.removed {
+		out = append(out, r)
+	}
+	return out
+}
+
+// Told records that a removed peer got the notice.
+func (s *Store) Told(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.removed[id]; ok {
+		delete(s.removed, id)
+		s.saveRemovedLocked()
+	}
+}
+
+func (s *Store) saveRemovedLocked() {
+	list := make([]Removed, 0, len(s.removed))
+	for _, r := range s.removed {
+		list = append(list, r)
+	}
+	path := filepath.Join(filepath.Dir(s.path), removedFile)
+	if len(list) == 0 {
+		os.Remove(path)
+		return
+	}
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return
+	}
+	os.MkdirAll(filepath.Dir(path), 0o700)
+	os.WriteFile(path, data, 0o600)
 }
 
 func (s *Store) saveLocked() error {

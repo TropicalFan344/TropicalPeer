@@ -50,6 +50,8 @@ export interface Peer {
   maxAutoSize: number
   saveDir: string
   addedAt: number
+  /** The peer removed this device: sending fails until the two pair again. */
+  removedUs: boolean
 }
 
 export type PeerUpdate = Pick<Peer, 'name' | 'policy' | 'maxAutoSize' | 'saveDir'>
@@ -140,6 +142,7 @@ export const api = {
   joinWithCode: (code: string) => call<Peer>('JoinWithCode', code),
   pickFiles: backend.pickFiles,
   pickFolder: backend.pickFolder,
+  pickMedia: backend.pickMedia,
   sendFiles: (peerId: string, files: PickedFile[]) =>
     call<Transfer>(isAndroid ? 'SendDocuments' : 'SendFiles', peerId, files),
   cancelTransfer: (id: string) => call<void>('CancelTransfer', id),
@@ -172,6 +175,7 @@ interface EventMap {
   'transfers:cleared': null
   'offer:new': Offer
   'offer:closed': { id: string; reason: string }
+  'peer:removedUs': Peer
   'update:changed': Update
 }
 

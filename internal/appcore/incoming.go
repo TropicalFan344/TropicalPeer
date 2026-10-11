@@ -155,7 +155,7 @@ func (c *Core) onIncomingProgress(peer peers.Peer, p transfer.Progress) {
 	if st == nil {
 		return
 	}
-	c.updateTransfer(st, func(d *TransferDTO) { applyProgress(st, d, p) })
+	c.updateProgress(st, func(d *TransferDTO) { applyProgress(st, d, p) })
 }
 
 func (c *Core) onReceived(peer peers.Peer, offer protocol.Offer, files []transfer.Result, err error) {

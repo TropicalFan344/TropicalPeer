@@ -79,6 +79,9 @@ type Hello struct {
 	// (paused or interrupted) was cancelled here, by the sender's transfer
 	// ID. Either side sends it. Answered with a JoinAck.
 	Cancel string `json:"cancel,omitempty"`
+	// Unpaired tells the other side that it was removed here: it can't
+	// send to this device until the two pair again. Answered with a JoinAck.
+	Unpaired bool `json:"unpaired,omitempty"`
 }
 
 type Response struct {

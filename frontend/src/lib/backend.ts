@@ -18,6 +18,7 @@ interface TropicalPeerPlugin {
   call(o: { method: string; args: string }): Promise<{ json: string }>
   pickFiles(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   pickFolder(): Promise<{ files: { uri: string; name: string; size: number }[] }>
+  pickMedia(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   showFile(o: { path: string }): Promise<void>
   openFolder(): Promise<void>
   getReady(): Promise<ReadyState>
@@ -135,6 +136,16 @@ export async function pickFolder(): Promise<PickedFile[]> {
   if (!native) return (await Go.PickFolder()) ?? []
   try {
     return (await native.pickFolder()).files
+  } catch (e) {
+    throw message(e)
+  }
+}
+
+/** Opens the photo picker (Android only; photos and videos, no camera). */
+export async function pickMedia(): Promise<PickedFile[]> {
+  if (!native) return pickFiles()
+  try {
+    return (await native.pickMedia()).files
   } catch (e) {
     throw message(e)
   }

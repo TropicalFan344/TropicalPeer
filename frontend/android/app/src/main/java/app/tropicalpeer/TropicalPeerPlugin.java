@@ -1,6 +1,7 @@
 package app.tropicalpeer;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -8,10 +9,12 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 
 import androidx.activity.result.ActivityResult;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -38,7 +41,11 @@ import java.util.List;
  */
 @CapacitorPlugin(
     name = "TropicalPeer",
-    permissions = { @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) }
+    permissions = {
+        @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }),
+        @Permission(alias = "media", strings = { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO }),
+        @Permission(alias = "storage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE }),
+    }
 )
 public class TropicalPeerPlugin extends Plugin {
 
@@ -302,6 +309,49 @@ public class TropicalPeerPlugin extends Plugin {
         call.resolve(res);
     }
 
+    /**
+     * Opens the system photo picker (photos and videos, no camera) →
+     * { files: [{ uri, name, size }] }. Where there is no photo picker, the
+     * document picker limited to images and videos stands in.
+     */
+    @PluginMethod
+    public void pickMedia(PluginCall call) {
+        // The picker hands out numbers ("1000018599.jpg") for names; reading
+        // the photo library turns them back into real ones. Asked once: a
+        // refusal only costs the names.
+        String alias = mediaAlias();
+        if (getPermissionState(alias) == PermissionState.PROMPT) {
+            requestPermissionForAlias(alias, call, "mediaPermission");
+            return;
+        }
+        openMediaPicker(call);
+    }
+
+    @PermissionCallback
+    private void mediaPermission(PluginCall call) {
+        openMediaPicker(call);
+    }
+
+    private static String mediaAlias() {
+        return Build.VERSION.SDK_INT >= 33 ? "media" : "storage";
+    }
+
+    @SuppressLint("NewApi") // isPhotoPickerAvailable checks the SDK extension the picker needs
+    private void openMediaPicker(PluginCall call) {
+        Intent intent;
+        if (ActivityResultContracts.PickVisualMedia.isPhotoPickerAvailable(getContext())) {
+            intent = new Intent(MediaStore.ACTION_PICK_IMAGES)
+                .putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, MediaStore.getPickImagesMaxLimit());
+        } else {
+            intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, new String[] { "image/*", "video/*" })
+                .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+        startActivityForResult(call, intent, "picked");
+    }
+
     /** Opens Android's folder picker → { files: [{ uri, name: "Folder/sub/file", size }] } (empty if cancelled). */
     @PluginMethod
     public void pickFolder(PluginCall call) {
@@ -372,6 +422,23 @@ public class TropicalPeerPlugin extends Plugin {
         }
     }
 
+    /** The real name of a photo picker item, if the photo library may be read; else null. */
+    private String mediaName(Uri uri) {
+        if (!"media".equals(uri.getAuthority()) || !uri.getPath().contains("picker")) return null;
+        if (getPermissionState(mediaAlias()) != PermissionState.GRANTED) return null;
+        try {
+            long id = Long.parseLong(uri.getLastPathSegment());
+            try (Cursor c = getContext().getContentResolver().query(MediaStore.Files.getContentUri("external"),
+                new String[] { MediaStore.MediaColumns.DISPLAY_NAME }, MediaStore.MediaColumns._ID + "=?",
+                new String[] { String.valueOf(id) }, null)) {
+                if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getString(0);
+            }
+        } catch (RuntimeException e) {
+            // Not a number, or the library won't say: keep the picker's name.
+        }
+        return null;
+    }
+
     private JSObject describe(Uri uri) {
         String name = "file";
         long size = -1;
@@ -384,6 +451,8 @@ public class TropicalPeerPlugin extends Plugin {
         } catch (RuntimeException e) {
             // A provider that won't describe the file: the engine reads the size itself.
         }
+        String real = mediaName(uri);
+        if (real != null) name = real;
         JSObject f = new JSObject();
         f.put("uri", uri.toString());
         f.put("name", name);

@@ -35,6 +35,7 @@ func testCore(t *testing.T, ctx context.Context, addr, name string) (*Core, *rec
 		OnPathChanged:   c.onPathChanged,
 		OnResumeRequest: c.onResumeRequest,
 		OnCancelNotice:  c.onCancelNotice,
+		OnRemovedUs:     c.onRemovedUs,
 	})
 	return c, rec, downloads
 }

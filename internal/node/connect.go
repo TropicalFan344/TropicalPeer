@@ -173,7 +173,12 @@ func (n *Node) onConnectOffer(p *rendezvous.Presence, m rendezvous.Msg) {
 	paired := err == nil
 	p.Answer(m, paired)
 	if !paired {
-		return // not a paired device: don't open anything for it
+		// Not a paired device: don't open anything for it. If we removed
+		// it and it hasn't heard, tell it now that it's trying to reach us.
+		if r, ok := n.Peers.RemovedPeer(m.From); ok {
+			go n.tellRemoved(r)
+		}
+		return
 	}
 	n.mu.RLock()
 	ctx := n.runCtx

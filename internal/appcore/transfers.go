@@ -75,7 +75,14 @@ type transferState struct {
 	remoteID string            // receive: the sender's ID for the transfer (to ask it to resume)
 	lastAt   time.Time
 	lastDone int64
+	// Progress reaches the UI at most every progressEvery: each event
+	// carries the whole row, file list included, and a folder of small
+	// files would otherwise send thousands of them.
+	emittedAt   time.Time
+	emitPending bool
 }
+
+const progressEvery = 100 * time.Millisecond
 
 // Sending again after a dropped connection: the waits before each attempt.
 // Together with the attempts themselves they cover a phone switching
@@ -206,7 +213,7 @@ func (c *Core) sendOnce(ctx context.Context, st *transferState, peer peers.Peer,
 		},
 		OnProgress: func(p transfer.Progress) {
 			*accepted = true
-			c.updateTransfer(st, func(d *TransferDTO) {
+			c.updateProgress(st, func(d *TransferDTO) {
 				d.Status, d.Resuming = StatusSending, false
 				applyProgress(st, d, p)
 			})
@@ -232,6 +239,7 @@ func (c *Core) finishSend(st *transferState, err error) {
 		d.Speed, d.Resuming, d.PausedByPeer = 0, false, false
 		var rejected *transfer.RejectedError
 		var offline *node.OfflineError
+		var removedUs *node.RemovedUsError
 		switch {
 		case err == nil:
 			d.Status, d.Done = StatusDone, d.Total
@@ -243,6 +251,8 @@ func (c *Core) finishSend(st *transferState, err error) {
 			d.Status = StatusCancelled
 		case errors.As(err, &rejected):
 			d.Status, d.Error = StatusDeclined, rejected.Reason
+		case errors.As(err, &removedUs):
+			d.Status, d.Error = StatusFailed, c.T("transfer.removedYou", "name", d.PeerName)
 		case errors.As(err, &offline):
 			d.Status, d.Error = StatusFailed, c.T("transfer.offline", "name", d.PeerName)
 		case transfer.IsCancelledByPeer(err):
@@ -403,6 +413,28 @@ func (c *Core) onCancelNotice(peer peers.Peer, transferID string) {
 	c.emitTransfer(st)
 }
 
+// onRemovedUs: a peer removed this device. Sends to it that are paused or
+// failed can't go on; say why on each, and tell the user once.
+func (c *Core) onRemovedUs(peer peers.Peer) {
+	var changed []*transferState
+	c.mu.Lock()
+	for _, st := range c.transfers {
+		d := &st.dto
+		if d.PeerID != peer.ID || d.Direction != string(transfer.Sending) || d.active() || d.Status == StatusDone || d.Status == StatusCancelled {
+			continue
+		}
+		d.Status, d.PausedByPeer, d.Resuming = StatusFailed, false, false
+		d.Error = c.T("transfer.removedYou", "name", peer.Name)
+		changed = append(changed, st)
+	}
+	c.mu.Unlock()
+	for _, st := range changed {
+		c.emitTransfer(st)
+	}
+	c.emitPeersChanged()
+	c.emit("peer:removedUs", toPeerDTO(peer))
+}
+
 // onResumeRequest answers a receiver asking us to continue a transfer we
 // sent it.
 func (c *Core) onResumeRequest(peer peers.Peer, transferID string) (bool, string) {
@@ -515,7 +547,34 @@ func (c *Core) snapshotLocked(st *transferState) TransferDTO {
 }
 
 func (c *Core) emitTransfer(st *transferState) {
-	c.emit("transfer:update", c.snapshot(st))
+	c.mu.Lock()
+	st.emittedAt = time.Now()
+	d := c.snapshotLocked(st)
+	c.mu.Unlock()
+	c.emit("transfer:update", d)
+}
+
+// updateProgress is updateTransfer for progress, which is sent on at most
+// every progressEvery; the latest state always follows.
+func (c *Core) updateProgress(st *transferState, fn func(*TransferDTO)) {
+	c.mu.Lock()
+	fn(&st.dto)
+	wait := progressEvery - time.Since(st.emittedAt)
+	if wait <= 0 {
+		c.mu.Unlock()
+		c.emitTransfer(st)
+		return
+	}
+	if !st.emitPending {
+		st.emitPending = true
+		time.AfterFunc(wait, func() {
+			c.mu.Lock()
+			st.emitPending = false
+			c.mu.Unlock()
+			c.emitTransfer(st)
+		})
+	}
+	c.mu.Unlock()
 }
 
 // describeFiles checks that every path is a file we can send.
@@ -596,6 +655,10 @@ var errTooMany = errors.New("too many files")
 func (c *Core) friendlyTransferError(err error) string {
 	msg := err.Error()
 	switch {
+	case errors.Is(err, transfer.ErrOfferTooBigForPeer):
+		return c.T("transfer.peerNeedsUpdate")
+	case errors.Is(err, transfer.ErrOfferTooBig):
+		return c.T("transfer.listTooLong")
 	case errors.Is(err, context.DeadlineExceeded), containsAny(msg, "timeout", "no recent network activity"):
 		return c.T("transfer.timedOutConn")
 	case containsAny(msg, "doesn't relay"):

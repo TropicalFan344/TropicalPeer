@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -29,11 +30,13 @@ type recorder struct {
 	events []TransferDTO
 	offers []OfferDTO
 	closed []OfferClosed
+	names  []string // every event, by name
 }
 
 func (r *recorder) emit(name string, data any) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.names = append(r.names, name)
 	switch name {
 	case "transfer:update":
 		r.events = append(r.events, data.(TransferDTO))
@@ -317,6 +320,26 @@ func TestAppTransfers(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(friendDownloads, want, "Thumbs.db")); err == nil {
 				t.Fatal("sent Thumbs.db")
 			}
+		}
+	})
+
+	t.Run("a folder of many files arrives whole", func(t *testing.T) {
+		// 1500 files: the offer alone is well over wire.MaxLine.
+		camera := filepath.Join(t.TempDir(), "Camera")
+		os.MkdirAll(filepath.Join(camera, "2026", "October"), 0o755)
+		for i := 0; i < 1500; i++ {
+			os.WriteFile(filepath.Join(camera, "2026", "October", fmt.Sprintf("IMG_20261012_%06d_with_a_long_name.jpg", i)), []byte{byte(i)}, 0o644)
+		}
+		d, err := app.SendFiles(friendID, []string{camera})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if final := rec.waitFinal(t, d.ID); final.Status != StatusDone {
+			t.Fatalf("final = %+v", final)
+		}
+		got, _ := os.ReadDir(filepath.Join(friendDownloads, "Camera", "2026", "October"))
+		if len(got) != 1500 {
+			t.Fatalf("received %d files", len(got))
 		}
 	})
 

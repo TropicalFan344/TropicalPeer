@@ -141,13 +141,30 @@ func Send(ctx context.Context, conn *quic.Conn, transferID string, files []Sourc
 		return err
 	}
 	defer ctrlStream.Close()
-	ctrl := wire.NewConn(ctrlStream)
+	ctrl := wire.NewConnMax(ctrlStream, maxControlLine)
 
-	if err := ctrl.Send(protocol.Hello{Offer: &offer}); err != nil {
+	hello := protocol.Hello{Offer: &offer}
+	size := encodedSize(hello)
+	if size > maxControlLine {
+		return ErrOfferTooBig
+	}
+	// Before 0.1.10 a receiver read at most wire.MaxLine of the offer and
+	// hung up on anything longer, while it was sent or right after.
+	tooLongForPeer := func(err error) bool {
+		code, ok := PeerCloseCode(err)
+		return ok && code == 0 && size > wire.MaxLine
+	}
+	if err := ctrl.Send(hello); err != nil {
+		if tooLongForPeer(err) {
+			return ErrOfferTooBigForPeer
+		}
 		return err
 	}
 	var resp protocol.Response
 	if err := ctrl.Recv(&resp); err != nil {
+		if tooLongForPeer(err) {
+			return ErrOfferTooBigForPeer
+		}
 		return fmt.Errorf("waiting for the other device to accept: %w", err)
 	}
 	if !resp.Accept {
@@ -167,6 +184,43 @@ func Send(ctx context.Context, conn *quic.Conn, transferID string, files []Sourc
 
 	total := offer.TotalSize()
 	var done int64
+	// Files go out back to back; their results are checked as they come
+	// in rather than one round trip per file, which would hold a folder of
+	// small files to a few dozen files a second. At most maxUnconfirmed
+	// wait at once (each holds a stream until the receiver reaches it).
+	// Results may come in out of order after a switch of connection, so
+	// they are matched by index.
+	unconfirmed := map[int]bool{}
+	confirm := func(block bool) error {
+		for {
+			var res protocol.FileResult
+			if block {
+				var err error
+				if res, err = s.nextResult(ctx); err != nil {
+					return fmt.Errorf("waiting for confirmation: %w", err)
+				}
+			} else {
+				select {
+				case res = <-s.results:
+				default:
+					return nil
+				}
+			}
+			if !unconfirmed[res.Index] {
+				return fmt.Errorf("the other device reported an unexpected file %d", res.Index)
+			}
+			name := offer.Files[res.Index].Name
+			if !res.OK {
+				return fmt.Errorf("%s: the other device reported: %s", name, res.Error)
+			}
+			delete(unconfirmed, res.Index)
+			if block {
+				return nil
+			}
+		}
+	}
+	ahead := newOpener(files, resume)
+	defer ahead.close()
 	for i, f := range offer.Files {
 		m := &meter{
 			p:      Progress{TransferID: transferID, Direction: Sending, FileIndex: i, FileName: f.Name, FileSize: f.Size, Total: total},
@@ -179,20 +233,107 @@ func Send(ctx context.Context, conn *quic.Conn, transferID string, files []Sourc
 			done += f.Size
 			continue
 		}
-		if err := s.sendFile(ctx, i, files[i], m, opts.OnUpgraded, resume[i]); err != nil {
+		if err := s.sendFile(ctx, i, ahead.source(i), m, opts.OnUpgraded, resume[i]); err != nil {
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
-		res, err := s.nextResult(ctx)
-		if err != nil {
-			return fmt.Errorf("%s: waiting for confirmation: %w", f.Name, err)
-		}
-		if !res.OK || res.Index != i {
-			return fmt.Errorf("%s: the other device reported: %s", f.Name, res.Error)
-		}
+		unconfirmed[i] = true
 		done += f.Size
+		if err := confirm(false); err != nil {
+			return err
+		}
+		for len(unconfirmed) >= maxUnconfirmed {
+			if err := confirm(true); err != nil {
+				return err
+			}
+		}
+	}
+	for len(unconfirmed) > 0 {
+		if err := confirm(true); err != nil {
+			return err
+		}
 	}
 	return nil
 }
+
+// openAhead is how many files are opened before their turn. Opening can be
+// slow next to sending a small file (an Android document takes ~20 ms), so
+// it overlaps with sending the ones before.
+const openAhead = 8
+
+// opener opens files ahead of their turn, in the background.
+type opener struct {
+	files  []Source
+	skip   map[int]protocol.ResumePoint
+	mu     sync.Mutex
+	opened map[int]chan openResult
+	next   int // the next index to start opening
+}
+
+type openResult struct {
+	r   io.ReadCloser
+	err error
+}
+
+func newOpener(files []Source, resume map[int]protocol.ResumePoint) *opener {
+	return &opener{files: files, skip: resume, opened: map[int]chan openResult{}}
+}
+
+// source returns file i, opened already if it was started ahead; after the
+// first Open it opens as usual (a resumed file may open twice). It starts
+// opening the files after it.
+func (o *opener) source(i int) Source {
+	o.mu.Lock()
+	for o.next < len(o.files) && o.next <= i+openAhead {
+		j := o.next
+		o.next++
+		if o.skip[j].Saved || o.skip[j].Offset > 0 {
+			continue // not sent, or opened specially to continue
+		}
+		ch := make(chan openResult, 1)
+		o.opened[j] = ch
+		go func() {
+			r, err := o.files[j].Open()
+			ch <- openResult{r, err}
+		}()
+	}
+	ch := o.opened[i]
+	delete(o.opened, i)
+	o.mu.Unlock()
+
+	src := o.files[i]
+	if ch == nil {
+		return src
+	}
+	first := true
+	open := src.Open
+	src.Open = func() (io.ReadCloser, error) {
+		if first {
+			first = false
+			res := <-ch
+			return res.r, res.err
+		}
+		return open()
+	}
+	return src
+}
+
+// close closes whatever was opened ahead and not used.
+func (o *opener) close() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for _, ch := range o.opened {
+		go func() {
+			if res := <-ch; res.r != nil {
+				res.r.Close()
+			}
+		}()
+	}
+	o.opened = nil
+}
+
+// maxUnconfirmed bounds the files sent but not yet confirmed. It stays
+// under QUIC's default of 100 incoming streams a peer may have open.
+const maxUnconfirmed = 64
 
 // nextResult waits for the receiver's next file result. A control stream
 // that ends right after delivering a result (the receiver closes it after
@@ -235,7 +376,7 @@ func (s *sendSession) acceptUpgrades(ctx context.Context, upgrades <-chan *quic.
 		if err != nil {
 			continue
 		}
-		ctrl := wire.NewConn(stream)
+		ctrl := wire.NewConnMax(stream, maxControlLine)
 		if err := ctrl.Send(protocol.Hello{Join: s.id}); err != nil {
 			continue
 		}

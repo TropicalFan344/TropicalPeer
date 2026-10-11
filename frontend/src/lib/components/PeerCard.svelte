@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, FolderUp, Send } from '@lucide/svelte'
+  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, FolderUp, Send, UserX } from '@lucide/svelte'
   import Bed from './Bed.svelte'
   import Dialog from './Dialog.svelte'
   import WaveBand from './WaveBand.svelte'
   import PeerSettingsDialog from './PeerSettingsDialog.svelte'
+  import SendChooser from './SendChooser.svelte'
   import { api, errorText, isActive, type Peer } from '../api'
   import { app, pickAndSend, toast } from '../state.svelte'
   import { drag } from '../drop.svelte'
@@ -76,6 +77,16 @@
   // dropdown under a thumb-sized button is the desktop's habit, not Android's.
   const phone = typeof matchMedia !== 'undefined' && matchMedia('(max-width: 639.98px)').matches
   let sheetOpen = $state(false)
+  // Phones ask what to send first: photos, files or a folder.
+  let chooserOpen = $state(false)
+
+  // A peer that removed this device refuses whatever we send: say so
+  // instead of opening a picker for nothing.
+  function send() {
+    if (peer.removedUs) toast(t('transfer.removedYou', { name: peer.name }), 'info', 6000)
+    else if (phone) chooserOpen = true
+    else pickAndSend(peer)
+  }
   function openMenu() {
     if (phone) sheetOpen = true
     else menuOpen = !menuOpen
@@ -92,7 +103,7 @@
       : 'border-line hover:border-muted/40 hover:shadow-card'}"
 >
   <!-- Whole-card click target: choose files to send -->
-  <button class="absolute inset-0" aria-label={t('peer.sendTo', { name: peer.name })} onclick={() => pickAndSend(peer)}></button>
+  <button class="absolute inset-0" aria-label={t('peer.sendTo', { name: peer.name })} onclick={send}></button>
 
   <div class="pointer-events-none flex items-center gap-4 p-4 pr-12 {peer.policy === 'block' && !drag.active ? 'opacity-60' : ''}">
     <Bed name={peer.name} id={peer.id} size={48} />
@@ -106,6 +117,11 @@
           {sendingWaiting
             ? t(findingPath ? 'peer.findingPath' : 'peer.waitingAnswer')
             : t('peer.sendingPct', { pct: Math.floor(sendingShare * 100) })}
+        </div>
+      {:else if peer.removedUs}
+        <div class="mt-1.5 flex items-center gap-1.5 text-sm text-bad">
+          <UserX size={14} strokeWidth={1.75} />
+          <span class="truncate">{t('peer.removedUs')}</span>
         </div>
       {:else}
         <div class="mt-1.5 flex items-center gap-1.5 text-sm {policy.cls}">
@@ -156,7 +172,7 @@
           class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-surface-2 pointer-coarse:py-3"
           onclick={() => {
             menuOpen = false
-            pickAndSend(peer, true)
+            pickAndSend(peer, 'folder')
           }}
         >
           <FolderUp size={15} strokeWidth={1.75} /> {t('peer.menuSendFolder')}
@@ -201,7 +217,7 @@
         class="flex min-h-13 items-center gap-4 rounded-md px-3 text-left active:bg-surface-2"
         onclick={() => {
           sheetOpen = false
-          pickAndSend(peer, true)
+          pickAndSend(peer, 'folder')
         }}
       >
         <FolderUp size={20} strokeWidth={1.75} class="text-muted" /> {t('peer.sheetSendFolder')}
@@ -227,6 +243,10 @@
       </button>
     </div>
   </Dialog>
+{/if}
+
+{#if chooserOpen}
+  <SendChooser {peer} onclose={() => (chooserOpen = false)} />
 {/if}
 
 {#if settingsOpen}
