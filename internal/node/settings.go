@@ -27,6 +27,9 @@ type Settings struct {
 	// DisablePortMapping turns off asking the router (UPnP / NAT-PMP) to
 	// forward our port. Stored inverted so older settings files default to on.
 	DisablePortMapping bool `json:"disablePortMapping,omitempty"`
+	// DisableAutoUpdate turns off downloading and installing new versions
+	// automatically. Inverted like DisablePortMapping, so the default is on.
+	DisableAutoUpdate bool `json:"disableAutoUpdate,omitempty"`
 }
 
 func defaultSettings() Settings {

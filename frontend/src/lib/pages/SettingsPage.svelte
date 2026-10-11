@@ -3,7 +3,7 @@
   import { fly } from 'svelte/transition'
   import { dur, easeOutExpo } from '../motion'
   import { LoaderCircle, Copy, Check, RotateCw } from '@lucide/svelte'
-  import { api, errorText, isAndroid, isMac, type Settings } from '../api'
+  import { api, errorText, isAndroid, isMac, type Settings, type Update } from '../api'
   import { app, toast, restartEngine, activeTransfers } from '../state.svelte'
   import Dialog from '../components/Dialog.svelte'
   import { theme, setTheme, type Theme } from '../theme.svelte'
@@ -184,6 +184,43 @@
     setTimeout(() => (copied = false), 1500)
   }
 
+
+  // ---- Updates ----
+
+  function updateStatus(up: Update): string {
+    switch (up.state) {
+      case 'checking':
+        return t('update.checking')
+      case 'current':
+        return t('update.current', { version: up.current })
+      case 'downloading':
+        return t('update.downloading', { version: up.version, percent: up.total > 0 ? Math.floor((up.done / up.total) * 100) : 0 })
+      case 'ready':
+        return t('update.ready', { version: up.version })
+      case 'installing':
+        return t(isAndroid ? 'update.installingAndroid' : 'update.installing', { version: up.version })
+      case 'failed':
+        return up.error
+      default:
+        return up.auto ? '' : t('update.off')
+    }
+  }
+
+  async function setAutoUpdate(on: boolean) {
+    try {
+      await api.setAutoUpdate(on)
+    } catch (e) {
+      toast(errorText(e), 'error')
+    }
+  }
+
+  async function installUpdate() {
+    try {
+      await api.installUpdate()
+    } catch (e) {
+      toast(errorText(e), 'error', 6000)
+    }
+  }
 </script>
 
 <svelte:document {onvisibilitychange} />
@@ -441,6 +478,44 @@
         </button>
       </div>
     </section>
+
+    {#if app.update && app.update.state !== 'unsupported'}
+      {@const up = app.update}
+      <section class="row" id="updates">
+        <SettingLabel title={t('update.title')} hint={t('update.hint')} />
+        <div class="flex flex-col items-start gap-3">
+          <p class="text-sm {up.state === 'failed' ? 'text-bad' : up.state === 'ready' ? 'text-ok' : 'text-muted'}">
+            {updateStatus(up)}
+          </p>
+          <label class="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              class="mt-0.5 size-4 shrink-0 accent-[var(--primary)] pointer-coarse:size-5"
+              checked={up.auto}
+              onchange={(e) => setAutoUpdate(e.currentTarget.checked)}
+            />
+            <span class="text-sm font-medium">{t('update.auto')}</span>
+          </label>
+          {#if up.state === 'ready' || up.state === 'installing'}
+            <button type="button" class="btn-primary" onclick={installUpdate}>
+              {t(isAndroid ? 'update.installNow' : 'update.restartNow')}
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="btn-secondary"
+              disabled={up.state === 'checking' || up.state === 'downloading'}
+              onclick={() => api.checkForUpdate()}
+            >
+              {#if up.state === 'checking' || up.state === 'downloading'}
+                <LoaderCircle size={16} class="animate-spin" />
+              {/if}
+              {t('update.check')}
+            </button>
+          {/if}
+        </div>
+      </section>
+    {/if}
 
     <section class="row">
       <SettingLabel title={t('settings.version')} hint={t('settings.versionHint')} />

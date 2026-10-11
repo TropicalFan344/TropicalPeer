@@ -119,6 +119,25 @@ git push origin v0.1.4
 
 To sign Android release builds with your own key on GitHub, add these repository secrets: `ANDROID_KEYSTORE_BASE64` (the output of `base64 -w0 my-release.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`.
 
+### Automatic updates
+
+The apps check the latest GitHub release a little after starting and every 6 hours, download the new version and install it (Settings → Updates turns this off):
+
+- **Windows and macOS:** the app replaces itself and restarts once no transfer is running, after a 15-second notice with "Not now". If you choose "Not now", the update is applied when the app quits.
+- **Android:** the app downloads the update, then Android asks you to confirm. The first time, Android also asks you to allow TropicalPeer to install apps.
+
+Updates are only installed when they are **signed**: the release step signs `checksums.txt` with an update key, and the apps check it against the public key in [`internal/update`](internal/update/update.go). To set it up:
+
+1. Make a key once (keep the file private and backed up, like the Android key):
+   ```sh
+   go run ./cmd/signrelease -keygen frontend/android/keystore/update-signing.key
+   ```
+   Put the printed public key in `PublicKey` in `internal/update/update.go`.
+2. Add the key file's contents as the repository secret `UPDATE_SIGNING_KEY`.
+3. For Android, also add the four `ANDROID_*` secrets above: Android only installs an update signed with the same key as the installed app.
+
+Releases made without the secret are published unsigned, and the apps won't install them.
+
 ## Run a rendezvous server
 
 The server is a single file with no dependencies. It keeps nothing on disk, so there's nothing to set up. Builds for Linux, Windows and macOS (x64 and ARM64) are attached to each [release](../../releases). To build them yourself, run this on any OS:

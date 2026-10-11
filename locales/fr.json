@@ -385,5 +385,27 @@
     "receivedTitle": "{name} reçu",
     "receivedFrom": "De {name}",
     "folderFailed": "Impossible d'utiliser ce dossier. Choisissez-en un autre."
+  },
+  "update": {
+    "title": "Mises à jour",
+    "hint": "Recevez les nouvelles versions de TropicalPeer dès leur sortie.",
+    "auto": "Mettre à jour automatiquement",
+    "check": "Vérifier maintenant",
+    "checking": "Recherche de mises à jour…",
+    "current": "{version} est la version la plus récente.",
+    "downloading": "Téléchargement de {version}… {percent} %",
+    "ready": "{version} est prête à être installée.",
+    "installing": "Redémarrage pour terminer la mise à jour…",
+    "installingAndroid": "En attente de l'installation de {version} par Android…",
+    "restartNow": "Redémarrer maintenant",
+    "installNow": "Installer",
+    "restartSoon": "TropicalPeer {version} est prête. Redémarrage dans {s} secondes.",
+    "installSoon": "TropicalPeer {version} est prête. Installation dans {s} secondes.",
+    "notNow": "Pas maintenant",
+    "off": "Les mises à jour automatiques sont désactivées.",
+    "unsigned": "La nouvelle version n'est pas signée, elle n'a donc pas été installée.",
+    "failed": "Impossible de rechercher les mises à jour. Vérifiez la connexion internet.",
+    "installFailed": "Impossible d'installer la mise à jour.",
+    "notReady": "Aucune mise à jour n'est prête à être installée."
   }
 }

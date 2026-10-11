@@ -82,9 +82,20 @@ var methods = map[string]handler{
 		}
 		return c.SendSources(peerID, sources)
 	},
-	"CancelTransfer":         oneString(func(c *appcore.Core, id string) (any, error) { c.CancelTransfer(id); return nil, nil }),
-	"RetryTransfer":          oneString(func(c *appcore.Core, id string) (any, error) { return c.RetryTransfer(id) }),
-	"PauseTransfer":          oneString(func(c *appcore.Core, id string) (any, error) { c.PauseTransfer(id); return nil, nil }),
+	"CancelTransfer": oneString(func(c *appcore.Core, id string) (any, error) { c.CancelTransfer(id); return nil, nil }),
+	"RetryTransfer":  oneString(func(c *appcore.Core, id string) (any, error) { return c.RetryTransfer(id) }),
+	"PauseTransfer":  oneString(func(c *appcore.Core, id string) (any, error) { c.PauseTransfer(id); return nil, nil }),
+	"GetUpdate":      noArgs(func(c *appcore.Core) any { return c.GetUpdate() }),
+	"CheckForUpdate": noArgs(func(c *appcore.Core) any { return c.CheckForUpdate() }),
+	"InstallUpdate":  func(c *appcore.Core, _ []json.RawMessage) (any, error) { return nil, c.InstallUpdate() },
+	"PostponeUpdate": noArgs(func(c *appcore.Core) any { c.PostponeUpdate(); return nil }),
+	"SetAutoUpdate": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		on, err := arg[bool](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		return nil, c.SetAutoUpdate(on)
+	},
 	"ResumeTransfer":         oneString(func(c *appcore.Core, id string) (any, error) { return c.ResumeTransfer(id) }),
 	"ListTransfers":          noArgs(func(c *appcore.Core) any { return c.ListTransfers() }),
 	"ClearFinishedTransfers": noArgs(func(c *appcore.Core) any { c.ClearFinishedTransfers(); return nil }),

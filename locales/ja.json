@@ -385,5 +385,27 @@
     "receivedTitle": "{name} を受信しました",
     "receivedFrom": "{name} から",
     "folderFailed": "そのフォルダーは使えません。別のフォルダーを選んでください。"
+  },
+  "update": {
+    "title": "アップデート",
+    "hint": "新しいバージョンが出たら TropicalPeer を更新します。",
+    "auto": "自動的にアップデート",
+    "check": "今すぐ確認",
+    "checking": "アップデートを確認しています…",
+    "current": "{version} は最新バージョンです。",
+    "downloading": "{version} をダウンロードしています… {percent}%",
+    "ready": "{version} をインストールできます。",
+    "installing": "アップデートを完了するために再起動しています…",
+    "installingAndroid": "Android が {version} をインストールするのを待っています…",
+    "restartNow": "今すぐ再起動",
+    "installNow": "インストール",
+    "restartSoon": "TropicalPeer {version} の準備ができました。{s} 秒後に再起動します。",
+    "installSoon": "TropicalPeer {version} の準備ができました。{s} 秒後にインストールします。",
+    "notNow": "後で",
+    "off": "自動アップデートはオフです。",
+    "unsigned": "新しいバージョンに署名がないため、インストールしませんでした。",
+    "failed": "アップデートを確認できませんでした。インターネット接続を確認してください。",
+    "installFailed": "アップデートをインストールできませんでした。",
+    "notReady": "インストールできるアップデートはありません。"
   }
 }

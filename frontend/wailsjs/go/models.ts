@@ -264,6 +264,34 @@ export namespace appcore {
 		    return a;
 		}
 	}
+	export class UpdateDTO {
+	    state: string;
+	    current: string;
+	    version: string;
+	    done: number;
+	    total: number;
+	    error: string;
+	    checkedAt: number;
+	    auto: boolean;
+	    restartAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.state = source["state"];
+	        this.current = source["current"];
+	        this.version = source["version"];
+	        this.done = source["done"];
+	        this.total = source["total"];
+	        this.error = source["error"];
+	        this.checkedAt = source["checkedAt"];
+	        this.auto = source["auto"];
+	        this.restartAt = source["restartAt"];
+	    }
+	}
 
 }
 

@@ -105,6 +105,19 @@ export interface Offer {
   expiresAt: number
 }
 
+/** New versions (see internal/appcore/updates.go). */
+export interface Update {
+  state: 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'installing' | 'failed' | 'unsupported'
+  current: string
+  version: string // the newer version, when there is one
+  done: number
+  total: number
+  error: string
+  checkedAt: number // unix ms
+  auto: boolean
+  restartAt: number // unix ms when it installs by itself; 0 = not scheduled
+}
+
 export const api = {
   getDevice: () => call<DeviceInfo>('GetDevice'),
   getServerStatus: () => call<ServerStatus>('GetServerStatus'),
@@ -138,6 +151,12 @@ export const api = {
   respondOffer: (id: string, accept: boolean) => call<void>('RespondOffer', id, accept),
   showFile: backend.showFile,
   openFolder: backend.openFolder,
+  getUpdate: () => call<Update>('GetUpdate'),
+  checkForUpdate: () => call<Update>('CheckForUpdate'),
+  setAutoUpdate: (on: boolean) => call<void>('SetAutoUpdate', on),
+  /** Restarts into the new version (computer) or opens Android's installer. */
+  installUpdate: () => call<void>('InstallUpdate'),
+  postponeUpdate: () => call<void>('PostponeUpdate'),
 }
 
 interface EventMap {
@@ -152,6 +171,7 @@ interface EventMap {
   'transfers:cleared': null
   'offer:new': Offer
   'offer:closed': { id: string; reason: string }
+  'update:changed': Update
 }
 
 export function on<K extends keyof EventMap>(event: K, fn: (data: EventMap[K]) => void): () => void {

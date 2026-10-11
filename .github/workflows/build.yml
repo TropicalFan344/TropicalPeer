@@ -2,6 +2,9 @@
 # locally. Every run keeps its builds as downloadable artifacts; pushing a tag
 # like v0.1.4 also publishes them as a GitHub release.
 #
+# Update signing: the UPDATE_SIGNING_KEY secret signs each release's
+# checksums so apps can update themselves (see internal/update).
+#
 # Android signing (optional): add these repository secrets to sign releases
 # with your own key. Without them the APK is signed with a throwaway debug key,
 # which installs fine but can't update a copy signed with a different key.
@@ -121,10 +124,22 @@ jobs:
     needs: [windows, macos, android, server]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      # Apps only install updates whose checksums carry this signature (see
+      # internal/update). Without the secret the release is published
+      # unsigned, and apps won't update to it.
+      - name: Sign the release
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        if: env.UPDATE_SIGNING_KEY != ''
+        run: go run ./cmd/signrelease -key env:UPDATE_SIGNING_KEY dist
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

@@ -385,5 +385,27 @@
     "receivedTitle": "已收到 {name}",
     "receivedFrom": "来自 {name}",
     "folderFailed": "无法使用这个文件夹，请选择其他文件夹。"
+  },
+  "update": {
+    "title": "更新",
+    "hint": "有新版本时自动获取 TropicalPeer。",
+    "auto": "自动更新",
+    "check": "立即检查",
+    "checking": "正在检查更新…",
+    "current": "{version} 是最新版本。",
+    "downloading": "正在下载 {version}… {percent}%",
+    "ready": "{version} 已可安装。",
+    "installing": "正在重新启动以完成更新…",
+    "installingAndroid": "等待 Android 安装 {version}…",
+    "restartNow": "立即重新启动",
+    "installNow": "安装",
+    "restartSoon": "TropicalPeer {version} 已准备好，{s} 秒后重新启动。",
+    "installSoon": "TropicalPeer {version} 已准备好，{s} 秒后开始安装。",
+    "notNow": "稍后",
+    "off": "自动更新已关闭。",
+    "unsigned": "新版本未经签名，因此没有安装。",
+    "failed": "无法检查更新。请检查网络连接。",
+    "installFailed": "无法安装更新。",
+    "notReady": "目前没有可安装的更新。"
   }
 }

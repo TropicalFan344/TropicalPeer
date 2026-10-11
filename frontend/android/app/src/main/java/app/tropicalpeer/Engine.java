@@ -165,6 +165,11 @@ final class Engine {
     /** Whether the app is on screen: offers and arrivals then show in the app, not as notifications. */
     static void setForeground(boolean on) {
         foreground = on;
+        if (on && app != null) Installer.resume(app);
+    }
+
+    static boolean isForeground() {
+        return foreground;
     }
 
     /** Progress arrives several times a second; refresh the notification at most twice. */
@@ -236,6 +241,13 @@ final class Engine {
         @Override
         public void onEvent(String name, String json) {
             switch (name) {
+                case "update:install":
+                    try {
+                        Installer.request(app, new JSONObject(json).getString("path"));
+                    } catch (Exception e) {
+                        Log.w(TAG, "couldn't read the update to install", e);
+                    }
+                    break;
                 case "transfer:update":
                     track(json);
                     publishReceived(json);

@@ -11,6 +11,7 @@ import {
   type ServerStatus,
   type PickedFile,
   type Transfer,
+  type Update,
   isAndroid,
 } from './api'
 import { onShare } from './backend'
@@ -45,6 +46,7 @@ export const app = $state({
   settingsFocus: '', // id of a Settings row to bring into view when Settings opens
   // Set when the node can't run (e.g. no network port available).
   fatalError: '',
+  update: null as Update | null,
 })
 
 export async function initState() {
@@ -80,6 +82,8 @@ export async function initState() {
   on('offer:closed', ({ id, reason }) => {
     if (dropOffer(id)) toast(reason, 'info', 6000)
   })
+  on('update:changed', applyUpdate)
+  api.getUpdate().then(applyUpdate)
 
   const [device, server, network, peers, transfers, offers] = await Promise.all([
     api.getDevice(),
@@ -96,6 +100,21 @@ export async function initState() {
   app.peers = peers
   app.transfers = transfers
   app.offers = offers
+}
+
+/** Keeps the update status, and gives notice before an update installs by itself. */
+function applyUpdate(u: Update) {
+  const prev = app.update
+  app.update = u
+  if (u.restartAt && u.restartAt !== prev?.restartAt) {
+    const ms = Math.max(1000, u.restartAt - Date.now())
+    toast(
+      t(isAndroid ? 'update.installSoon' : 'update.restartSoon', { version: u.version, s: Math.round(ms / 1000) }),
+      'info',
+      ms,
+      { label: t('update.notNow'), run: () => api.postponeUpdate() },
+    )
+  }
 }
 
 function dropOffer(id: string): boolean {

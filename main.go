@@ -32,6 +32,7 @@ func main() {
 	if dataDir == "" {
 		dataDir = node.DefaultDataDir()
 	}
+	handleAfterUpdate(dataDir, os.Args[1:])
 	app := NewApp(dataDir)
 
 	// A Mac app needs the standard menus: without Edit, Cmd+C/V/A don't

@@ -38,6 +38,7 @@ Built and working:
 - Per-peer settings: local nickname, accept policy, auto-accept size limit, custom download folder; remove peer.
 - Sending one or many files over QUIC with SHA-256 verification, live progress and speed, cancel, retry; receiver discards partial files on failure.
 - Receiving: accept/decline prompt (expires after 3 minutes), incoming progress, show file / open folder.
+- Automatic updates from GitHub releases, verified against a signing key: computers replace the app and restart when idle (after a notice); Android downloads and opens the system installer.
 - Pause and resume: either side can pause a running transfer (both keep what arrived) and either side can resume it; resuming an incoming one asks the sender's app to continue, so it must be open there.
 - Resuming: an interrupted transfer (connection lost, either app quit) keeps its partial files on the receiver; the sender reconnects by itself for a few minutes and sends only the rest (verified by SHA-256 of the kept part), without asking the receiver again. Resume (Retry) continues the same way later; sending the same file again after restarts continues it too (the receiver is asked again in that case). Cancelling discards the partial files; untouched ones are cleaned up after 7 days.
 - Rendezvous server binary (`cmd/server`) and a command-line client (`cmd/tpcli`).

@@ -26,6 +26,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +79,10 @@ func Start(dataDir, downloadDir, deviceName string, listener Listener, documents
 		}
 		listener.OnEvent(name, string(b))
 	})
+	// Updates download here; an installed one leaves its APK behind.
+	updates := filepath.Join(dataDir, "updates")
+	os.RemoveAll(updates)
+	c.SetUpdater(androidUpdater{dir: updates, listener: listener})
 	ctx, cancelFn := context.WithCancel(context.Background())
 	if err := c.Start(ctx); err != nil {
 		cancelFn()

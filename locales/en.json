@@ -385,5 +385,27 @@
     "receivedTitle": "Received {name}",
     "receivedFrom": "From {name}",
     "folderFailed": "Couldn't use that folder. Choose another one."
+  },
+  "update": {
+    "title": "Updates",
+    "hint": "Get new versions of TropicalPeer as they come out.",
+    "auto": "Update automatically",
+    "check": "Check now",
+    "checking": "Checking for updates…",
+    "current": "{version} is the newest version.",
+    "downloading": "Downloading {version}… {percent}%",
+    "ready": "{version} is ready to install.",
+    "installing": "Restarting to finish the update…",
+    "installingAndroid": "Waiting for Android to install {version}…",
+    "restartNow": "Restart now",
+    "installNow": "Install",
+    "restartSoon": "TropicalPeer {version} is ready. Restarting in {s} seconds.",
+    "installSoon": "TropicalPeer {version} is ready. Installing in {s} seconds.",
+    "notNow": "Not now",
+    "off": "Automatic updates are off.",
+    "unsigned": "The new version isn't signed, so it wasn't installed.",
+    "failed": "Couldn't check for updates. Check the internet connection.",
+    "installFailed": "Couldn't install the update.",
+    "notReady": "There's no update ready to install."
   }
 }

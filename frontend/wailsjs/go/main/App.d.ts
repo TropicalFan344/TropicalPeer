@@ -6,6 +6,8 @@ export function CancelInvite():Promise<void>;
 
 export function CancelTransfer(arg1:string):Promise<void>;
 
+export function CheckForUpdate():Promise<appcore.UpdateDTO>;
+
 export function ChooseFolder(arg1:string,arg2:string):Promise<string>;
 
 export function ClearFinishedTransfers():Promise<void>;
@@ -17,6 +19,10 @@ export function GetNetwork():Promise<appcore.NetworkDTO>;
 export function GetServerStatus():Promise<appcore.ServerStatus>;
 
 export function GetSettings():Promise<appcore.SettingsDTO>;
+
+export function GetUpdate():Promise<appcore.UpdateDTO>;
+
+export function InstallUpdate():Promise<void>;
 
 export function JoinWithCode(arg1:string):Promise<appcore.PeerDTO>;
 
@@ -31,6 +37,8 @@ export function OpenFolder(arg1:string):Promise<void>;
 export function PauseTransfer(arg1:string):Promise<void>;
 
 export function PickFiles():Promise<Array<string>>;
+
+export function PostponeUpdate():Promise<void>;
 
 export function RecheckNetwork():Promise<void>;
 
@@ -49,6 +57,8 @@ export function RetryTransfer(arg1:string):Promise<appcore.TransferDTO>;
 export function SaveSettings(arg1:appcore.SettingsDTO):Promise<void>;
 
 export function SendFiles(arg1:string,arg2:Array<string>):Promise<appcore.TransferDTO>;
+
+export function SetAutoUpdate(arg1:boolean):Promise<void>;
 
 export function SetDeviceName(arg1:string):Promise<void>;
 

@@ -22,12 +22,13 @@ import (
 // The methods are written out instead of embedding Core so Wails binds
 // exactly this list and nothing meant for Go callers (Start, SendSources).
 type App struct {
-	ctx  context.Context
-	core *appcore.Core
+	ctx     context.Context
+	core    *appcore.Core
+	dataDir string
 }
 
 func NewApp(dataDir string) *App {
-	a := &App{}
+	a := &App{dataDir: dataDir}
 	a.core = appcore.New(dataDir, func(name string, data any) {
 		if data == nil {
 			runtime.EventsEmit(a.ctx, name)
@@ -38,6 +39,7 @@ func NewApp(dataDir string) *App {
 			desktop.FlashWindow()
 		}
 	})
+	a.core.SetUpdater(desktopUpdater{app: a})
 	return a
 }
 
@@ -99,6 +101,11 @@ func (a *App) SendFiles(peerID string, paths []string) (appcore.TransferDTO, err
 }
 func (a *App) CancelTransfer(id string)                             { a.core.CancelTransfer(id) }
 func (a *App) RetryTransfer(id string) (appcore.TransferDTO, error) { return a.core.RetryTransfer(id) }
+func (a *App) GetUpdate() appcore.UpdateDTO                         { return a.core.GetUpdate() }
+func (a *App) CheckForUpdate() appcore.UpdateDTO                    { return a.core.CheckForUpdate() }
+func (a *App) SetAutoUpdate(on bool) error                          { return a.core.SetAutoUpdate(on) }
+func (a *App) InstallUpdate() error                                 { return a.core.InstallUpdate() }
+func (a *App) PostponeUpdate()                                      { a.core.PostponeUpdate() }
 func (a *App) PauseTransfer(id string)                              { a.core.PauseTransfer(id) }
 func (a *App) ResumeTransfer(id string) (appcore.TransferDTO, error) {
 	return a.core.ResumeTransfer(id)

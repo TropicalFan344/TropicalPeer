@@ -385,5 +385,27 @@
     "receivedTitle": "{name} recebido",
     "receivedFrom": "De {name}",
     "folderFailed": "Não foi possível usar essa pasta. Escolha outra."
+  },
+  "update": {
+    "title": "Atualizações",
+    "hint": "Receba as novas versões do TropicalPeer assim que saírem.",
+    "auto": "Atualizar automaticamente",
+    "check": "Verificar agora",
+    "checking": "Procurando atualizações…",
+    "current": "{version} é a versão mais recente.",
+    "downloading": "Baixando {version}… {percent}%",
+    "ready": "{version} está pronta para instalar.",
+    "installing": "Reiniciando para concluir a atualização…",
+    "installingAndroid": "Aguardando o Android instalar {version}…",
+    "restartNow": "Reiniciar agora",
+    "installNow": "Instalar",
+    "restartSoon": "TropicalPeer {version} está pronto. Reiniciando em {s} segundos.",
+    "installSoon": "TropicalPeer {version} está pronto. Instalando em {s} segundos.",
+    "notNow": "Agora não",
+    "off": "As atualizações automáticas estão desativadas.",
+    "unsigned": "A nova versão não está assinada, por isso não foi instalada.",
+    "failed": "Não foi possível procurar atualizações. Verifique a conexão com a internet.",
+    "installFailed": "Não foi possível instalar a atualização.",
+    "notReady": "Não há nenhuma atualização pronta para instalar."
   }
 }

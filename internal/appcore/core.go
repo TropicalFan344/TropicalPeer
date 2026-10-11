@@ -44,6 +44,7 @@ type Core struct {
 	transfers    map[string]*transferState
 	incoming     map[string]*transferState // by incomingKey, while running
 	stopped      map[string]*transferState // by incomingKey: interrupted, may resume in the same row
+	upd          updates
 	offers       map[string]*pendingOffer
 
 	// emitFn pushes an event to the UI. data is nil for events without a payload.
@@ -177,7 +178,11 @@ func (c *Core) setNode(n *node.Node) {
 func (c *Core) Start(ctx context.Context) error {
 	c.ctx = ctx
 	openLog(c.dataDir)
-	return c.startNode()
+	if err := c.startNode(); err != nil {
+		return err
+	}
+	c.startUpdates()
+	return nil
 }
 
 // logFile is a small diary of how transfers ended, in the profile folder,
@@ -269,6 +274,7 @@ func (c *Core) Stop() {
 	if n == nil {
 		return
 	}
+	c.installOnQuit()
 	c.mu.Lock()
 	var running []*transferState
 	for _, st := range c.transfers {

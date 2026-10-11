@@ -13,6 +13,7 @@ import (
 
 	"TropicalPeer/internal/node"
 	"TropicalPeer/internal/transfer"
+	"TropicalPeer/internal/update"
 )
 
 // Dev-only test hooks, compiled in only with `-tags devhooks`. They exist so
@@ -26,6 +27,8 @@ import (
 //   - TROPICALPEER_DEV_DEMO_TRANSFERS=1 adds two finished sample transfers:
 //     one that stayed on the relay and one that moved to a direct path.
 //   - TROPICALPEER_DEV_ACCEPT=1 accepts every offer as if a person clicked.
+//   - TROPICALPEER_DEV_UPDATE_API=<url> looks for updates there instead of
+//     GitHub (a local test server; releases must still be properly signed).
 //   - TROPICALPEER_DEV_RELAY_ONLY=1 sends through the relay even when a
 //     direct path exists (the upgrader still looks for one).
 //   - TROPICALPEER_DEV_PAUSE_AT=<bytes> pauses the first transfer (either
@@ -40,6 +43,10 @@ func (c *Core) runDevHooks() {
 			log.SetFlags(log.Ltime | log.Lmicroseconds)
 			go c.devWatchTransfers()
 		}
+	}
+	if api := os.Getenv("TROPICALPEER_DEV_UPDATE_API"); api != "" {
+		update.APIBase = api
+		log.Printf("devhooks: looking for updates at %s", api)
 	}
 	if os.Getenv("TROPICALPEER_DEV_RELAY_ONLY") == "1" {
 		node.DevRelayOnly = true

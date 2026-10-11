@@ -10,6 +10,10 @@ export function CancelTransfer(arg1) {
   return window['go']['main']['App']['CancelTransfer'](arg1);
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
 export function ChooseFolder(arg1, arg2) {
   return window['go']['main']['App']['ChooseFolder'](arg1, arg2);
 }
@@ -32,6 +36,14 @@ export function GetServerStatus() {
 
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
+}
+
+export function GetUpdate() {
+  return window['go']['main']['App']['GetUpdate']();
+}
+
+export function InstallUpdate() {
+  return window['go']['main']['App']['InstallUpdate']();
 }
 
 export function JoinWithCode(arg1) {
@@ -60,6 +72,10 @@ export function PauseTransfer(arg1) {
 
 export function PickFiles() {
   return window['go']['main']['App']['PickFiles']();
+}
+
+export function PostponeUpdate() {
+  return window['go']['main']['App']['PostponeUpdate']();
 }
 
 export function RecheckNetwork() {
@@ -96,6 +112,10 @@ export function SaveSettings(arg1) {
 
 export function SendFiles(arg1, arg2) {
   return window['go']['main']['App']['SendFiles'](arg1, arg2);
+}
+
+export function SetAutoUpdate(arg1) {
+  return window['go']['main']['App']['SetAutoUpdate'](arg1);
 }
 
 export function SetDeviceName(arg1) {
