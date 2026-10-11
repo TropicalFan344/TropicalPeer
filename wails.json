@@ -8,7 +8,7 @@
   "frontend:dev:serverUrl": "auto",
   "info": {
     "productName": "TropicalPeer",
-    "productVersion": "0.1.7",
+    "productVersion": "0.1.8",
     "comments": "Peer-to-peer file drop"
   }
 }
