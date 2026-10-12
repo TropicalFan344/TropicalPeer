@@ -3,6 +3,7 @@ package desktopapp
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -24,8 +25,13 @@ func TestNearestExistingDir(t *testing.T) {
 		filepath.Join("Q:\\", "nope", "there"): "",  // no existing ancestor (drive missing)
 	}
 	for in, want := range cases {
-		if _, err := os.Stat("Q:\\"); err == nil && in != "" && in[0] == 'Q' {
-			continue // this machine actually has a Q: drive
+		if in != "" && in[0] == 'Q' {
+			if runtime.GOOS != "windows" {
+				continue // a drive letter is just a relative name elsewhere
+			}
+			if _, err := os.Stat("Q:\\"); err == nil {
+				continue // this machine actually has a Q: drive
+			}
 		}
 		if got := nearestExistingDir(in); got != want {
 			t.Errorf("nearestExistingDir(%q) = %q, want %q", in, got, want)
