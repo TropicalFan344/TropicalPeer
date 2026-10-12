@@ -13,7 +13,7 @@ import (
 
 type handler func(c *appcore.Core, args []json.RawMessage) (any, error)
 
-// methods mirrors the desktop App's bound methods (app.go), minus the ones
+// methods mirrors the desktop App's bound methods (internal/desktopapp), minus the ones
 // only a desktop has (native dialogs, the file manager). SendDocuments
 // replaces SendFiles, since Android hands over documents, not paths.
 var methods = map[string]handler{

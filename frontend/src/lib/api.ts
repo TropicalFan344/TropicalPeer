@@ -1,5 +1,5 @@
-// Typed wrappers around the Go methods (app.go on desktop, mobile/ on
-// Android; see backend.ts) and the events they emit.
+// Typed wrappers around the Go methods (internal/desktopapp on desktop,
+// mobile/ on Android; see backend.ts) and the events they emit.
 import * as backend from './backend'
 import { call, isAndroid, isMac, type PickedFile } from './backend'
 

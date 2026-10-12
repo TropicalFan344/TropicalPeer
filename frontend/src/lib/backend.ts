@@ -1,10 +1,11 @@
 // Where the Go side lives. On desktop it's bound into the page by Wails
-// (app.go); on Android it's the TropicalPeer Capacitor plugin around the Go
-// engine (frontend/android/.../TropicalPeerPlugin.java, mobile/mobile.go).
+// (internal/desktopapp); on Android it's the TropicalPeer Capacitor plugin
+// around the Go engine (frontend/android/.../TropicalPeerPlugin.java,
+// mobile/mobile.go).
 // Both take the same method names and arguments and emit the same events,
 // so api.ts only notices the difference for files and folders.
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import * as Go from '../../wailsjs/go/main/App'
+import * as Go from '../../wailsjs/go/desktopapp/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 
 export const isAndroid = Capacitor.getPlatform() === 'android'

@@ -1,4 +1,4 @@
-package main
+package desktopapp
 
 import (
 	"io"
@@ -11,9 +11,9 @@ import (
 // process, which the new one waits for before taking over.
 const afterUpdateFlag = "--after-update"
 
-// handleAfterUpdate waits for the previous version to quit when this
+// HandleAfterUpdate waits for the previous version to quit when this
 // process was started by an update, then cleans up what it left.
-func handleAfterUpdate(dataDir string, args []string) {
+func HandleAfterUpdate(dataDir string, args []string) {
 	for i, a := range args {
 		if a == afterUpdateFlag && i+1 < len(args) {
 			if pid, err := strconv.Atoi(args[i+1]); err == nil {

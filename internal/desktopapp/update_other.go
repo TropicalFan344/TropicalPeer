@@ -1,6 +1,6 @@
 //go:build !windows && !darwin
 
-package main
+package desktopapp
 
 import "errors"
 

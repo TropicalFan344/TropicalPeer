@@ -1,7 +1,6 @@
-package main
+package desktopapp
 
 import (
-	_ "embed"
 	"html"
 	"log"
 	"os"
@@ -22,14 +21,11 @@ const (
 	toastGUID = "{B76908D7-EE5C-4AB1-BD1B-FC04859F2ED9}"
 )
 
-//go:embed build/appicon.png
-var toastIcon []byte
-
 func (a *App) initNotes() {
 	data := toast.AppData{AppID: toastAppID, GUID: toastGUID}
 	if dir, err := os.UserCacheDir(); err == nil {
 		icon := filepath.Join(dir, "TropicalPeer", "notification.png")
-		if os.MkdirAll(filepath.Dir(icon), 0o755) == nil && os.WriteFile(icon, toastIcon, 0o644) == nil {
+		if os.MkdirAll(filepath.Dir(icon), 0o755) == nil && os.WriteFile(icon, a.icons.Toast, 0o644) == nil {
 			data.IconPath = icon
 		}
 	}

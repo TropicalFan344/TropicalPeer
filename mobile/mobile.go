@@ -11,8 +11,8 @@
 //     ("transfer:update", "offer:new", ...).
 //   - Call(method, argsJSON) runs one app method with its arguments as a JSON
 //     array and returns the result as JSON. Methods and arguments mirror the
-//     desktop App (app.go), so the Svelte frontend's api.ts maps onto it
-//     one to one. Errors are already worded for people.
+//     desktop App (internal/desktopapp), so the Svelte frontend's api.ts maps
+//     onto it one to one. Errors are already worded for people.
 //
 // Android specifics live in the Kotlin app: it opens picked documents
 // (Documents.OpenFD), reports the device's addresses (SetLocalIPs) and

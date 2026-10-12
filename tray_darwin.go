@@ -6,3 +6,5 @@ import _ "embed"
 //
 //go:embed build/darwin/tray.png
 var trayIcon []byte
+
+var toastIcon []byte // Windows only

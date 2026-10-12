@@ -191,7 +191,7 @@ go test ./...                # engine tests (run once a build has produced front
 | Path | What's there |
 |---|---|
 | `internal/` | The engine: identity, pairing, NAT traversal, relay, transfers (`appcore` is the app layer shared by desktop and Android) |
-| `app.go`, `main.go` | The Wails desktop shell (`internal/desktop` has its OS integrations) |
+| `main.go`, `internal/desktopapp` | The Wails desktop shell (`internal/desktop` has its OS integrations) |
 | `scripts/` | The build scripts above |
 | `mobile/` | The Go engine as an Android library (gomobile) |
 | `frontend/src/` | The Svelte 5 interface, shared by every platform |

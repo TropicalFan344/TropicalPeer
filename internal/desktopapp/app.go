@@ -1,4 +1,6 @@
-package main
+// Package desktopapp is the Wails desktop shell around appcore.Core;
+// main.go at the repository root runs it.
+package desktopapp
 
 import (
 	"context"
@@ -16,8 +18,8 @@ import (
 )
 
 // App is the desktop shell around appcore.Core. Every exported method is
-// callable from JavaScript (see frontend/wailsjs/go/main/App); most simply
-// hand over to the core. Only what needs Wails or the desktop lives here:
+// callable from JavaScript (see frontend/wailsjs/go/desktopapp/App); most
+// simply hand over to the core. Only what needs Wails or the desktop lives here:
 // native dialogs, the file manager, the tray icon and taskbar attention.
 //
 // The methods are written out instead of embedding Core so Wails binds
@@ -26,11 +28,19 @@ type App struct {
 	ctx     context.Context
 	core    *appcore.Core
 	dataDir string
+	icons   Icons
 	notes   notes
 }
 
-func NewApp(dataDir string) *App {
-	a := &App{dataDir: dataDir}
+// Icons are embedded next to main.go, since go:embed can't reach build/
+// from here.
+type Icons struct {
+	Tray  []byte
+	Toast []byte // Windows notifications only
+}
+
+func NewApp(dataDir string, icons Icons) *App {
+	a := &App{dataDir: dataDir, icons: icons}
 	a.core = appcore.New(dataDir, func(name string, data any) {
 		if data == nil {
 			runtime.EventsEmit(a.ctx, name)
@@ -46,6 +56,18 @@ func NewApp(dataDir string) *App {
 	return a
 }
 
+// Hooks are an App's lifecycle callbacks for options.App. They're handed
+// out here rather than as exported methods, which Wails would bind.
+type Hooks struct {
+	OnStartup        func(context.Context)
+	OnShutdown       func(context.Context)
+	OnSecondInstance func(options.SecondInstanceData)
+}
+
+func HooksFor(a *App) Hooks {
+	return Hooks{OnStartup: a.startup, OnShutdown: a.shutdown, OnSecondInstance: a.onSecondInstance}
+}
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	if err := a.core.Start(ctx); err != nil {
@@ -59,7 +81,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	// Closing the window only hides it (HideWindowOnClose), so offers and
 	// transfers keep arriving; the tray icon brings it back or quits.
-	desktop.StartTray(trayIcon, a.trayLabels(), a.showWindow, func() { runtime.Quit(ctx) })
+	desktop.StartTray(a.icons.Tray, a.trayLabels(), a.showWindow, func() { runtime.Quit(ctx) })
 	a.initNotes()
 }
 

@@ -1,5 +1,5 @@
 // Package appcore is TropicalPeer's app layer, shared by the desktop app
-// (Wails, package main) and the Android app (package mobile): transfers with
+// (Wails, internal/desktopapp) and the Android app (package mobile): transfers with
 // progress and speed, incoming offers waiting for an answer, pairing, settings
 // and network status, with errors worded for people.
 //

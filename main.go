@@ -21,6 +21,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
+	"TropicalPeer/internal/desktopapp"
 	"TropicalPeer/internal/node"
 )
 
@@ -32,8 +33,9 @@ func main() {
 	if dataDir == "" {
 		dataDir = node.DefaultDataDir()
 	}
-	handleAfterUpdate(dataDir, os.Args[1:])
-	app := NewApp(dataDir)
+	desktopapp.HandleAfterUpdate(dataDir, os.Args[1:])
+	app := desktopapp.NewApp(dataDir, desktopapp.Icons{Tray: trayIcon, Toast: toastIcon})
+	hooks := desktopapp.HooksFor(app)
 
 	// A Mac app needs the standard menus: without Edit, Cmd+C/V/A don't
 	// reach the text fields, and without the app menu there's no Cmd+Q.
@@ -52,7 +54,7 @@ func main() {
 		// TROPICALPEER_DATA is a different profile and may run alongside.
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId:               instanceID(dataDir),
-			OnSecondInstanceLaunch: app.onSecondInstance,
+			OnSecondInstanceLaunch: hooks.OnSecondInstance,
 		},
 		Title:            "TropicalPeer",
 		Width:            1040,
@@ -61,8 +63,8 @@ func main() {
 		MinHeight:        520,
 		AssetServer:      &assetserver.Options{Assets: assets},
 		BackgroundColour: &options.RGBA{R: 14, G: 22, B: 19, A: 255},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		OnStartup:        hooks.OnStartup,
+		OnShutdown:       hooks.OnShutdown,
 		// Closing the window keeps the app running in the tray (the menu
 		// bar on a Mac), so offers and transfers still arrive.
 		HideWindowOnClose: true,
