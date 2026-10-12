@@ -70,3 +70,16 @@ var (
 		return 1
 	})
 )
+
+// WindowHidden reports whether the app's window is closed to the tray.
+func WindowHidden() bool { return mainWindow() == 0 }
+
+// AppInFront reports whether the app's window is the one in use.
+func AppInFront() bool {
+	hwnd := mainWindow()
+	if hwnd == 0 {
+		return false
+	}
+	fg, _, _ := procGetForeground.Call()
+	return fg == hwnd
+}

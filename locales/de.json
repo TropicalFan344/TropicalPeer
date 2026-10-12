@@ -419,5 +419,9 @@
     "failed": "Konnte nicht nach Updates suchen. Prüfe die Internetverbindung.",
     "installFailed": "Das Update konnte nicht installiert werden.",
     "notReady": "Es ist kein Update zur Installation bereit."
+  },
+  "tray": {
+    "open": "TropicalPeer öffnen",
+    "quit": "TropicalPeer beenden"
   }
 }

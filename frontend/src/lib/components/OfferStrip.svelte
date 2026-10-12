@@ -27,8 +27,9 @@
   })
 
   function shortDir(dir: string) {
+    const sep = dir.includes('\\') ? '\\' : '/' // as the system writes it
     const parts = dir.split(/[\\/]/).filter(Boolean)
-    return parts.length > 2 ? `…\\${parts.slice(-2).join('\\')}` : dir
+    return parts.length > 2 ? `…${sep}${parts.slice(-2).join(sep)}` : dir
   }
 </script>
 

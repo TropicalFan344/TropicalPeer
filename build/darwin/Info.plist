@@ -25,6 +25,9 @@
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
         <string>{{.Info.Copyright}}</string>
+        <!-- Notifications stay on screen until answered: an offer waits for Accept or Decline. -->
+        <key>NSUserNotificationAlertStyle</key>
+        <string>alert</string>
         <!-- macOS 15+ asks before an app talks to devices on the local network. -->
         <key>NSLocalNetworkUsageDescription</key>
         <string>TropicalPeer sends files directly to your devices on this network.</string>

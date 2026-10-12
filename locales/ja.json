@@ -419,5 +419,9 @@
     "failed": "アップデートを確認できませんでした。インターネット接続を確認してください。",
     "installFailed": "アップデートをインストールできませんでした。",
     "notReady": "インストールできるアップデートはありません。"
+  },
+  "tray": {
+    "open": "TropicalPeer を開く",
+    "quit": "TropicalPeer を終了"
   }
 }

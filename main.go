@@ -63,8 +63,11 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 14, G: 22, B: 19, A: 255},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
-		Bind:             []any{app},
-		Menu:             appMenu,
+		// Closing the window keeps the app running in the tray (the menu
+		// bar on a Mac), so offers and transfers still arrive.
+		HideWindowOnClose: true,
+		Bind:              []any{app},
+		Menu:              appMenu,
 		// Files dropped from Explorer or Finder arrive in the frontend with their full
 		// paths (see OnFileDrop in frontend/src/lib/drop.svelte.ts).
 		DragAndDrop: &options.DragAndDrop{EnableFileDrop: true},

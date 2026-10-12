@@ -26,8 +26,9 @@ type OfferDTO struct {
 	ExpiresAt int64     `json:"expiresAt"` // unix ms
 }
 
-// OfferClosed tells the frontend a prompt went away without the user, as
-// "offer:closed".
+// OfferClosed tells the frontend a prompt went away, as "offer:closed".
+// Reason is empty when it was answered: maybe somewhere else than the
+// window showing it, such as a phone notification's Accept button.
 type OfferClosed struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason"`
@@ -68,6 +69,7 @@ func (c *Core) onOffer(ctx context.Context, peer peers.Peer, offer protocol.Offe
 
 	select {
 	case accept := <-po.decision:
+		c.emit("offer:closed", OfferClosed{ID: po.dto.ID})
 		return accept
 	case <-ctx.Done():
 		c.emit("offer:closed", OfferClosed{ID: po.dto.ID, Reason: c.T("offer.peerCancelled", "name", peer.Name)})

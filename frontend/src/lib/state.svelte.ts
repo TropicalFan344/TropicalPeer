@@ -81,7 +81,7 @@ export async function initState() {
     app.offers.push(o)
   })
   on('offer:closed', ({ id, reason }) => {
-    if (dropOffer(id)) toast(reason, 'info', 6000)
+    if (dropOffer(id) && reason) toast(reason, 'info', 6000)
   })
   on('update:changed', applyUpdate)
   api.getUpdate().then(applyUpdate)
@@ -101,6 +101,11 @@ export async function initState() {
   app.peers = peers
   app.transfers = transfers
   app.offers = offers
+  // A phone may answer an offer from its notification while the app is in
+  // the background: pick up what is still waiting when it comes back.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) api.listOffers().then((o) => (app.offers = o))
+  })
 }
 
 /** Keeps the update status, and gives notice before an update installs by itself. */

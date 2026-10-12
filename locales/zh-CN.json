@@ -419,5 +419,9 @@
     "failed": "无法检查更新。请检查网络连接。",
     "installFailed": "无法安装更新。",
     "notReady": "目前没有可安装的更新。"
+  },
+  "tray": {
+    "open": "打开 TropicalPeer",
+    "quit": "退出 TropicalPeer"
   }
 }

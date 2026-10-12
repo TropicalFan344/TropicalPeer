@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,7 +18,7 @@ import (
 // App is the desktop shell around appcore.Core. Every exported method is
 // callable from JavaScript (see frontend/wailsjs/go/main/App); most simply
 // hand over to the core. Only what needs Wails or the desktop lives here:
-// native dialogs, the file manager and taskbar attention.
+// native dialogs, the file manager, the tray icon and taskbar attention.
 //
 // The methods are written out instead of embedding Core so Wails binds
 // exactly this list and nothing meant for Go callers (Start, SendSources).
@@ -25,6 +26,7 @@ type App struct {
 	ctx     context.Context
 	core    *appcore.Core
 	dataDir string
+	notes   notes
 }
 
 func NewApp(dataDir string) *App {
@@ -38,6 +40,7 @@ func NewApp(dataDir string) *App {
 		if name == "offer:new" {
 			desktop.FlashWindow()
 		}
+		go a.notifyEvent(name, data)
 	})
 	a.core.SetUpdater(desktopUpdater{app: a})
 	return a
@@ -52,15 +55,22 @@ func (a *App) startup(ctx context.Context) {
 			Message: err.Error(),
 		})
 		runtime.Quit(ctx)
-	}
-}
-
-// onSecondInstance runs when TropicalPeer is opened again while this copy
-// is running: show this window instead of starting another.
-func (a *App) onSecondInstance(options.SecondInstanceData) {
-	if a.ctx == nil {
 		return
 	}
+	// Closing the window only hides it (HideWindowOnClose), so offers and
+	// transfers keep arriving; the tray icon brings it back or quits.
+	desktop.StartTray(trayIcon, a.trayLabels(), a.showWindow, func() { runtime.Quit(ctx) })
+	a.initNotes()
+}
+
+func (a *App) trayLabels() desktop.TrayLabels {
+	return desktop.TrayLabels{Open: a.core.T("tray.open"), Quit: a.core.T("tray.quit")}
+}
+
+// showWindow brings the window back from the tray, the Dock or behind
+// other windows.
+func (a *App) showWindow() {
+	runtime.Show(a.ctx) // a Mac app hidden by closing its window
 	runtime.WindowUnminimise(a.ctx)
 	runtime.WindowShow(a.ctx)
 	// Windows only lets a background app flash its taskbar button, not
@@ -69,8 +79,34 @@ func (a *App) onSecondInstance(options.SecondInstanceData) {
 	runtime.WindowSetAlwaysOnTop(a.ctx, false)
 }
 
-// shutdown removes the router port forward before the app exits.
-func (a *App) shutdown(context.Context) { a.core.Stop() }
+// drawAttention is for when a notification couldn't be shown: a window
+// closed to the tray comes back minimised, so it has a taskbar button to
+// flash (on a Mac the Dock icon bounces).
+func (a *App) drawAttention() {
+	if a.ctx != nil && desktop.WindowHidden() {
+		runtime.WindowMinimise(a.ctx)
+		for i := 0; i < 20 && desktop.WindowHidden(); i++ {
+			time.Sleep(25 * time.Millisecond)
+		}
+	}
+	desktop.FlashWindow()
+}
+
+// onSecondInstance runs when TropicalPeer is opened again while this copy
+// is running: show this window instead of starting another.
+func (a *App) onSecondInstance(options.SecondInstanceData) {
+	if a.ctx == nil {
+		return
+	}
+	a.showWindow()
+}
+
+// shutdown removes the tray icon and the router port forward before the
+// app exits.
+func (a *App) shutdown(context.Context) {
+	desktop.StopTray()
+	a.core.Stop()
+}
 
 // ---- Device, server and network ----
 
@@ -120,7 +156,11 @@ func (a *App) RespondOffer(id string, accept bool) error { return a.core.Respond
 func (a *App) Restart() error { return a.core.Restart() }
 
 // SetLanguage sets the language of messages from Go (a locales code).
-func (a *App) SetLanguage(lang string) { a.core.SetLanguage(lang) }
+func (a *App) SetLanguage(lang string) {
+	a.core.SetLanguage(lang)
+	desktop.SetTrayLabels(a.trayLabels())
+	a.notesLanguageChanged()
+}
 
 // ---- Desktop only ----
 

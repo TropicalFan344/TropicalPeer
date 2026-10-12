@@ -419,5 +419,9 @@
     "failed": "No se pudo buscar actualizaciones. Revisa la conexión a internet.",
     "installFailed": "No se pudo instalar la actualización.",
     "notReady": "No hay ninguna actualización lista para instalar."
+  },
+  "tray": {
+    "open": "Abrir TropicalPeer",
+    "quit": "Salir de TropicalPeer"
   }
 }

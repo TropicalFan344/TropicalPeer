@@ -4,6 +4,8 @@ go 1.27
 
 require (
 	filippo.io/cpace v0.0.0-20210101143347-24d601e2e469
+	fyne.io/systray v1.12.2
+	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3
 	github.com/huin/goupnp v1.3.0
 	github.com/jackpal/gateway v1.2.0
 	github.com/jackpal/go-nat-pmp v1.1.0
@@ -14,7 +16,6 @@ require (
 )
 
 require (
-	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect

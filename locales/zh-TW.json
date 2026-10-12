@@ -419,5 +419,9 @@
     "failed": "無法檢查更新。請確認網路連線。",
     "installFailed": "無法安裝更新。",
     "notReady": "目前沒有可安裝的更新。"
+  },
+  "tray": {
+    "open": "開啟 TropicalPeer",
+    "quit": "結束 TropicalPeer"
   }
 }

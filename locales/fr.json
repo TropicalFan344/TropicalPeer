@@ -419,5 +419,9 @@
     "failed": "Impossible de rechercher les mises à jour. Vérifiez la connexion internet.",
     "installFailed": "Impossible d'installer la mise à jour.",
     "notReady": "Aucune mise à jour n'est prête à être installée."
+  },
+  "tray": {
+    "open": "Ouvrir TropicalPeer",
+    "quit": "Quitter TropicalPeer"
   }
 }
