@@ -39,6 +39,14 @@ type Updater interface {
 	InstallOnQuit() bool
 }
 
+// InstallBlocker is an Updater that can tell before downloading that it
+// couldn't put an update in place, e.g. because the app runs from a folder
+// it can't write to (a disk image, a protected folder). CantInstallHere
+// returns the locale key of what the person should do, or "" if all is well.
+type InstallBlocker interface {
+	CantInstallHere() string
+}
+
 // Update states as the frontend sees them.
 const (
 	UpdateIdle        = "idle" // not checked yet, or automatic updates are off
@@ -215,6 +223,14 @@ func (c *Core) checkForUpdate() {
 		c.setUpdate(func(d *UpdateDTO) { d.State, d.Error, d.CheckedAt = UpdateFailed, c.updateError(err), now })
 		return
 	}
+	// Downloading would be for nothing: say what to do instead.
+	if key := c.cantInstallHere(); key != "" {
+		log.Printf("update: %s is available (this is %s), but this copy can't replace itself where it is", rel.Version, Version)
+		c.setUpdate(func(d *UpdateDTO) {
+			d.State, d.Version, d.Error, d.CheckedAt = UpdateFailed, rel.Version, c.T(key), now
+		})
+		return
+	}
 	name := c.upd.updater.AssetName(rel.Version)
 	log.Printf("update: %s is available (this is %s); downloading %s", rel.Version, Version, name)
 	c.setUpdate(func(d *UpdateDTO) {
@@ -237,6 +253,15 @@ func (c *Core) checkForUpdate() {
 	c.upd.path = path
 	c.upd.mu.Unlock()
 	c.setUpdate(func(d *UpdateDTO) { d.State, d.Done = UpdateReady, d.Total })
+}
+
+// cantInstallHere is the locale key of why an update couldn't be put in
+// place, or "" (see InstallBlocker).
+func (c *Core) cantInstallHere() string {
+	if b, ok := c.upd.updater.(InstallBlocker); ok {
+		return b.CantInstallHere()
+	}
+	return ""
 }
 
 func (c *Core) updateError(err error) string {
@@ -306,7 +331,11 @@ func (c *Core) install(relaunch bool) error {
 	// person may have dismissed: hand it over again each time.
 	if !done || !c.upd.updater.InstallOnQuit() {
 		if err := c.upd.updater.Install(path); err != nil {
-			c.setUpdate(func(d *UpdateDTO) { d.State, d.Error, d.RestartAt = UpdateFailed, c.T("update.installFailed"), 0 })
+			msg := c.T("update.installFailed")
+			if key := c.cantInstallHere(); key != "" {
+				msg = c.T(key)
+			}
+			c.setUpdate(func(d *UpdateDTO) { d.State, d.Error, d.RestartAt = UpdateFailed, msg, 0 })
 			return err
 		}
 		c.upd.mu.Lock()

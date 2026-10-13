@@ -16,7 +16,7 @@ import (
 
 // desktopUpdater installs a new TropicalPeer.app in place of this one, from
 // the release's disk image: the new bundle is copied next to the old one,
-// then the two swap names (the old one is removed at the next start).
+// and the two swap names once this process has exited.
 type desktopUpdater struct{ app *App }
 
 func (u desktopUpdater) AssetName(version string) string {
@@ -29,6 +29,20 @@ func (u desktopUpdater) AssetName(version string) string {
 func (u desktopUpdater) Dir() string { return filepath.Join(u.app.dataDir, "updates") }
 
 func (u desktopUpdater) InstallOnQuit() bool { return true }
+
+// CantInstallHere: an app opened from its disk image, or from Downloads
+// without moving it (macOS then runs it from a read-only copy, "App
+// Translocation"), can't replace itself.
+func (u desktopUpdater) CantInstallHere() string {
+	bundle, err := appBundle()
+	if err != nil || writableDir(filepath.Dir(bundle)) {
+		return ""
+	}
+	if strings.Contains(bundle, "/AppTranslocation/") || strings.HasPrefix(bundle, "/Volumes/") {
+		return "update.moveToApplications"
+	}
+	return "update.folderReadOnly"
+}
 
 func (u desktopUpdater) Install(dmg string) error {
 	bundle, err := appBundle()
@@ -51,27 +65,38 @@ func (u desktopUpdater) Install(dmg string) error {
 		os.RemoveAll(fresh)
 		return fmt.Errorf("copying the update: %v: %s", err, out)
 	}
-	old := bundle + ".old"
-	os.RemoveAll(old)
-	if err := os.Rename(bundle, old); err != nil {
+	// The swap waits until this process has exited. Renaming the bundle of
+	// a running app leaves the Dock with a second icon for it: the old
+	// process runs on from TropicalPeer.app.old, a different app to the Dock.
+	cmd := exec.Command("/bin/sh", "-c", swapScript, "swap", strconv.Itoa(os.Getpid()), bundle, u.relaunchMarker())
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // outlives this process
+	if err := cmd.Start(); err != nil {
 		os.RemoveAll(fresh)
 		return err
 	}
-	if err := os.Rename(fresh, bundle); err != nil {
-		os.Rename(old, bundle) // put the working version back
-		return err
-	}
-	return nil
+	return cmd.Process.Release()
 }
 
+// swapScript puts bundle.new in place of bundle once process $1 has exited,
+// keeping the old version if that fails, then opens the app if the marker
+// file asks for it.
+const swapScript = `pid=$1 bundle=$2 marker=$3
+while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+rm -rf "$bundle.old"
+if mv "$bundle" "$bundle.old"; then
+	if mv "$bundle.new" "$bundle"; then rm -rf "$bundle.old"; else mv "$bundle.old" "$bundle"; fi
+fi
+if [ -e "$marker" ]; then rm -f "$marker"; open "$bundle"; fi`
+
+// relaunchMarker is the file that asks the swap to open the app afterwards.
+func (u desktopUpdater) relaunchMarker() string {
+	return filepath.Join(u.Dir(), fmt.Sprintf("relaunch-%d", os.Getpid()))
+}
+
+// Relaunch quits; the swap Install started then opens the new version
+// (only once this process is gone, so just one copy runs at any time).
 func (u desktopUpdater) Relaunch() error {
-	bundle, err := appBundle()
-	if err != nil {
-		return err
-	}
-	// The new copy waits for this one to exit (see waitForExit): until
-	// then this process holds the single-instance lock.
-	if err := exec.Command("open", "-n", bundle, "--args", afterUpdateFlag, strconv.Itoa(os.Getpid())).Start(); err != nil {
+	if err := os.WriteFile(u.relaunchMarker(), nil, 0o600); err != nil {
 		return err
 	}
 	wruntime.Quit(u.app.ctx)
@@ -95,7 +120,7 @@ func cleanUpAfterUpdate(dataDir string) {
 	if bundle, err := appBundle(); err == nil {
 		os.RemoveAll(bundle + ".old")
 	}
-	os.RemoveAll(filepath.Join(dataDir, "updates"))
+	cleanUpDownloads(filepath.Join(dataDir, "updates"))
 }
 
 func waitForExit(pid int) {

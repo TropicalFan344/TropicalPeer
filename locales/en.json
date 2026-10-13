@@ -418,6 +418,8 @@
     "unsigned": "The new version isn't signed, so it wasn't installed.",
     "failed": "Couldn't check for updates. Check the internet connection.",
     "installFailed": "Couldn't install the update.",
+    "moveToApplications": "To get updates, move TropicalPeer to the Applications folder and open it from there.",
+    "folderReadOnly": "TropicalPeer can't update itself in this folder. Move it to a folder you can change, then open it from there.",
     "notReady": "There's no update ready to install."
   },
   "tray": {

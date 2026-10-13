@@ -418,6 +418,8 @@
     "unsigned": "La nueva versión no está firmada, así que no se instaló.",
     "failed": "No se pudo buscar actualizaciones. Revisa la conexión a internet.",
     "installFailed": "No se pudo instalar la actualización.",
+    "moveToApplications": "Para recibir actualizaciones, mueve TropicalPeer a la carpeta Aplicaciones y ábrelo desde allí.",
+    "folderReadOnly": "TropicalPeer no puede actualizarse en esta carpeta. Muévelo a una carpeta que puedas modificar y ábrelo desde allí.",
     "notReady": "No hay ninguna actualización lista para instalar."
   },
   "tray": {

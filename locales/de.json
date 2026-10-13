@@ -418,6 +418,8 @@
     "unsigned": "Die neue Version ist nicht signiert und wurde daher nicht installiert.",
     "failed": "Konnte nicht nach Updates suchen. Prüfe die Internetverbindung.",
     "installFailed": "Das Update konnte nicht installiert werden.",
+    "moveToApplications": "Um Updates zu erhalten, verschiebe TropicalPeer in den Ordner „Programme“ und öffne es von dort.",
+    "folderReadOnly": "TropicalPeer kann sich in diesem Ordner nicht aktualisieren. Verschiebe es in einen Ordner, den du ändern darfst, und öffne es von dort.",
     "notReady": "Es ist kein Update zur Installation bereit."
   },
   "tray": {

@@ -28,6 +28,16 @@ func (u desktopUpdater) Dir() string { return filepath.Join(u.app.dataDir, "upda
 
 func (u desktopUpdater) InstallOnQuit() bool { return true }
 
+// CantInstallHere: the exe can't replace itself in a folder it may not
+// change, such as Program Files.
+func (u desktopUpdater) CantInstallHere() string {
+	exe, err := runningExe()
+	if err != nil || writableDir(filepath.Dir(exe)) {
+		return ""
+	}
+	return "update.folderReadOnly"
+}
+
 func (u desktopUpdater) Install(path string) error {
 	exe, err := runningExe()
 	if err != nil {
@@ -65,7 +75,7 @@ func cleanUpAfterUpdate(dataDir string) {
 	if exe, err := runningExe(); err == nil {
 		os.Remove(exe + ".old")
 	}
-	os.RemoveAll(filepath.Join(dataDir, "updates"))
+	cleanUpDownloads(filepath.Join(dataDir, "updates"))
 }
 
 // waitForExit waits (briefly) for the process that started this one to quit.

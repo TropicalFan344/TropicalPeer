@@ -191,3 +191,33 @@ func TestDevBuildsDontUpdate(t *testing.T) {
 		t.Fatalf("dev build: %q", s)
 	}
 }
+
+// blockedUpdater is a copy that can't replace itself where it runs.
+type blockedUpdater struct{ fakeUpdater }
+
+func (b *blockedUpdater) CantInstallHere() string { return "update.moveToApplications" }
+
+func TestUpdateThatCantInstallHereSaysWhy(t *testing.T) {
+	fakeReleases(t)
+	oldVersion := Version
+	Version = "0.1.7"
+	defer func() { Version = oldVersion }()
+
+	c := New(t.TempDir(), nil)
+	c.ctx = context.Background()
+	c.emitFn = func(string, any) {}
+	n, _ := node.New(t.TempDir(), node.Events{})
+	c.node = n
+	up := &blockedUpdater{fakeUpdater{dir: t.TempDir()}}
+	c.SetUpdater(up)
+	c.upd.dto.State = UpdateIdle
+	c.checkForUpdate()
+
+	d := c.GetUpdate()
+	if d.State != UpdateFailed || d.Version != "0.9.0" || d.Error != c.T("update.moveToApplications") {
+		t.Fatalf("got %+v", d)
+	}
+	if entries, _ := os.ReadDir(up.dir); len(entries) != 0 {
+		t.Fatalf("downloaded anyway: %v", entries)
+	}
+}

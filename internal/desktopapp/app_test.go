@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"TropicalPeer/internal/appcore"
 )
 
 func TestNearestExistingDir(t *testing.T) {
@@ -36,5 +38,20 @@ func TestNearestExistingDir(t *testing.T) {
 		if got := nearestExistingDir(in); got != want {
 			t.Errorf("nearestExistingDir(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestCleanUpDownloadsKeepsNewerVersions(t *testing.T) {
+	old := appcore.Version
+	appcore.Version = "0.1.11"
+	defer func() { appcore.Version = old }()
+	dir := t.TempDir()
+	for _, name := range []string{"TropicalPeer-0.1.12.dmg", "TropicalPeer-0.1.13.dmg.part", "TropicalPeer-0.1.11.dmg", "TropicalPeer-0.1.9.exe", "junk"} {
+		os.WriteFile(filepath.Join(dir, name), nil, 0o600)
+	}
+	cleanUpDownloads(dir)
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "TropicalPeer-0.1.12.dmg" {
+		t.Fatalf("left %v; want only the finished newer download", entries)
 	}
 }

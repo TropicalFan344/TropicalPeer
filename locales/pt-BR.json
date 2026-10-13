@@ -418,6 +418,8 @@
     "unsigned": "A nova versão não está assinada, por isso não foi instalada.",
     "failed": "Não foi possível procurar atualizações. Verifique a conexão com a internet.",
     "installFailed": "Não foi possível instalar a atualização.",
+    "moveToApplications": "Para receber atualizações, mova o TropicalPeer para a pasta Aplicativos e abra-o de lá.",
+    "folderReadOnly": "O TropicalPeer não consegue se atualizar nesta pasta. Mova-o para uma pasta que você possa alterar e abra-o de lá.",
     "notReady": "Não há nenhuma atualização pronta para instalar."
   },
   "tray": {

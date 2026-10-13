@@ -418,6 +418,8 @@
     "unsigned": "新版本未經簽署，因此沒有安裝。",
     "failed": "無法檢查更新。請確認網路連線。",
     "installFailed": "無法安裝更新。",
+    "moveToApplications": "若要接收更新，請將 TropicalPeer 移到「應用程式」資料夾，然後從那裡開啟。",
+    "folderReadOnly": "TropicalPeer 無法在此資料夾中更新自己。請將它移到你可以修改的資料夾，然後從那裡開啟。",
     "notReady": "目前沒有可安裝的更新。"
   },
   "tray": {

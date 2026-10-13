@@ -5,6 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+
+	"TropicalPeer/internal/appcore"
+	"TropicalPeer/internal/update"
 )
 
 // afterUpdateFlag starts the new version after an update: it names the old
@@ -22,6 +26,32 @@ func HandleAfterUpdate(dataDir string, args []string) {
 		}
 	}
 	cleanUpAfterUpdate(dataDir)
+}
+
+// cleanUpDownloads removes the downloads in dir that are of no more use:
+// all but finished ones of a version newer than this one, which the next
+// check verifies and installs without fetching them again.
+func cleanUpDownloads(dir string) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		name := e.Name() // "TropicalPeer-0.1.12.dmg", or "….dmg.part"
+		version := strings.TrimSuffix(strings.TrimPrefix(name, "TropicalPeer-"), filepath.Ext(name))
+		if !update.Newer(version, appcore.Version) {
+			os.RemoveAll(filepath.Join(dir, name))
+		}
+	}
+}
+
+// writableDir reports whether files can be created in dir, which is what
+// putting an update in place takes.
+func writableDir(dir string) bool {
+	f, err := os.CreateTemp(dir, ".tropicalpeer-check-*")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	os.Remove(f.Name())
+	return true
 }
 
 func runningExe() (string, error) {
