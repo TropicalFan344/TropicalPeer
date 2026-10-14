@@ -14,6 +14,7 @@ TropicalPeer is a peer-to-peer file drop for **Windows, macOS and Android**. Two
 - **Private by design.** Pairing uses a PAKE (CPace), so the server never learns the code. Transfers are encrypted over QUIC and checked with SHA-256.
 - **Self-hosted.** A small rendezvous server introduces devices to each other. Run your own on a VPS or at home.
 - **Pause, resume, and pick up where it stopped.** Either side can pause a transfer and either side can resume it. If the connection drops or either app quits, the sender reconnects by itself, and only the rest of the file is sent. Pressing Resume later, or sending the same file again after both apps restarted, continues it too.
+- **Share by link.** For someone without the app: make a link or a QR code, and they download the files in any browser, straight from your device over WebRTC, end-to-end encrypted. Let only the first person download, or anyone with the link, and see each one under a made-up name like "Orchid Tiger" with a Cancel button. Needs a server set up for it; see [Share by link](#share-by-link).
 - **Per-device control.** For each device you choose whether to ask first, accept automatically (optionally up to a size), or block it. You can also give it its own download folder.
 - **10 languages:** English, 繁體中文, 简体中文, 日本語, 한국어, Español, Français, Deutsch, Português (Brasil), Русский.
 
@@ -140,7 +141,7 @@ Releases made without the secret are published unsigned, and the apps won't inst
 
 ## Run a rendezvous server
 
-The server is a single file with no dependencies. It keeps nothing on disk, so there's nothing to set up. Builds for Linux, Windows and macOS (x64 and ARM64) are attached to each [release](../../releases). To build them yourself, run this on any OS:
+The server is a single file with no dependencies. It keeps nothing on disk (except its HTTPS certificate when [share by link](#share-by-link) is on), so there's nothing to set up. Builds for Linux, Windows and macOS (x64 and ARM64) are attached to each [release](../../releases). To build them yourself, run this on any OS:
 
 ```sh
 sh scripts/build-server.sh                                          # macOS / Linux
@@ -180,6 +181,38 @@ Other options: `-listen :PORT`, `-relay=false` (no relaying), `-relay-rate MB/s`
 
 The server never sees file contents or pairing codes, and it tells a device where another one is only after that device confirms they are paired (devices on 0.1.5 or older skip that check until they update). Relayed traffic is end-to-end encrypted between the two devices.
 
+### Share by link
+
+Links let someone download from your device in a browser, without the app. For that the server also serves the download page over HTTPS, relays the browser's WebRTC setup, and runs a TURN relay for when the two can't reach each other directly. It needs a domain name. Turn it on with `-domain`:
+
+| Port | For |
+|---|---|
+| TCP 443, or what `-web` says | The download page and the browser's connection (HTTPS) |
+| TCP and UDP 3478 (`-turn-port`) | STUN and the TURN relay |
+| UDP 40100–40119 (`-turn-relay`) | Relayed traffic, one port per connection |
+
+- **At home, with DuckDNS** (free): many home connections block incoming port 443, so use another port. With a `.duckdns.org` name and your DuckDNS token, the server gets its certificate from Let's Encrypt through DuckDNS (no port 443 needed) and keeps the name pointed at your current address, which replaces the updater script:
+
+  ```sh
+  tropicalpeer-server -upnp -domain yourname.duckdns.org -web :8443 -duckdns-token YOUR_TOKEN
+  ```
+
+  The token can come from the `DUCKDNS_TOKEN` environment variable instead. At startup the server checks that its ports answer at your public address. Some routers accept the UPnP request and then don't pass the traffic; it then names the ports to forward by hand on the router's port forwarding page, to this computer.
+- **On a VPS** with your own domain pointing at it: `-domain example.com` gets a certificate on port 443 by itself. Add these to the systemd unit above, so it can keep the certificate and use port 443:
+
+  ```ini
+  ExecStart=/usr/local/bin/tropicalpeer-server -domain example.com -acme-dir /var/lib/tropicalpeer-server/acme
+  StateDirectory=tropicalpeer-server
+  AmbientCapabilities=CAP_NET_BIND_SERVICE
+  ```
+
+  and open the ports: `sudo ufw allow 443/tcp && sudo ufw allow 3478 && sudo ufw allow 40100:40119/udp`.
+- **Behind a reverse proxy** that already does HTTPS (Caddy, nginx): `-domain example.com -web-plain -web 127.0.0.1:8080 -web-url https://example.com/r/`, and have the proxy forward `/r/` and `/ws` to `127.0.0.1:8080` (WebSockets included). The TURN ports stay open as above.
+
+Links end when the sending app quits. A dropped connection to the server, or a server restart, doesn't end them: the app reconnects them for 15 minutes, and downloads already running carry on, since they go device to browser.
+
+**What the server sees:** that someone opened a link, and their IP address. The secret part of a link sits after `#`, which browsers never send to servers. The browser and your device each prove they know it before any file data moves, so a server in the middle can't read or change the files. One limit applies to any web app like this: whoever serves the download page could serve a modified page that reads the secret. If you run your own server, that's you.
+
 ## Develop
 
 ```sh
@@ -196,7 +229,8 @@ go test ./...                # engine tests (run once a build has produced front
 | `mobile/` | The Go engine as an Android library (gomobile) |
 | `frontend/src/` | The Svelte 5 interface, shared by every platform |
 | `frontend/android/` | The Capacitor Android shell and its native plugin |
-| `cmd/server`, `cmd/tpcli` | The rendezvous server and a command-line client |
+| `cmd/server`, `cmd/tpcli` | The rendezvous server and a command-line client (`tpcli share <file>` makes a link) |
+| `internal/linkshare`, `web/` | Share by link: the sending side, and the browser's download page. `cd web && npm run build` rebuilds the page into `internal/server/webdist`, which the server embeds |
 | `locales/` | All UI text, one JSON file per language ([how to add or fix a language](locales/README.md)) |
 | `build/icon/` | The app icon sources ([how to regenerate](build/icon/README.md)) |
 | `DESIGN.md`, `PRODUCT.md` | The design system and product brief |
