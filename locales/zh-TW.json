@@ -166,6 +166,7 @@
     "qrLabel": "{what} 的連結 QR 碼",
     "emptyTitle": "還沒有連結",
     "emptyBody": "按「新增連結」，或把檔案拖到這裡。只要 TropicalPeer 開著，任何掃描 QR 碼或開啟連結的人都能在瀏覽器下載。",
+    "emptyBodyTouch": "點「新增連結」選擇檔案。只要 TropicalPeer 開著，任何掃描 QR 碼或開啟連結的人都能在瀏覽器下載。",
     "dropHint": "放開即可為這些檔案建立連結",
     "unsupportedTitle": "你的伺服器還不支援連結",
     "unsupportedBody": "連結需要有網址（HTTPS）的 rendezvous 伺服器。請更新伺服器並加上 -domain 啟動，做法見 README。",
@@ -177,7 +178,10 @@
     "unsupported": "你的 rendezvous 伺服器不支援連結。",
     "createFailed": "無法建立連結：{error}",
     "endedServer": "你的伺服器 15 分鐘都連不上，這個連結已失效。請建立新的連結。",
-    "reconnecting": "正在重新連線到你的伺服器…已在進行的下載不受影響。"
+    "reconnecting": "正在重新連線到你的伺服器…已在進行的下載不受影響。",
+    "share": "分享",
+    "shareByLink": "用連結分享",
+    "shareByLinkHint": "任何拿到連結的人都能在瀏覽器下載"
   },
   "transfers": {
     "title": "傳輸",
@@ -430,6 +434,9 @@
     "receiving": "正在接收 {what}",
     "to": "給 {name} · {pct}%",
     "from": "來自 {name} · {pct}%",
+    "linksTitle": { "other": "正在分享 {count} 個連結" },
+    "linksWaiting": "等待有人開啟。TropicalPeer 會保持連線。",
+    "linksDownloading": { "other": "{count} 人正在下載" },
     "transfers": { "other": "{count} 項傳輸" },
     "receivedTitle": "已收到 {name}",
     "receivedFrom": "來自 {name}",

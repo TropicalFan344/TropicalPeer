@@ -14,15 +14,16 @@ import androidx.core.app.ServiceCompat;
 /**
  * Keeps TropicalPeer online while it isn't on screen, which Android allows
  * only with a visible notification: while files are moving (so a transfer
- * survives leaving the app or turning the screen off), and all the time
- * while "Stay ready to receive" is on.
+ * survives leaving the app or turning the screen off), while a link is open
+ * (people download from this phone), and all the time while "Stay ready to
+ * receive" is on.
  */
 public class TransferService extends Service {
     private static volatile boolean running;
 
     /** Starts, updates or stops the service to match what the engine needs now. */
     static void sync(Context c) {
-        boolean want = Engine.ready() || Engine.activeCount() > 0;
+        boolean want = Engine.ready() || Engine.activeCount() > 0 || Engine.linkCount() > 0;
         if (want && !running) {
             try {
                 if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(new Intent(c, TransferService.class));

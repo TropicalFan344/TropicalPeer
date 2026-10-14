@@ -180,6 +180,8 @@ export const api = {
   listOffers: () => call<Offer[]>('ListOffers'),
   respondOffer: (id: string, accept: boolean) => call<void>('RespondOffer', id, accept),
   showFile: backend.showFile,
+  /** Android: hands text (a link) to another app through the share menu. */
+  shareText: backend.shareText,
   openFolder: backend.openFolder,
   getUpdate: () => call<Update>('GetUpdate'),
   checkForUpdate: () => call<Update>('CheckForUpdate'),
@@ -189,8 +191,8 @@ export const api = {
   postponeUpdate: () => call<void>('PostponeUpdate'),
   linksAvailable: () => call<boolean>('LinksAvailable'),
   listLinks: () => call<Link[]>('ListLinks'),
-  /** Desktop only for now: paths of files to share. */
-  createLink: (paths: string[], unlimited: boolean) => call<Link>('CreateLink', paths, unlimited),
+  createLink: (files: PickedFile[], unlimited: boolean) =>
+    call<Link>(isAndroid ? 'CreateLinkDocuments' : 'CreateLink', files, unlimited),
   stopLink: (id: string) => call<void>('StopLink', id),
   setLinkUnlimited: (id: string, on: boolean) => call<void>('SetLinkUnlimited', id, on),
   cancelLinkVisitor: (id: string, session: string) => call<void>('CancelLinkVisitor', id, session),

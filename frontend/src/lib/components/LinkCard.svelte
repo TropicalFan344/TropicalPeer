@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { Copy, Check, X, Globe } from '@lucide/svelte'
+  import { Copy, Check, X, Globe, Share2 } from '@lucide/svelte'
   import { slide } from 'svelte/transition'
   import QrCode from './QrCode.svelte'
   import Bed from './Bed.svelte'
   import WaveBand from './WaveBand.svelte'
-  import { api, type Link, type Visitor } from '../api'
-  import { visitorActive } from '../state.svelte'
+  import { api, errorText, isAndroid, type Link, type Visitor } from '../api'
+  import { toast, visitorActive } from '../state.svelte'
   import { formatSize } from '../format'
   import { t, what } from '../i18n.svelte'
   import { dur, easeOutExpo } from '../motion'
@@ -18,6 +18,15 @@
     await navigator.clipboard.writeText(link.url)
     copied = true
     setTimeout(() => (copied = false), 1500)
+  }
+
+  // On a phone the link usually goes out through a chat app.
+  async function share() {
+    try {
+      await api.shareText(link.url, title)
+    } catch (e) {
+      toast(errorText(e), 'error')
+    }
   }
 
   function status(v: Visitor): string {
@@ -49,7 +58,8 @@
 <article class="overflow-hidden rounded-lg border border-line bg-surface">
   <div class="flex gap-6 p-5 max-sm:flex-col max-sm:items-center">
     <!-- Pale stone in both themes, with room around the code: scanners need it. -->
-    <div class="shrink-0 rounded-md bg-[#fbfcf9] p-2 ring-1 ring-line transition-opacity {link.ended ? 'opacity-35' : ''}">
+    <!-- Phone: the code fills the width, so someone next to you can scan it. -->
+    <div class="w-[184px] shrink-0 rounded-md bg-[#fbfcf9] p-2 ring-1 ring-line transition-opacity max-sm:w-full max-sm:max-w-[300px] {link.ended ? 'opacity-35' : ''}">
       <QrCode rows={link.qr} label={t('links.qrLabel', { what: title })} />
     </div>
 
@@ -67,9 +77,15 @@
         {/if}
         <div class="flex items-center gap-2">
           <span class="selectable min-w-0 flex-1 truncate rounded-md border border-line bg-ground px-3 py-1.5 font-mono text-xs" title={link.url}>{link.url}</span>
-          <button class="btn-secondary shrink-0 !px-3 !py-1.5 text-sm" onclick={copy}>
-            {#if copied}<Check size={15} /> {t('common.copied')}{:else}<Copy size={15} /> {t('links.copy')}{/if}
-          </button>
+          {#if isAndroid}
+            <button class="btn-primary shrink-0 !px-3 !py-1.5 text-sm" onclick={share}>
+              <Share2 size={15} /> {t('links.share')}
+            </button>
+          {:else}
+            <button class="btn-secondary shrink-0 !px-3 !py-1.5 text-sm" onclick={copy}>
+              {#if copied}<Check size={15} /> {t('common.copied')}{:else}<Copy size={15} /> {t('links.copy')}{/if}
+            </button>
+          {/if}
         </div>
 
         <label class="flex cursor-pointer items-start gap-3">

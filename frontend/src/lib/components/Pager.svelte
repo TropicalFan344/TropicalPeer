@@ -11,6 +11,7 @@
   import TransfersPage from '../pages/TransfersPage.svelte'
   import SettingsPage from '../pages/SettingsPage.svelte'
   import NetworkPage from '../pages/NetworkPage.svelte'
+  import LinksPage from '../pages/LinksPage.svelte'
   import { app } from '../state.svelte'
   import { pages, navIndex, nav, setNavPos } from '../nav.svelte'
   import { easeOutExpo, dur } from '../motion'
@@ -152,6 +153,8 @@
         <PeersPage />
       {:else if page === 'transfers'}
         <TransfersPage />
+      {:else if page === 'links'}
+        <LinksPage />
       {:else if app.page === 'network'}
         <NetworkPage />
       {:else}

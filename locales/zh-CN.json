@@ -166,6 +166,7 @@
     "qrLabel": "{what} 的链接二维码",
     "emptyTitle": "还没有链接",
     "emptyBody": "点击“新建链接”，或把文件拖到这里。只要 TropicalPeer 开着，任何扫描二维码或打开链接的人都能在浏览器中下载。",
+    "emptyBodyTouch": "点“新建链接”选择文件。只要 TropicalPeer 开着，任何扫描二维码或打开链接的人都能在浏览器中下载。",
     "dropHint": "松开即可为这些文件创建链接",
     "unsupportedTitle": "你的服务器还不支持链接",
     "unsupportedBody": "链接需要带网址（HTTPS）的 rendezvous 服务器。请更新服务器并加上 -domain 启动，方法见 README。",
@@ -177,7 +178,10 @@
     "unsupported": "你的 rendezvous 服务器不支持链接。",
     "createFailed": "无法创建链接：{error}",
     "endedServer": "你的服务器 15 分钟都连不上，这个链接已失效。请新建一个。",
-    "reconnecting": "正在重新连接你的服务器…已在进行的下载不受影响。"
+    "reconnecting": "正在重新连接你的服务器…已在进行的下载不受影响。",
+    "share": "分享",
+    "shareByLink": "用链接分享",
+    "shareByLinkHint": "任何拿到链接的人都能在浏览器中下载"
   },
   "transfers": {
     "title": "传输",
@@ -430,6 +434,9 @@
     "receiving": "正在接收 {what}",
     "to": "给 {name} · {pct}%",
     "from": "来自 {name} · {pct}%",
+    "linksTitle": { "other": "正在分享 {count} 个链接" },
+    "linksWaiting": "等待有人打开。TropicalPeer 会保持在线。",
+    "linksDownloading": { "other": "{count} 人正在下载" },
     "transfers": { "other": "{count} 项传输" },
     "receivedTitle": "已收到 {name}",
     "receivedFrom": "来自 {name}",

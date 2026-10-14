@@ -15,7 +15,8 @@ type handler func(c *appcore.Core, args []json.RawMessage) (any, error)
 
 // methods mirrors the desktop App's bound methods (internal/desktopapp), minus the ones
 // only a desktop has (native dialogs, the file manager). SendDocuments
-// replaces SendFiles, since Android hands over documents, not paths.
+// and CreateLinkDocuments replace SendFiles and CreateLink, since Android
+// hands over documents, not paths.
 var methods = map[string]handler{
 	"GetDevice":       noArgs(func(c *appcore.Core) any { return c.GetDevice() }),
 	"GetServerStatus": noArgs(func(c *appcore.Core) any { return c.GetServerStatus() }),
@@ -81,6 +82,48 @@ var methods = map[string]handler{
 			return nil, err
 		}
 		return c.SendSources(peerID, sources)
+	},
+	"CreateLinkDocuments": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		list, err := arg[[]document](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		unlimited, err := arg[bool](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		sources, err := documentSources(list)
+		if err != nil {
+			return nil, err
+		}
+		return c.CreateLinkSources(sources, unlimited)
+	},
+	"LinksAvailable": noArgs(func(c *appcore.Core) any { return c.LinksAvailable() }),
+	"ListLinks":      noArgs(func(c *appcore.Core) any { return c.ListLinks() }),
+	"StopLink":       oneString(func(c *appcore.Core, id string) (any, error) { c.StopLink(id); return nil, nil }),
+	"SetLinkUnlimited": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		id, err := arg[string](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		on, err := arg[bool](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		c.SetLinkUnlimited(id, on)
+		return nil, nil
+	},
+	"CancelLinkVisitor": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		id, err := arg[string](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		session, err := arg[string](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		c.CancelLinkVisitor(id, session)
+		return nil, nil
 	},
 	"CancelTransfer": oneString(func(c *appcore.Core, id string) (any, error) { c.CancelTransfer(id); return nil, nil }),
 	"RetryTransfer":  oneString(func(c *appcore.Core, id string) (any, error) { return c.RetryTransfer(id) }),

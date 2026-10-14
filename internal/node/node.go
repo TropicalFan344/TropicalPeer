@@ -90,6 +90,7 @@ type Node struct {
 	relayTransport *quic.Transport
 
 	presence   atomic.Value // *rendezvous.Presence while registered
+	linksURL   atomic.Value // string: the server's link page address, as last registered
 	publicAddr atomic.Value // string: our UDP address as the server sees it
 
 	// Router detection (natdetect.go).
@@ -304,6 +305,7 @@ func (n *Node) presenceLoop(ctx context.Context) {
 		if err == nil {
 			backoff = time.Second
 			n.presence.Store(p)
+			n.linksURL.Store(p.LinksURL)
 			go n.probeLoop(p)
 			go n.reportNetwork(ctx, p)
 			if ctx.Err() == nil {

@@ -166,6 +166,7 @@
     "qrLabel": "{what} 링크의 QR 코드",
     "emptyTitle": "아직 링크가 없습니다",
     "emptyBody": "새 링크를 누르거나 파일을 여기로 끌어 놓으세요. TropicalPeer가 열려 있는 동안 코드를 스캔하거나 링크를 연 사람은 브라우저에서 내려받을 수 있습니다.",
+    "emptyBodyTouch": "새 링크를 눌러 파일을 고르세요. TropicalPeer가 열려 있는 동안 코드를 스캔하거나 링크를 연 사람은 브라우저에서 내려받을 수 있습니다.",
     "dropHint": "놓으면 이 파일들의 링크를 만듭니다",
     "unsupportedTitle": "서버가 아직 링크를 지원하지 않습니다",
     "unsupportedBody": "링크에는 웹 주소(HTTPS)가 있는 rendezvous 서버가 필요합니다. 서버를 업데이트하고 -domain으로 시작하세요. 방법은 README에 있습니다.",
@@ -177,7 +178,10 @@
     "unsupported": "rendezvous 서버가 링크를 지원하지 않습니다.",
     "createFailed": "링크를 만들 수 없습니다: {error}",
     "endedServer": "서버에 15분 동안 연결할 수 없어 이 링크가 더 이상 작동하지 않습니다. 새로 만드세요.",
-    "reconnecting": "서버에 다시 연결하는 중… 진행 중인 다운로드는 계속됩니다."
+    "reconnecting": "서버에 다시 연결하는 중… 진행 중인 다운로드는 계속됩니다.",
+    "share": "공유",
+    "shareByLink": "링크로 공유",
+    "shareByLinkHint": "링크가 있는 사람은 브라우저에서 내려받을 수 있습니다"
   },
   "transfers": {
     "title": "전송",
@@ -430,6 +434,9 @@
     "receiving": "{what} 받는 중",
     "to": "{name}에게 · {pct}%",
     "from": "{name}에서 · {pct}%",
+    "linksTitle": { "other": "링크 {count}개 공유 중" },
+    "linksWaiting": "누군가 열기를 기다리는 중입니다. 그동안 TropicalPeer는 온라인 상태를 유지합니다.",
+    "linksDownloading": { "other": "{count}명이 내려받는 중" },
     "transfers": { "other": "전송 {count}건" },
     "receivedTitle": "{name} 받음",
     "receivedFrom": "{name}에서",

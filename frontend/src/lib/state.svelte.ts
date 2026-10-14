@@ -224,14 +224,14 @@ export async function pickAndShareLink() {
     toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
     return
   }
-  if (files.length) await shareLink(files.filter((f): f is string => typeof f === 'string'))
+  if (files.length) await shareLink(files)
 }
 
-/** Makes a link for files at paths. */
-export async function shareLink(paths: string[]) {
-  if (!paths.length) return
+/** Makes a link for the files (paths on desktop, documents on Android). */
+export async function shareLink(files: PickedFile[]) {
+  if (!files.length) return
   try {
-    const l = await api.createLink(paths, false)
+    const l = await api.createLink(files, false)
     upsertLink(l)
   } catch (e) {
     toast(errorText(e), 'error', 6000)

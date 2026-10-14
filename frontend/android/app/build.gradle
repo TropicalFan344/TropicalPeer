@@ -35,6 +35,12 @@ android {
         }
     }
     buildTypes {
+        // Test builds install next to the real app (their own data, their own
+        // name in the launcher), so trying a change never touches it.
+        debug {
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+        }
         release {
             signingConfig keystorePropsFile.exists() ? signingConfigs.release : signingConfigs.debug
             // Real phones only: 64-bit and older 32-bit ARM (the emulator's x86_64 stays in debug builds).

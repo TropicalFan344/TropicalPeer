@@ -166,6 +166,7 @@
     "qrLabel": "{what} へのリンクの QR コード",
     "emptyTitle": "リンクはまだありません",
     "emptyBody": "「新しいリンク」を選ぶか、ここにファイルをドロップしてください。TropicalPeer が開いている間、コードを読み取るかリンクを開いた人はブラウザでダウンロードできます。",
+    "emptyBodyTouch": "「新しいリンク」をタップしてファイルを選んでください。TropicalPeer が開いている間、コードを読み取るかリンクを開いた人はブラウザでダウンロードできます。",
     "dropHint": "ドロップしてこのファイルのリンクを作成",
     "unsupportedTitle": "サーバーがまだリンクに対応していません",
     "unsupportedBody": "リンクには Web アドレス（HTTPS）のある rendezvous サーバーが必要です。サーバーを更新して -domain を付けて起動してください。手順は README にあります。",
@@ -177,7 +178,10 @@
     "unsupported": "rendezvous サーバーがリンクに対応していません。",
     "createFailed": "リンクを作成できませんでした：{error}",
     "endedServer": "サーバーに 15 分間つながらなかったため、このリンクは使えなくなりました。新しく作成してください。",
-    "reconnecting": "サーバーに再接続しています…進行中のダウンロードはそのまま続きます。"
+    "reconnecting": "サーバーに再接続しています…進行中のダウンロードはそのまま続きます。",
+    "share": "共有",
+    "shareByLink": "リンクで共有",
+    "shareByLinkHint": "リンクを知っている人はブラウザでダウンロードできます"
   },
   "transfers": {
     "title": "転送",
@@ -430,6 +434,9 @@
     "receiving": "{what} を受信中",
     "to": "{name} へ · {pct}%",
     "from": "{name} から · {pct}%",
+    "linksTitle": { "other": "{count} 個のリンクを共有中" },
+    "linksWaiting": "誰かが開くのを待っています。その間 TropicalPeer はオンラインのままです。",
+    "linksDownloading": { "other": "{count} 人がダウンロード中" },
     "transfers": { "other": "{count} 件の転送" },
     "receivedTitle": "{name} を受信しました",
     "receivedFrom": "{name} から",

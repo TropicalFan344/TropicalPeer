@@ -77,6 +77,12 @@ final class Notifier {
     /** The foreground service's notification. active holds the running transfers. */
     static Notification service(Context c, JSONObject[] active) {
         NotificationCompat.Builder b = base(c, CH_ACTIVE).setOngoing(true).setOnlyAlertOnce(true).setSilent(true);
+        if (active.length == 0 && Engine.linkCount() > 0) {
+            int dl = Engine.linkDownloads();
+            return b.setContentTitle(t("android.linksTitle", "count", Engine.linkCount()))
+                .setContentText(dl > 0 ? t("android.linksDownloading", "count", dl) : t("android.linksWaiting"))
+                .build();
+        }
         if (active.length == 0) {
             return b.setContentTitle(t("android.readyTitle"))
                 .setContentText(t("android.readyText"))

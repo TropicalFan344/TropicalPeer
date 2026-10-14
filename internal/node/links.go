@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"TropicalPeer/internal/linkshare"
-	"TropicalPeer/internal/rendezvous"
 	"TropicalPeer/internal/transfer"
 )
 
@@ -29,10 +28,11 @@ func (n *Node) ShareLink(ctx context.Context, files []transfer.Source, opts link
 }
 
 // LinksURL is where the rendezvous server serves link pages, or "" when it
-// doesn't support links (or we aren't connected to it).
+// doesn't support links (or hasn't been reached yet). It stays known while
+// the presence connection is down: a link has a connection of its own, and
+// a phone drops presence whenever the app is briefly in the background
+// (such as while picking the files to share).
 func (n *Node) LinksURL() string {
-	if p, _ := n.presence.Load().(*rendezvous.Presence); p != nil {
-		return p.LinksURL
-	}
-	return ""
+	s, _ := n.linksURL.Load().(string)
+	return s
 }

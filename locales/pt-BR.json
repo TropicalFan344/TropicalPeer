@@ -166,6 +166,7 @@
     "qrLabel": "Código QR do link para {what}",
     "emptyTitle": "Nenhum link ainda",
     "emptyBody": "Escolha Novo link ou solte arquivos aqui. Quem escanear o código ou abrir o link pode baixá-los no navegador enquanto o TropicalPeer estiver aberto.",
+    "emptyBodyTouch": "Toque em Novo link para escolher arquivos. Quem escanear o código ou abrir o link pode baixá-los no navegador enquanto o TropicalPeer estiver aberto.",
     "dropHint": "Solte para criar um link para estes arquivos",
     "unsupportedTitle": "Seu servidor ainda não faz links",
     "unsupportedBody": "Links precisam de um servidor rendezvous com endereço web (HTTPS). Atualize o servidor e inicie-o com -domain; o README explica como.",
@@ -177,7 +178,10 @@
     "unsupported": "Seu servidor rendezvous não aceita links.",
     "createFailed": "Não foi possível criar o link: {error}",
     "endedServer": "Este link parou de funcionar porque seu servidor ficou inacessível por 15 minutos. Crie um novo.",
-    "reconnecting": "Reconectando ao seu servidor… Downloads em andamento continuam."
+    "reconnecting": "Reconectando ao seu servidor… Downloads em andamento continuam.",
+    "share": "Compartilhar",
+    "shareByLink": "Compartilhar por link",
+    "shareByLinkHint": "Quem tiver o link pode baixar no navegador"
   },
   "transfers": {
     "title": "Transferências",
@@ -430,6 +434,9 @@
     "receiving": "Recebendo {what}",
     "to": "Para {name} · {pct}%",
     "from": "De {name} · {pct}%",
+    "linksTitle": { "one": "Compartilhando {count} link", "other": "Compartilhando {count} links" },
+    "linksWaiting": "Esperando alguém abrir. O TropicalPeer fica online enquanto isso.",
+    "linksDownloading": { "one": "{count} pessoa baixando", "other": "{count} pessoas baixando" },
     "transfers": { "one": "{count} transferência", "other": "{count} transferências" },
     "receivedTitle": "{name} recebido",
     "receivedFrom": "De {name}",

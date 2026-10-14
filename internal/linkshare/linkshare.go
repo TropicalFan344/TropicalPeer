@@ -103,7 +103,8 @@ type Share struct {
 
 	mu       sync.Mutex
 	visitors map[string]*visitor
-	taken    bool // a FirstOnly link has its person
+	holder   string // session of the person a FirstOnly link is for ("" = free)
+	used     bool   // that person finished downloading: the link is spent
 	names    map[string]bool
 }
 
@@ -341,6 +342,15 @@ func (v *visitor) finish(st Status, msg string) {
 	}
 	v.info.Status, v.info.Error = st, msg
 	v.mu.Unlock()
+	v.s.mu.Lock()
+	if v.s.holder == v.info.Session {
+		if st == Done {
+			v.s.used = true
+		} else {
+			v.s.holder = ""
+		}
+	}
+	v.s.mu.Unlock()
 	v.cancel()
 	v.update()
 	v.s.opts.Log("link: %s %s %s", v.info.Name, st, msg)
@@ -499,9 +509,13 @@ func (v *visitor) serve(ch *channel) error {
 		return err
 	}
 
+	// First person only: the first to get here holds the link. If they
+	// leave or fail before finishing, it's free for the next one.
 	v.s.mu.Lock()
-	taken := v.s.taken && v.s.opts.Limit == FirstOnly
-	v.s.taken = true
+	taken := v.s.opts.Limit == FirstOnly && (v.s.used || v.s.holder != "")
+	if !taken && v.s.holder == "" {
+		v.s.holder = v.info.Session
+	}
 	v.s.mu.Unlock()
 	{
 		if taken {

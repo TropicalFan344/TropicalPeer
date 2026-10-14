@@ -497,6 +497,21 @@ public class TropicalPeerPlugin extends Plugin {
     }
 
     /** Opens the folder received files go to: the chosen one, or the Downloads screen. */
+    /** Opens Android's share menu for text, such as a link (share by link). */
+    @PluginMethod
+    public void shareText(PluginCall call) {
+        String text = call.getString("text", "");
+        Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text);
+        String title = call.getString("title");
+        if (title != null) send.putExtra(Intent.EXTRA_SUBJECT, title);
+        try {
+            getActivity().startActivity(Intent.createChooser(send, null));
+            call.resolve();
+        } catch (RuntimeException e) {
+            call.reject(e.getMessage());
+        }
+    }
+
     @PluginMethod
     public void openFolder(PluginCall call) {
         Uri tree = Engine.downloadTree();

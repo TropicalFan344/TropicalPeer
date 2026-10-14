@@ -166,6 +166,7 @@
     "qrLabel": "Código QR del enlace a {what}",
     "emptyTitle": "Aún no hay enlaces",
     "emptyBody": "Elige Nuevo enlace o suelta archivos aquí. Quien escanee el código o abra el enlace podrá descargarlos en un navegador mientras TropicalPeer siga abierto.",
+    "emptyBodyTouch": "Toca Nuevo enlace para elegir archivos. Quien escanee el código o abra el enlace podrá descargarlos en un navegador mientras TropicalPeer siga abierto.",
     "dropHint": "Suelta para crear un enlace con estos archivos",
     "unsupportedTitle": "Tu servidor aún no admite enlaces",
     "unsupportedBody": "Los enlaces necesitan un servidor rendezvous con una dirección web (HTTPS). Actualiza el servidor e inícialo con -domain; el README explica cómo.",
@@ -177,7 +178,10 @@
     "unsupported": "Tu servidor rendezvous no admite enlaces.",
     "createFailed": "No se pudo crear el enlace: {error}",
     "endedServer": "Este enlace dejó de funcionar porque tu servidor no respondió durante 15 minutos. Crea uno nuevo.",
-    "reconnecting": "Reconectando con tu servidor… Las descargas en curso siguen."
+    "reconnecting": "Reconectando con tu servidor… Las descargas en curso siguen.",
+    "share": "Compartir",
+    "shareByLink": "Compartir por enlace",
+    "shareByLinkHint": "Quien tenga el enlace puede descargarlos en un navegador"
   },
   "transfers": {
     "title": "Transferencias",
@@ -430,6 +434,9 @@
     "receiving": "Recibiendo {what}",
     "to": "A {name} · {pct} %",
     "from": "De {name} · {pct} %",
+    "linksTitle": { "one": "Compartiendo {count} enlace", "other": "Compartiendo {count} enlaces" },
+    "linksWaiting": "Esperando a que alguien lo abra. TropicalPeer sigue conectado mientras tanto.",
+    "linksDownloading": { "one": "{count} persona descargando", "other": "{count} personas descargando" },
     "transfers": { "one": "{count} transferencia", "other": "{count} transferencias" },
     "receivedTitle": "Recibido {name}",
     "receivedFrom": "De {name}",

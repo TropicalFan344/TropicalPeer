@@ -166,6 +166,7 @@
     "qrLabel": "QR-Code für den Link zu {what}",
     "emptyTitle": "Noch keine Links",
     "emptyBody": "Wähle „Neuer Link“ oder zieh Dateien hierher. Wer den Code scannt oder den Link öffnet, kann sie im Browser herunterladen, solange TropicalPeer geöffnet ist.",
+    "emptyBodyTouch": "Tippe auf „Neuer Link“, um Dateien zu wählen. Wer den Code scannt oder den Link öffnet, kann sie im Browser herunterladen, solange TropicalPeer geöffnet ist.",
     "dropHint": "Loslassen, um einen Link für diese Dateien zu erstellen",
     "unsupportedTitle": "Dein Server kann noch keine Links",
     "unsupportedBody": "Links brauchen einen Rendezvous-Server mit Webadresse (HTTPS). Aktualisiere den Server und starte ihn mit -domain; die README erklärt, wie.",
@@ -177,7 +178,10 @@
     "unsupported": "Dein Rendezvous-Server unterstützt keine Links.",
     "createFailed": "Link konnte nicht erstellt werden: {error}",
     "endedServer": "Dieser Link funktioniert nicht mehr, weil dein Server 15 Minuten lang nicht erreichbar war. Erstelle einen neuen.",
-    "reconnecting": "Verbinde erneut mit deinem Server … Laufende Downloads gehen weiter."
+    "reconnecting": "Verbinde erneut mit deinem Server … Laufende Downloads gehen weiter.",
+    "share": "Teilen",
+    "shareByLink": "Per Link teilen",
+    "shareByLinkHint": "Alle mit dem Link können sie im Browser herunterladen"
   },
   "transfers": {
     "title": "Übertragungen",
@@ -430,6 +434,9 @@
     "receiving": "Empfange {what}",
     "to": "An {name} · {pct} %",
     "from": "Von {name} · {pct} %",
+    "linksTitle": { "one": "{count} Link wird geteilt", "other": "{count} Links werden geteilt" },
+    "linksWaiting": "Wartet darauf, dass ihn jemand öffnet. TropicalPeer bleibt solange online.",
+    "linksDownloading": { "one": "{count} Person lädt herunter", "other": "{count} Personen laden herunter" },
     "transfers": { "one": "{count} Übertragung", "other": "{count} Übertragungen" },
     "receivedTitle": "{name} empfangen",
     "receivedFrom": "Von {name}",

@@ -1,14 +1,13 @@
 // Where the navigation indicator sits. The rail and the phone tab bar draw
 // one raised fill that slides between items; its position is 0 = Peers,
-// 1 = Transfers, then Links (desktop) and Settings, fractional while a page is being swiped so
+// 1 = Transfers, 2 = Links, 3 = Settings, fractional while a page is being swiped so
 // the fill follows the finger. Each fill registers with use:navIndicator
 // and is moved by setting its own transform: a custom property on the root
 // would restyle every page on every frame of a swipe.
 import { isAndroid } from './api'
 import type { Page } from './state.svelte'
 
-// Links (share by link) are desktop-only for now.
-export const pages: Page[] = isAndroid ? ['peers', 'transfers', 'settings'] : ['peers', 'transfers', 'links', 'settings']
+export const pages: Page[] = ['peers', 'transfers', 'links', 'settings']
 
 /** The nav slot of a page; Network lives under Settings. */
 export const navIndex = (p: Page) => pages.indexOf(p === 'network' ? 'settings' : p)

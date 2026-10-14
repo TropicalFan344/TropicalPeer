@@ -166,6 +166,7 @@
     "qrLabel": "Code QR du lien vers {what}",
     "emptyTitle": "Aucun lien pour l’instant",
     "emptyBody": "Choisissez Nouveau lien ou déposez des fichiers ici. Quiconque scanne le code ou ouvre le lien peut les télécharger dans un navigateur tant que TropicalPeer reste ouvert.",
+    "emptyBodyTouch": "Touchez Nouveau lien pour choisir des fichiers. Quiconque scanne le code ou ouvre le lien peut les télécharger dans un navigateur tant que TropicalPeer reste ouvert.",
     "dropHint": "Déposez pour créer un lien vers ces fichiers",
     "unsupportedTitle": "Votre serveur ne gère pas encore les liens",
     "unsupportedBody": "Les liens demandent un serveur rendezvous avec une adresse web (HTTPS). Mettez le serveur à jour et lancez-le avec -domain ; le README explique comment.",
@@ -177,7 +178,10 @@
     "unsupported": "Votre serveur rendezvous ne gère pas les liens.",
     "createFailed": "Impossible de créer le lien : {error}",
     "endedServer": "Ce lien ne fonctionne plus : votre serveur est resté injoignable pendant 15 minutes. Créez-en un nouveau.",
-    "reconnecting": "Reconnexion à votre serveur… Les téléchargements en cours continuent."
+    "reconnecting": "Reconnexion à votre serveur… Les téléchargements en cours continuent.",
+    "share": "Partager",
+    "shareByLink": "Partager par lien",
+    "shareByLinkHint": "Toute personne ayant le lien peut les télécharger dans un navigateur"
   },
   "transfers": {
     "title": "Transferts",
@@ -430,6 +434,9 @@
     "receiving": "Réception de {what}",
     "to": "À {name} · {pct} %",
     "from": "De {name} · {pct} %",
+    "linksTitle": { "one": "{count} lien partagé", "other": "{count} liens partagés" },
+    "linksWaiting": "En attente de quelqu’un. TropicalPeer reste en ligne en attendant.",
+    "linksDownloading": { "one": "{count} personne télécharge", "other": "{count} personnes téléchargent" },
     "transfers": { "one": "{count} transfert", "other": "{count} transferts" },
     "receivedTitle": "{name} reçu",
     "receivedFrom": "De {name}",

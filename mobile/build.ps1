@@ -32,8 +32,10 @@ try {
   # (release APKs leave the emulator one out; see frontend/android/app/build.gradle).
   # The app's version, from the Android project, shows in Settings and the log.
   $version = (Select-String -Path frontend\android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value
+  # -checklinkname=0: WebRTC (share by link) lists network addresses through
+  # wlynxg/anet, which reaches into the net package where Android blocks the usual way.
   gomobile bind -target='android/arm,android/arm64,android/amd64' -androidapi 24 -javapkg app.tropicalpeer `
-    -ldflags "-X TropicalPeer/internal/appcore.Version=$version" -o build\android\tropicalpeer.aar ./mobile
+    -ldflags "-checklinkname=0 -X TropicalPeer/internal/appcore.Version=$version" -o build\android\tropicalpeer.aar ./mobile
   if ($LASTEXITCODE -ne 0) { throw "gomobile bind failed" }
   Write-Host "Built build\android\tropicalpeer.aar"
 } finally {

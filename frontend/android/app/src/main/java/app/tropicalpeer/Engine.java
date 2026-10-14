@@ -67,6 +67,8 @@ final class Engine {
     private static final Map<String, Uri> publicCopies = new ConcurrentHashMap<>();
     /** Running transfers by id, for the foreground service's notification. */
     private static final Map<String, JSONObject> active = new ConcurrentHashMap<>();
+    /** Open links (share by link) by id: the app must stay online while one is open. */
+    private static final Map<String, JSONObject> links = new ConcurrentHashMap<>();
     private static final Handler main = new Handler(Looper.getMainLooper());
     private static volatile boolean foreground;
     private static boolean syncQueued;
@@ -162,6 +164,37 @@ final class Engine {
 
     static JSONObject[] active() {
         return active.values().toArray(new JSONObject[0]);
+    }
+
+    /** Links that still work (not ended). */
+    static int linkCount() {
+        return links.size();
+    }
+
+    /** People downloading from links right now. */
+    static int linkDownloads() {
+        int n = 0;
+        for (JSONObject l : links.values()) {
+            JSONArray vs = l.optJSONArray("visitors");
+            for (int i = 0; vs != null && i < vs.length(); i++) {
+                if ("sending".equals(vs.optJSONObject(i).optString("status"))) n++;
+            }
+        }
+        return n;
+    }
+
+    private static void trackLink(String json) {
+        try {
+            JSONObject l = new JSONObject(json);
+            String id = l.getString("id");
+            int before = linkDownloads();
+            boolean had = links.containsKey(id);
+            if (l.optString("ended").isEmpty()) links.put(id, l);
+            else links.remove(id);
+            if (had != links.containsKey(id) || before != linkDownloads()) queueSync();
+        } catch (Exception e) {
+            Log.w(TAG, "couldn't read link update", e);
+        }
     }
 
     /** Whether the app is on screen: offers and arrivals then show in the app, not as notifications. */
@@ -269,6 +302,16 @@ final class Engine {
                 case "transfer:update":
                     track(json);
                     publishReceived(json);
+                    break;
+                case "link:update":
+                    trackLink(json);
+                    break;
+                case "link:removed":
+                    try {
+                        if (links.remove(new JSONArray("[" + json + "]").getString(0)) != null) queueSync();
+                    } catch (Exception e) {
+                        Log.w(TAG, "couldn't read link removal", e);
+                    }
                     break;
                 case "offer:new":
                     if (!foreground) {

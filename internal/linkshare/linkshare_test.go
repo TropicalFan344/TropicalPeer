@@ -280,3 +280,30 @@ func TestReceiverCancelsMidFile(t *testing.T) {
 		t.Fatal("the sender sent everything anyway")
 	}
 }
+
+// First person only: if the first person leaves before finishing, the link
+// isn't spent; the next person gets the files.
+func TestFirstOnlyFreedWhenFirstLeaves(t *testing.T) {
+	data := []byte("the files")
+	s, st, wsURL, secret := share(t, []transfer.Source{memFile("a.txt", data)}, FirstOnly)
+
+	b1 := openLink(t, wsURL, s.ID, secret)
+	b1.next("auth")
+	b1.next("hello")
+	b1.send(`{"type":"cancel"}`)
+	st.waitFor(t, Cancelled)
+
+	b2 := openLink(t, wsURL, s.ID, secret)
+	b2.next("auth")
+	b2.next("hello")
+	b2.send(`{"type":"get","index":0}`)
+	b2.next("end")
+	b2.send(`{"type":"done"}`)
+	st.waitFor(t, Done)
+
+	b3 := openLink(t, wsURL, s.ID, secret)
+	b3.next("auth")
+	if m := b3.next("error"); m.Error != "used" {
+		t.Fatalf("after a finished download: %+v", m)
+	}
+}

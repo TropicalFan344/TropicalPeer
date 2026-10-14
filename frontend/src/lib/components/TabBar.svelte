@@ -1,8 +1,8 @@
 <script lang="ts">
   // The phone's navigation: the jungle rail laid along the bottom edge, its
-  // shoreline curve now on top. Same three places as the desktop rail.
-  import { Users, ArrowLeftRight, Settings } from '@lucide/svelte'
-  import { app, activeTransfers, type Page } from '../state.svelte'
+  // shoreline curve now on top. Same four places as the desktop rail.
+  import { Users, ArrowLeftRight, Link2, Settings } from '@lucide/svelte'
+  import { app, activeTransfers, activeVisitors, type Page } from '../state.svelte'
   import { t } from '../i18n.svelte'
   import { scale } from 'svelte/transition'
   import { dur, easeOutExpo } from '../motion'
@@ -11,10 +11,12 @@
   const items: { page: Page; label: string; icon: typeof Users }[] = [
     { page: 'peers', label: 'nav.peers', icon: Users },
     { page: 'transfers', label: 'nav.transfers', icon: ArrowLeftRight },
+    { page: 'links', label: 'nav.links', icon: Link2 },
     { page: 'settings', label: 'nav.settings', icon: Settings },
   ]
 
   const active = $derived(activeTransfers().length)
+  const downloading = $derived(activeVisitors())
   // The desktop rail shows the server line at all times; here a dot on
   // Settings speaks up only when something is wrong or still connecting.
   const serverDot = $derived(app.server.online ? '' : app.server.error ? 'bg-rail-alert' : 'bg-rail-info')
@@ -27,7 +29,7 @@
   <div class="relative mx-[calc(var(--sal)+8px)] mr-[calc(var(--sar)+8px)] flex h-[var(--tabbar)] items-stretch">
     <!-- One raised pill under the current item, sliding between them (and
          tracking the finger while a page is swiped). -->
-    <span use:navIndicator={(x) => `translateX(${x * 100}%)`} class="pointer-events-none absolute top-0 left-0 flex h-full w-1/3 justify-center pt-[calc((var(--tabbar)_-_52px)/2)] {swipePages ? '' : 'glide'}" aria-hidden="true">
+    <span use:navIndicator={(x) => `translateX(${x * 100}%)`} class="pointer-events-none absolute top-0 left-0 flex h-full w-1/4 justify-center pt-[calc((var(--tabbar)_-_52px)/2)] {swipePages ? '' : 'glide'}" aria-hidden="true">
       <span class="h-8 w-16 rounded-full bg-rail-raised"></span>
     </span>
     {#each items as item, i (item.page)}
@@ -42,6 +44,8 @@
           <item.icon size={22} strokeWidth={1.75} />
           {#if item.page === 'transfers' && active}
             <span class="badge bg-rail-ink text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{active}</span>
+          {:else if item.page === 'links' && downloading}
+            <span class="badge bg-rail-ink text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{downloading}</span>
           {:else if item.page === 'peers' && app.offers.length}
             <span class="badge bg-rail-alert text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{app.offers.length}</span>
           {:else if item.page === 'settings' && serverDot}

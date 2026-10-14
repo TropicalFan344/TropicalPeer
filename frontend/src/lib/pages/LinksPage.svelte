@@ -4,6 +4,7 @@
   import { slide } from 'svelte/transition'
   import LinkCard from '../components/LinkCard.svelte'
   import { app, pickAndShareLink } from '../state.svelte'
+  import { isAndroid } from '../api'
   import { drag } from '../drop.svelte'
   import { t } from '../i18n.svelte'
   import { dur, easeOutExpo } from '../motion'
@@ -34,7 +35,7 @@
     >
       <Upload size={20} strokeWidth={1.75} class="mb-1 text-muted" />
       <h2 class="text-xl font-medium">{t('links.emptyTitle')}</h2>
-      <p class="max-w-[60ch] text-muted">{t('links.emptyBody')}</p>
+      <p class="max-w-[60ch] text-muted">{t(isAndroid ? 'links.emptyBodyTouch' : 'links.emptyBody')}</p>
     </section>
   {:else}
     {#if drag.active}

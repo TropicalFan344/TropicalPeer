@@ -21,6 +21,7 @@ interface TropicalPeerPlugin {
   pickFolder(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   pickMedia(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   showFile(o: { path: string }): Promise<void>
+  shareText(o: { text: string; title: string }): Promise<void>
   openFolder(): Promise<void>
   getReady(): Promise<ReadyState>
   setReady(o: { on: boolean }): Promise<ReadyState>
@@ -156,6 +157,16 @@ export async function showFile(path: string): Promise<void> {
   if (!native) return Go.ShowFile(path)
   try {
     await native.showFile({ path })
+  } catch (e) {
+    throw message(e)
+  }
+}
+
+/** Android: opens the share menu for text, such as a link. Not on desktop. */
+export async function shareText(text: string, title: string): Promise<void> {
+  if (!native) throw new Error('not available')
+  try {
+    await native.shareText({ text, title })
   } catch (e) {
     throw message(e)
   }

@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Test builds (app.tropicalpeer.dev) show up as their own app. -->
+<resources>
+    <string name="app_name">TropicalPeer Dev</string>
+    <string name="title_activity_main">TropicalPeer Dev</string>
+</resources>
