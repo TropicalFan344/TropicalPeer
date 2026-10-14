@@ -19,7 +19,7 @@ who don't have the app.
 | 2 | Engine: `internal/linkshare` (pion/webrtc sender), appcore methods and events | Done; links reconnect to the server for 15 minutes after losing it |
 | 3 | Desktop UI: Links page, QR code, receivers list; receiver page styled per DESIGN.md; all 10 locales | Done: Links page and receiver page in all 10 languages (the page loads only its language, ~1 KB); Safari, Chrome desktop and Android tested |
 | 4 | Android sender (same engine; Kotlin only for the share sheet entry) | Done: Links tab, Share button (Android share menu), "Share by link" in the share sheet, foreground service while a link is open. Tested: 210 MB from the phone (in the background) to a PC on another network |
-| 5 | README: running a server with links, what the page host can and can't see | |
+| 5 | README: running a server with links, what the page host can and can't see | Done |
 
 ## Decisions
 
