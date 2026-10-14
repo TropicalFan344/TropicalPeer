@@ -207,7 +207,7 @@ Each device keeps a short log of how its transfers ended, `tropicalpeer.log`, in
 
 ## Status
 
-This is early software. Known gaps: no folder sending (files only), and the receiving app has to be open, or on Android "Stay ready to receive" has to be on.
+This is early software.
 And this is fully vibe coded, so if you find a bug or have a feature request, please open an issue. (Or you can blame me for that @_@
 
 ## License
