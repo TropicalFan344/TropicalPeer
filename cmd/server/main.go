@@ -101,14 +101,21 @@ func main() {
 		specs = append(specs, more...)
 	}
 
+	checks := append([]reachCheck{{"TCP", port}}, lf.checks...)
 	forwardsDone := make(chan struct{})
 	if *upnp {
 		go func() {
 			defer close(forwardsDone)
-			forwardPorts(ctx, logger, host, specs)
+			forwardPorts(ctx, logger, host, specs, checks)
 		}()
 	} else {
 		close(forwardsDone)
+		if lf.foundIP != nil {
+			go func() {
+				time.Sleep(2 * time.Second)
+				checkReach(ctx, logger, lf.foundIP, nil, checks)
+			}()
+		}
 	}
 
 	if err := srv.Serve(ctx, ln); err != nil {
@@ -120,7 +127,7 @@ func main() {
 // forwardPorts asks the router to forward the server's ports, prints the
 // address to share, keeps the leases alive, and removes the forwards when
 // ctx ends.
-func forwardPorts(ctx context.Context, logger *log.Logger, host string, specs []portmap.Spec) {
+func forwardPorts(ctx context.Context, logger *log.Logger, host string, specs []portmap.Spec, checks []reachCheck) {
 	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 		logger.Printf("upnp: not forwarding: the server only listens on %s, which the router can't reach. Use -listen :%d", host, specs[0].Port)
 		return
@@ -147,6 +154,10 @@ func forwardPorts(ctx context.Context, logger *log.Logger, host string, specs []
 	}
 	fmt.Println("  (Your public address can change; a free dynamic DNS name, e.g. from DuckDNS, keeps it stable.)")
 	fmt.Println()
+	go func() {
+		time.Sleep(3 * time.Second) // let the router apply the forwards
+		checkReach(ctx, logger, net.IP(f.Router.ExternalIP.AsSlice()), f.Router.LocalIP, checks)
+	}()
 
 	f.KeepAlive(ctx, func(m *portmap.Mapping, err error) {
 		logger.Printf("upnp: renewing %s %d failed: %v", m.Protocol, m.ExternalPort, err)

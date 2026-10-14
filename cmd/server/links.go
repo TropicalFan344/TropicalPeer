@@ -36,6 +36,10 @@ type linkFlags struct {
 	origins  *string
 	acmeDir  *string
 	duck     *string
+
+	// set by start
+	foundIP net.IP
+	checks  []reachCheck
 }
 
 func (f *linkFlags) register() {
@@ -139,6 +143,8 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 	}
 	logger.Printf("links: receiver page at %s, TURN on %s:%d (relay %s, public %s)", webURL, turnHost, *f.turnPort, *f.relay, ip)
 
+	f.foundIP = ip
+	f.checks = []reachCheck{{"TCP", webPort}, {"TCP", *f.turnPort}, {"STUN", *f.turnPort}}
 	specs := []portmap.Spec{{Protocol: "TCP", Port: webPort}, {Protocol: "UDP", Port: *f.turnPort}, {Protocol: "TCP", Port: *f.turnPort}}
 	for p := lo; p <= hi; p++ {
 		specs = append(specs, portmap.Spec{Protocol: "UDP", Port: p})
