@@ -107,6 +107,32 @@ export interface Offer {
   expiresAt: number
 }
 
+/** One browser that opened a link (internal/appcore/links.go). */
+export interface Visitor {
+  session: string
+  name: string // generated, e.g. "Orchid Tiger"
+  status: 'connecting' | 'waiting' | 'sending' | 'done' | 'cancelled' | 'failed' | 'refused'
+  done: number
+  total: number
+  speed: number
+  error: string
+  seenAt: number
+}
+
+/** Files anyone with the link can download in a browser. */
+export interface Link {
+  id: string
+  url: string
+  qr: string[] // rows of modules, '1' = dark
+  files: { name: string; size: number }[]
+  total: number
+  unlimited: boolean
+  ended: string // why it stopped working; '' while it works
+  offline: boolean // lost the server for now; trying to get back
+  createdAt: number
+  visitors: Visitor[]
+}
+
 /** New versions (see internal/appcore/updates.go). */
 export interface Update {
   state: 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'installing' | 'failed' | 'unsupported'
@@ -161,6 +187,13 @@ export const api = {
   /** Restarts into the new version (computer) or opens Android's installer. */
   installUpdate: () => call<void>('InstallUpdate'),
   postponeUpdate: () => call<void>('PostponeUpdate'),
+  linksAvailable: () => call<boolean>('LinksAvailable'),
+  listLinks: () => call<Link[]>('ListLinks'),
+  /** Desktop only for now: paths of files to share. */
+  createLink: (paths: string[], unlimited: boolean) => call<Link>('CreateLink', paths, unlimited),
+  stopLink: (id: string) => call<void>('StopLink', id),
+  setLinkUnlimited: (id: string, on: boolean) => call<void>('SetLinkUnlimited', id, on),
+  cancelLinkVisitor: (id: string, session: string) => call<void>('CancelLinkVisitor', id, session),
 }
 
 interface EventMap {
@@ -177,6 +210,8 @@ interface EventMap {
   'offer:closed': { id: string; reason: string }
   'peer:removedUs': Peer
   'update:changed': Update
+  'link:update': Link
+  'link:removed': string
 }
 
 export function on<K extends keyof EventMap>(event: K, fn: (data: EventMap[K]) => void): () => void {

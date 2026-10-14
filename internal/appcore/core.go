@@ -46,6 +46,7 @@ type Core struct {
 	stopped      map[string]*transferState // by incomingKey: interrupted, may resume in the same row
 	upd          updates
 	offers       map[string]*pendingOffer
+	lk           linkStore
 
 	// emitFn pushes an event to the UI. data is nil for events without a payload.
 	emitFn Emit
@@ -279,6 +280,7 @@ func (c *Core) Stop() {
 		return
 	}
 	c.installOnQuit()
+	c.stopLinks()
 	c.mu.Lock()
 	var running []*transferState
 	for _, st := range c.transfers {

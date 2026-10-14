@@ -18,6 +18,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -72,8 +73,15 @@ type Options struct {
 	Limit      Limit
 	SenderName string                        // shown on the page ("from Moon Laptop")
 	OnUpdate   func(Visitor)                 // every status change and progress tick
+	OnServer   func(connected bool)          // the link lost or regained the server
 	Log        func(format string, a ...any) // optional
 }
+
+// How long a link keeps trying to get back to the server before it ends.
+// Downloads already running don't need the server and carry on meanwhile.
+var reconnectWaits = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second, 30 * time.Second}
+
+const reconnectFor = 15 * time.Minute
 
 // Share is an open link.
 type Share struct {
@@ -84,8 +92,11 @@ type Share struct {
 	total  int64
 	opts   Options
 	secret []byte
-	host   *rendezvous.LinkHost
+	client *rendezvous.Client
 	api    *webrtc.API
+
+	hostMu sync.Mutex
+	host   *rendezvous.LinkHost
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -124,6 +135,7 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 		files:    files,
 		opts:     opts,
 		secret:   secret,
+		client:   c,
 		host:     host,
 		api:      webrtc.NewAPI(webrtc.WithSettingEngine(se)),
 		ctx:      sctxCtx,
@@ -141,12 +153,26 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 // Stop closes the link and every visitor's connection.
 func (s *Share) Stop() {
 	s.cancel()
-	s.host.Close()
+	s.currentHost().Close()
 }
 
-// Done is closed once the link is closed (Stop, or the server connection
-// ended).
+func (s *Share) currentHost() *rendezvous.LinkHost {
+	s.hostMu.Lock()
+	defer s.hostMu.Unlock()
+	return s.host
+}
+
+// Done is closed once the link is closed: Stop, or the server stayed out
+// of reach for reconnectFor.
 func (s *Share) Done() <-chan struct{} { return s.ctx.Done() }
+
+// SetLimit changes who may still download: switching to FirstOnly after
+// someone already has the link turns everyone after them away.
+func (s *Share) SetLimit(l Limit) {
+	s.mu.Lock()
+	s.opts.Limit = l
+	s.mu.Unlock()
+}
 
 // CancelVisitor stops sending to one visitor.
 func (s *Share) CancelVisitor(session string) {
@@ -161,10 +187,54 @@ func (s *Share) CancelVisitor(session string) {
 func (s *Share) loop() {
 	defer s.cancel()
 	for {
+		s.serveHost(s.currentHost())
+		if s.ctx.Err() != nil {
+			return
+		}
+		s.opts.Log("link: lost the server; reconnecting")
+		if s.opts.OnServer != nil {
+			s.opts.OnServer(false)
+		}
+		host := s.reconnect()
+		if host == nil {
+			return
+		}
+		s.hostMu.Lock()
+		s.host = host
+		s.hostMu.Unlock()
+		s.opts.Log("link: back on the server")
+		if s.opts.OnServer != nil {
+			s.opts.OnServer(true)
+		}
+	}
+}
+
+// reconnect hosts the same link again, or gives up (nil).
+func (s *Share) reconnect() *rendezvous.LinkHost {
+	deadline := time.Now().Add(reconnectFor)
+	for i := 0; time.Now().Before(deadline); i++ {
+		select {
+		case <-s.ctx.Done():
+			return nil
+		case <-time.After(reconnectWaits[min(i, len(reconnectWaits)-1)]):
+		}
+		ctx, cancel := context.WithTimeout(s.ctx, 15*time.Second)
+		h, err := s.client.HostLink(ctx, s.ID)
+		cancel()
+		if err == nil {
+			return h
+		}
+	}
+	return nil
+}
+
+// serveHost handles what the server sends until its connection ends.
+func (s *Share) serveHost(host *rendezvous.LinkHost) {
+	for {
 		select {
 		case <-s.ctx.Done():
 			return
-		case ev, ok := <-s.host.Events:
+		case ev, ok := <-host.Events:
 			if !ok {
 				return
 			}
@@ -184,7 +254,7 @@ func (s *Share) loop() {
 				s.mu.Lock()
 				v := s.visitors[ev.Session]
 				s.mu.Unlock()
-				if v != nil && v.status() == Connecting {
+				if v != nil && !v.opened.Load() {
 					v.finish(Failed, "the page was closed")
 				}
 			}
@@ -229,6 +299,8 @@ type visitor struct {
 	pc     *webrtc.PeerConnection
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	opened atomic.Bool // the DataChannel opened; signaling isn't needed any more
 
 	mu       sync.Mutex
 	info     Visitor
@@ -299,7 +371,7 @@ func (v *visitor) signal(data json.RawMessage) {
 			v.finish(Failed, err.Error())
 			return
 		}
-		v.s.host.Signal(v.info.Session, signalMsg{SDP: v.pc.LocalDescription()})
+		v.s.currentHost().Signal(v.info.Session, signalMsg{SDP: v.pc.LocalDescription()})
 		v.mu.Lock()
 		v.haveSDP = true
 		pending := v.pending
@@ -322,7 +394,7 @@ func (v *visitor) signal(data json.RawMessage) {
 
 func (v *visitor) run() {
 	defer v.pc.Close()
-	defer v.s.host.Drop(v.info.Session)
+	defer func() { v.s.currentHost().Drop(v.info.Session) }() // the host may change meanwhile
 	defer func() {
 		v.s.mu.Lock()
 		delete(v.s.visitors, v.info.Session)
@@ -333,7 +405,7 @@ func (v *visitor) run() {
 			return
 		}
 		init := c.ToJSON()
-		v.s.host.Signal(v.info.Session, signalMsg{Candidate: &init})
+		v.s.currentHost().Signal(v.info.Session, signalMsg{Candidate: &init})
 	})
 	v.pc.OnConnectionStateChange(func(st webrtc.PeerConnectionState) {
 		v.s.opts.Log("link: %s connection %s", v.info.Name, st)
@@ -367,6 +439,7 @@ func (v *visitor) run() {
 	case <-v.ctx.Done():
 		return
 	}
+	v.opened.Store(true)
 	go func() { <-v.ctx.Done(); dc.Close() }()
 
 	err := v.serve(ch)
@@ -419,11 +492,11 @@ func (v *visitor) serve(ch *channel) error {
 		return err
 	}
 
-	if v.s.opts.Limit == FirstOnly {
-		v.s.mu.Lock()
-		taken := v.s.taken
-		v.s.taken = true
-		v.s.mu.Unlock()
+	v.s.mu.Lock()
+	taken := v.s.taken && v.s.opts.Limit == FirstOnly
+	v.s.taken = true
+	v.s.mu.Unlock()
+	{
 		if taken {
 			ch.sendJSON(pageMsg{Type: "error", Error: "used"})
 			time.Sleep(time.Second) // let it arrive before closing

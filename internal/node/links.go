@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"TropicalPeer/internal/linkshare"
+	"TropicalPeer/internal/rendezvous"
 	"TropicalPeer/internal/transfer"
 )
 
@@ -25,4 +26,13 @@ func (n *Node) ShareLink(ctx context.Context, files []transfer.Source, opts link
 		}
 	}()
 	return s, nil
+}
+
+// LinksURL is where the rendezvous server serves link pages, or "" when it
+// doesn't support links (or we aren't connected to it).
+func (n *Node) LinksURL() string {
+	if p, _ := n.presence.Load().(*rendezvous.Presence); p != nil {
+		return p.LinksURL
+	}
+	return ""
 }

@@ -11,6 +11,7 @@
   import SettingsPage from './lib/pages/SettingsPage.svelte'
   import TransfersPage from './lib/pages/TransfersPage.svelte'
   import NetworkPage from './lib/pages/NetworkPage.svelte'
+  import LinksPage from './lib/pages/LinksPage.svelte'
   import Pager from './lib/components/Pager.svelte'
   import { app, initState } from './lib/state.svelte'
   import { initDrop } from './lib/drop.svelte'
@@ -65,6 +66,8 @@
               <PeersPage />
             {:else if app.page === 'transfers'}
               <TransfersPage />
+            {:else if app.page === 'links'}
+              <LinksPage />
             {:else if app.page === 'network'}
               <NetworkPage />
             {:else}

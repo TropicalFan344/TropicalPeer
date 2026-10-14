@@ -79,15 +79,50 @@ function showHello(session: Awaited<ReturnType<typeof connect>>, h: Hello) {
   document.getElementById('dl')!.addEventListener('click', () => download(session, h))
 }
 
+// Phones pause pages that leave the screen, which stalls the connection
+// until it drops: keep the screen on while downloading, and remember if the
+// page went to the background so a failure can say why.
+let wakeLock: { release(): Promise<void> } | undefined
+let wentAway = false
+async function keepAwake(on: boolean) {
+  try {
+    if (on && !wakeLock) wakeLock = await (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock?.request('screen')
+    else if (!on && wakeLock) {
+      await wakeLock.release()
+      wakeLock = undefined
+    }
+  } catch {
+    // not allowed (e.g. low battery): the note on screen still asks
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) wentAway = true
+  else if (wakeLock === undefined && downloading) keepAwake(true) // the lock is dropped while hidden
+})
+let downloading = false
+
 async function download(session: Awaited<ReturnType<typeof connect>>, h: Hello) {
   let done = 0
   const started = performance.now()
+  downloading = true
+  wentAway = false
+  keepAwake(true)
+  try {
+    await downloadAll(session, h, started, (n) => (done += n), () => done)
+  } finally {
+    downloading = false
+    keepAwake(false)
+  }
+}
+
+async function downloadAll(session: Awaited<ReturnType<typeof connect>>, h: Hello, started: number, add: (n: number) => void, doneSoFar: () => number) {
   const progress = (name: string) => {
     render(`
       <h1>Downloading…</h1>
       <p class="muted small">${esc(name)}</p>
       <div class="bar"><div id="fill"></div></div>
       <p class="muted small" id="stat"></p>
+      <p class="small">Keep this page open until the download finishes.</p>
       <button class="secondary" id="stop">Cancel</button>
     `)
     document.getElementById('stop')!.addEventListener('click', () => {
@@ -100,6 +135,7 @@ async function download(session: Awaited<ReturnType<typeof connect>>, h: Hello) 
     const stat = document.getElementById('stat')
     if (!fill || !stat) return
     const secs = (performance.now() - started) / 1000
+    const done = doneSoFar()
     fill.style.width = `${h.total ? (done / h.total) * 100 : 100}%`
     stat.textContent = `${size(done)} of ${size(h.total)}` + (secs > 1 ? ` · ${size(done / secs)}/s` : '')
   }
@@ -122,7 +158,7 @@ async function download(session: Awaited<ReturnType<typeof connect>>, h: Hello) 
     let last = 0
     const result = await session.get(i, (chunk) => {
       hash.update(chunk)
-      done += chunk.byteLength
+      add(chunk.byteLength)
       const now = performance.now()
       if (now - last > 150) {
         last = now
@@ -132,7 +168,9 @@ async function download(session: Awaited<ReturnType<typeof connect>>, h: Hello) 
     })
     if (result.error) {
       await sink.abort()
-      if (result.error !== 'cancelled') fail('The download stopped', result.error)
+      if (result.error !== 'cancelled') {
+        fail('The download stopped', wentAway ? 'The page was in the background, and phones pause pages there. Open the link again and keep it on screen until the download finishes.' : result.error)
+      }
       return
     }
     const got = Array.from(hash.digest(), (b) => b.toString(16).padStart(2, '0')).join('')

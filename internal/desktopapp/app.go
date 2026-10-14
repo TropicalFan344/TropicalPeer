@@ -168,7 +168,15 @@ func (a *App) PauseTransfer(id string)                              { a.core.Pau
 func (a *App) ResumeTransfer(id string) (appcore.TransferDTO, error) {
 	return a.core.ResumeTransfer(id)
 }
-func (a *App) ListTransfers() []appcore.TransferDTO      { return a.core.ListTransfers() }
+func (a *App) ListTransfers() []appcore.TransferDTO { return a.core.ListTransfers() }
+func (a *App) LinksAvailable() bool                 { return a.core.LinksAvailable() }
+func (a *App) ListLinks() []appcore.LinkDTO         { return a.core.ListLinks() }
+func (a *App) StopLink(id string)                   { a.core.StopLink(id) }
+func (a *App) SetLinkUnlimited(id string, on bool)  { a.core.SetLinkUnlimited(id, on) }
+func (a *App) CancelLinkVisitor(id, session string) { a.core.CancelLinkVisitor(id, session) }
+func (a *App) CreateLink(paths []string, unlimited bool) (appcore.LinkDTO, error) {
+	return a.core.CreateLink(paths, unlimited)
+}
 func (a *App) ClearFinishedTransfers()                   { a.core.ClearFinishedTransfers() }
 func (a *App) ListOffers() []appcore.OfferDTO            { return a.core.ListOffers() }
 func (a *App) RespondOffer(id string, accept bool) error { return a.core.RespondOffer(id, accept) }

@@ -1,11 +1,12 @@
-// Drag-and-drop of files from Explorer onto peer cards.
+// Drag-and-drop of files from Explorer onto peer cards, or onto the Links
+// page to make a link.
 //
 // The browser's drag events tell us *where* files are being dragged, so we
 // can highlight the peer under the cursor. The browser can't see real file
 // paths, though, so the drop itself comes from Wails (OnFileDrop), which
 // reports the drop position and the absolute paths.
 import { OnFileDrop } from '../../wailsjs/runtime/runtime'
-import { app, sendTo, toast } from './state.svelte'
+import { app, sendTo, shareLink, toast } from './state.svelte'
 import { t } from './i18n.svelte'
 
 export const drag = $state({
@@ -26,7 +27,7 @@ export function initDrop() {
   window.addEventListener('dragenter', (e) => {
     if (!hasFiles(e)) return
     drag.active = true
-    app.page = 'peers' // the only place files can be dropped
+    if (app.page !== 'links') app.page = 'peers' // files drop on a peer, or onto Links to make a link
   })
   window.addEventListener('dragover', (e) => {
     if (!hasFiles(e)) return
@@ -41,6 +42,10 @@ export function initDrop() {
 
   OnFileDrop((x, y, paths) => {
     reset()
+    if (app.page === 'links') {
+      shareLink(paths)
+      return
+    }
     const id = peerIdAt(document.elementFromPoint(x, y))
     const peer = app.peers.find((p) => p.id === id)
     if (!peer) {

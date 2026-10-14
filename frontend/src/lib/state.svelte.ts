@@ -12,12 +12,13 @@ import {
   type PickedFile,
   type Transfer,
   type Update,
+  type Link,
   isAndroid,
 } from './api'
 import { onShare } from './backend'
 import { t, what as describe } from './i18n.svelte'
 
-export type Page = 'peers' | 'transfers' | 'network' | 'settings'
+export type Page = 'peers' | 'transfers' | 'links' | 'network' | 'settings'
 
 export const app = $state({
   page: 'peers' as Page,
@@ -47,6 +48,8 @@ export const app = $state({
   // Set when the node can't run (e.g. no network port available).
   fatalError: '',
   update: null as Update | null,
+  links: [] as Link[], // newest first
+  linksAvailable: false, // the rendezvous server supports links
 })
 
 export async function initState() {
@@ -58,6 +61,11 @@ export async function initState() {
     api.getNetwork().then((n) => {
       app.network = n
     })
+    api.linksAvailable().then((a) => (app.linksAvailable = a))
+  })
+  on('link:update', upsertLink)
+  on('link:removed', (id) => {
+    app.links = app.links.filter((l) => l.id !== id)
   })
   on('network:changed', (n) => {
     app.network = n
@@ -86,14 +94,18 @@ export async function initState() {
   on('update:changed', applyUpdate)
   api.getUpdate().then(applyUpdate)
 
-  const [device, server, network, peers, transfers, offers] = await Promise.all([
+  const [device, server, network, peers, transfers, offers, links, linksAvailable] = await Promise.all([
     api.getDevice(),
     api.getServerStatus(),
     api.getNetwork(),
     api.listPeers(),
     api.listTransfers(),
     api.listOffers(),
+    api.listLinks(),
+    api.linksAvailable(),
   ])
+  app.links = links
+  app.linksAvailable = linksAvailable
   app.device = device
   app.server = server
   app.network = network
@@ -181,6 +193,50 @@ function upsertTransfer(x: Transfer) {
 }
 
 export const activeTransfers = () => app.transfers.filter(isActive)
+
+// ---- Links ----
+
+export const visitorActive = (v: { status: string }) => v.status === 'connecting' || v.status === 'waiting' || v.status === 'sending'
+
+/** People downloading from links right now. */
+export const activeVisitors = () => app.links.reduce((n, l) => n + l.visitors.filter((v) => v.status === 'sending').length, 0)
+
+function upsertLink(l: Link) {
+  const i = app.links.findIndex((x) => x.id === l.id)
+  const prev = i >= 0 ? app.links[i] : null
+  if (i >= 0) app.links[i] = l
+  else app.links.unshift(l)
+  // Say when someone finishes, once.
+  for (const v of l.visitors) {
+    const was = prev?.visitors.find((x) => x.session === v.session)
+    if (v.status === 'done' && was && was.status !== 'done') {
+      toast(t('links.toastDone', { name: v.name, what: describe(l.files) }))
+    }
+  }
+}
+
+/** Opens the file picker and makes a link for what was chosen. */
+export async function pickAndShareLink() {
+  let files: PickedFile[]
+  try {
+    files = await api.pickFiles()
+  } catch (e) {
+    toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
+    return
+  }
+  if (files.length) await shareLink(files.filter((f): f is string => typeof f === 'string'))
+}
+
+/** Makes a link for files at paths. */
+export async function shareLink(paths: string[]) {
+  if (!paths.length) return
+  try {
+    const l = await api.createLink(paths, false)
+    upsertLink(l)
+  } catch (e) {
+    toast(errorText(e), 'error', 6000)
+  }
+}
 
 /** Starts sending; reports problems as toasts. */
 export async function sendTo(peer: Peer, files: PickedFile[]) {

@@ -26,6 +26,9 @@ type Presence struct {
 	// the server has none). Relay says whether the server relays.
 	AltPort int
 	Relay   bool
+	// LinksURL is where the server serves share-by-link pages ("" when it
+	// doesn't support links).
+	LinksURL string
 
 	wmu sync.Mutex // serializes writes
 
@@ -67,6 +70,11 @@ func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string,
 	}
 
 	p := &Presence{nc: nc, conn: conn, AltPort: reg.AltPort, Relay: reg.Relay, waiters: map[string]chan Msg{}, done: make(chan struct{})}
+	for _, c := range reg.Caps {
+		if c == CapLinks {
+			p.LinksURL = reg.WebURL
+		}
+	}
 	go func() {
 		select {
 		case <-ctx.Done():

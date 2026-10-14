@@ -4,6 +4,8 @@ import {appcore} from '../models';
 
 export function CancelInvite():Promise<void>;
 
+export function CancelLinkVisitor(arg1:string,arg2:string):Promise<void>;
+
 export function CancelTransfer(arg1:string):Promise<void>;
 
 export function CheckForUpdate():Promise<appcore.UpdateDTO>;
@@ -11,6 +13,8 @@ export function CheckForUpdate():Promise<appcore.UpdateDTO>;
 export function ChooseFolder(arg1:string,arg2:string):Promise<string>;
 
 export function ClearFinishedTransfers():Promise<void>;
+
+export function CreateLink(arg1:Array<string>,arg2:boolean):Promise<appcore.LinkDTO>;
 
 export function GetDevice():Promise<appcore.DeviceInfo>;
 
@@ -25,6 +29,10 @@ export function GetUpdate():Promise<appcore.UpdateDTO>;
 export function InstallUpdate():Promise<void>;
 
 export function JoinWithCode(arg1:string):Promise<appcore.PeerDTO>;
+
+export function LinksAvailable():Promise<boolean>;
+
+export function ListLinks():Promise<Array<appcore.LinkDTO>>;
 
 export function ListOffers():Promise<Array<appcore.OfferDTO>>;
 
@@ -66,8 +74,12 @@ export function SetDeviceName(arg1:string):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
 
+export function SetLinkUnlimited(arg1:string,arg2:boolean):Promise<void>;
+
 export function ShowFile(arg1:string):Promise<void>;
 
 export function StartInvite():Promise<appcore.Invite>;
+
+export function StopLink(arg1:string):Promise<void>;
 
 export function UpdatePeer(arg1:string,arg2:appcore.PeerUpdate):Promise<appcore.PeerDTO>;

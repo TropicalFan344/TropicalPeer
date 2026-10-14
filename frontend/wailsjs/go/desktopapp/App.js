@@ -6,6 +6,10 @@ export function CancelInvite() {
   return window['go']['desktopapp']['App']['CancelInvite']();
 }
 
+export function CancelLinkVisitor(arg1, arg2) {
+  return window['go']['desktopapp']['App']['CancelLinkVisitor'](arg1, arg2);
+}
+
 export function CancelTransfer(arg1) {
   return window['go']['desktopapp']['App']['CancelTransfer'](arg1);
 }
@@ -20,6 +24,10 @@ export function ChooseFolder(arg1, arg2) {
 
 export function ClearFinishedTransfers() {
   return window['go']['desktopapp']['App']['ClearFinishedTransfers']();
+}
+
+export function CreateLink(arg1, arg2) {
+  return window['go']['desktopapp']['App']['CreateLink'](arg1, arg2);
 }
 
 export function GetDevice() {
@@ -48,6 +56,14 @@ export function InstallUpdate() {
 
 export function JoinWithCode(arg1) {
   return window['go']['desktopapp']['App']['JoinWithCode'](arg1);
+}
+
+export function LinksAvailable() {
+  return window['go']['desktopapp']['App']['LinksAvailable']();
+}
+
+export function ListLinks() {
+  return window['go']['desktopapp']['App']['ListLinks']();
 }
 
 export function ListOffers() {
@@ -130,12 +146,20 @@ export function SetLanguage(arg1) {
   return window['go']['desktopapp']['App']['SetLanguage'](arg1);
 }
 
+export function SetLinkUnlimited(arg1, arg2) {
+  return window['go']['desktopapp']['App']['SetLinkUnlimited'](arg1, arg2);
+}
+
 export function ShowFile(arg1) {
   return window['go']['desktopapp']['App']['ShowFile'](arg1);
 }
 
 export function StartInvite() {
   return window['go']['desktopapp']['App']['StartInvite']();
+}
+
+export function StopLink(arg1) {
+  return window['go']['desktopapp']['App']['StopLink'](arg1);
 }
 
 export function UpdatePeer(arg1, arg2) {

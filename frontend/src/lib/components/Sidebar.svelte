@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Users, ArrowLeftRight, Settings, Copy, Check, ChevronRight } from '@lucide/svelte'
-  import { app, activeTransfers, type Page } from '../state.svelte'
+  import { Users, ArrowLeftRight, Link2, Settings, Copy, Check, ChevronRight } from '@lucide/svelte'
+  import { app, activeTransfers, activeVisitors, type Page } from '../state.svelte'
   import Bed from './Bed.svelte'
   import { t } from '../i18n.svelte'
   import { scale } from 'svelte/transition'
@@ -10,10 +10,12 @@
   const items: { page: Page; label: string; icon: typeof Users }[] = [
     { page: 'peers', label: 'nav.peers', icon: Users },
     { page: 'transfers', label: 'nav.transfers', icon: ArrowLeftRight },
+    { page: 'links', label: 'nav.links', icon: Link2 },
     { page: 'settings', label: 'nav.settings', icon: Settings },
   ]
 
   const active = $derived(activeTransfers().length)
+  const downloading = $derived(activeVisitors())
   const serverState = $derived(app.server.online ? 'online' : app.server.error ? 'offline' : 'connecting')
   const serverLabel = $derived(t({ online: 'server.online', offline: 'server.unreachable', connecting: 'server.connecting' }[serverState]))
   const serverDot = $derived({ online: 'bg-rail-ok', offline: 'bg-rail-alert', connecting: 'bg-rail-info' }[serverState])
@@ -57,6 +59,11 @@
         {#if item.page === 'transfers' && active}
           <span class="ml-auto min-w-5 rounded-full bg-rail-ink px-1.5 text-center text-xs font-semibold text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>
             {active}
+          </span>
+        {/if}
+        {#if item.page === 'links' && downloading}
+          <span class="ml-auto min-w-5 rounded-full bg-rail-ink px-1.5 text-center text-xs font-semibold text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>
+            {downloading}
           </span>
         {/if}
         {#if item.page === 'peers' && app.offers.length}

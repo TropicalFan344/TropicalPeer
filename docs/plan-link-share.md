@@ -15,9 +15,9 @@ who don't have the app.
 | Step | What | Status |
 |---|---|---|
 | 0 | Prototype: server WebSocket + TURN, `tpcli share` sender, bare receiver page | Mostly done: 1 GB PC → Android Chrome on another network in 126 s (7.9 MB/s, through TURN), SHA-256 matches; desktop Chrome locally 40 MB/s; wrong key rejected. Left: Safari |
-| 1 | Server: HTTPS, `/ws` signaling, embedded TURN, receiver page, `-domain` autocert | |
-| 2 | Engine: `internal/linkshare` (pion/webrtc sender), appcore methods and events | |
-| 3 | Desktop UI: Links page, QR code, receivers list; receiver page styled per DESIGN.md; all 10 locales | |
+| 1 | Server: HTTPS, `/ws` signaling, embedded TURN, receiver page, `-domain` autocert | Done, plus DuckDNS DNS-01 certificates and a port check at startup |
+| 2 | Engine: `internal/linkshare` (pion/webrtc sender), appcore methods and events | Done; links reconnect to the server for 15 minutes after losing it |
+| 3 | Desktop UI: Links page, QR code, receivers list; receiver page styled per DESIGN.md; all 10 locales | Links page done (10 locales; drop files on it). Left: receiver page in 10 languages, Safari |
 | 4 | Android sender (same engine; Kotlin only for the share sheet entry) | |
 | 5 | README: running a server with links, what the page host can and can't see | |
 
