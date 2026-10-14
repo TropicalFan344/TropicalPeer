@@ -10,6 +10,7 @@ package rendezvous
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -38,6 +39,13 @@ const (
 	TypeConnectAnswer = "connect_answer"
 	TypeNATInfo       = "nat_info" // device → server: what its router is like
 	TypeError         = "error"
+
+	// Share by link, on a connection of its own (see links.go):
+	TypeLinkHost    = "link_host"    // sender → server: route browsers that open Link to us
+	TypeLinkHosted  = "link_hosted"  // server → sender: done; WebURL is where links point
+	TypeLinkVisitor = "link_visitor" // server → sender: a browser opened the link (Session, ICE)
+	TypeLinkSignal  = "link_signal"  // both ways: WebRTC signaling for Session (Data)
+	TypeLinkDrop    = "link_drop"    // both ways: Session is over
 )
 
 // Msg is the envelope for every message. Only the fields relevant to Type are set.
@@ -77,7 +85,21 @@ type Msg struct {
 	Relay      bool     `json:"relay,omitempty"`   // the server will relay this session
 	NoRelay    bool     `json:"noRelay,omitempty"` // connect: direct paths only (no relay session)
 
+	// link_*
+	Link   string          `json:"link,omitempty"`
+	Data   json.RawMessage `json:"data,omitempty"` // opaque to the server
+	ICE    []ICEServer     `json:"ice,omitempty"`
+	WebURL string          `json:"webURL,omitempty"`
+
 	Error string `json:"error,omitempty"`
+}
+
+// ICEServer is a STUN or TURN server for WebRTC, in the shape browsers take
+// for RTCIceServer.
+type ICEServer struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username,omitempty"`
+	Credential string   `json:"credential,omitempty"`
 }
 
 // CapAnswer: the device answers connect offers (connect_answer), so the

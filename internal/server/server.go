@@ -75,6 +75,9 @@ type Server struct {
 	Relay     bool
 	RelayRate int64
 
+	// Links enables share by link (nil = off). Set before serving.
+	Links *Links
+
 	mu         sync.Mutex
 	online     map[string]*presence
 	nameplates map[string]*pending
@@ -83,6 +86,9 @@ type Server struct {
 	udp        net.PacketConn
 	alt        net.PacketConn // second UDP port for router detection
 	altPort    int
+	links      map[string]*linkHost
+	opens      map[string]int // link opens per IP this minute
+	opensReset time.Time
 }
 
 func New(logger *log.Logger) *Server {
@@ -145,6 +151,8 @@ func (s *Server) handle(nc net.Conn) {
 	case rendezvous.TypePairJoin:
 		err = s.handlePairJoin(nc, conn, m)
 		return
+	case rendezvous.TypeLinkHost:
+		err = s.handleLinkHost(nc, conn, m)
 	default:
 		err = fmt.Errorf("unknown message type %q", m.Type)
 	}
@@ -200,7 +208,11 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 	s.mu.Lock()
 	altPort, relay := s.altPort, s.Relay
 	s.mu.Unlock()
-	if err := p.send(rendezvous.Msg{Type: rendezvous.TypeRegistered, Observed: observedIP, AltPort: altPort, Relay: relay}); err != nil {
+	reg := rendezvous.Msg{Type: rendezvous.TypeRegistered, Observed: observedIP, AltPort: altPort, Relay: relay}
+	if s.Links != nil {
+		reg.Caps, reg.WebURL = []string{rendezvous.CapLinks}, s.Links.WebURL
+	}
+	if err := p.send(reg); err != nil {
 		return nil
 	}
 	// The device is online until this connection closes. Meanwhile it may

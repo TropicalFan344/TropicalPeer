@@ -7,6 +7,15 @@
 // port (address probes and relaying), plus a second UDP port (default +100)
 // that lets devices detect strict routers. Open all three on your firewall,
 // or pass -upnp to have a home router forward them automatically.
+//
+// Share by link (browsers download from a device) also needs a public name
+// and HTTPS:
+//
+//	server -upnp -domain example.duckdns.org
+//
+// That serves the receiver page and signaling on TCP 443 (certificate from
+// Let's Encrypt), and runs a TURN relay on UDP/TCP 3478 with relay ports
+// 40100-40119.
 package main
 
 import (
@@ -32,6 +41,8 @@ func main() {
 	relayRate := flag.Int64("relay-rate", 32, "per-transfer relay cap in MB/s (0 = unlimited)")
 	altPort := flag.Int("alt-port", 0, "second UDP port for router detection (0 = listen port + 100, -1 = off)")
 	upnp := flag.Bool("upnp", false, "ask the home router (UPnP / NAT-PMP) to forward the server's ports while it runs")
+	var lf linkFlags
+	lf.register()
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.LstdFlags)
@@ -80,6 +91,14 @@ func main() {
 			go srv.ServeUDPAlt(ctx, alt)
 			specs = append(specs, portmap.Spec{Protocol: "UDP", Port: ap})
 		}
+	}
+
+	if lf.enabled() {
+		more, err := lf.start(ctx, logger, srv, *upnp)
+		if err != nil {
+			logger.Fatalf("links: %v", err)
+		}
+		specs = append(specs, more...)
 	}
 
 	forwardsDone := make(chan struct{})

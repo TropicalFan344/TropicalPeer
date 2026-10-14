@@ -69,3 +69,15 @@ var words = strings.Fields(`
 	thunder tide tiger toucan trail tulip tundra turtle twilight valley vanilla
 	velvet violet volcano walnut walrus wave whale willow wind wolf yak zebra
 `)
+
+// RandomName returns two capitalised words from the code word list, like
+// "Orchid Tiger", for naming someone who has no device name of their own.
+func RandomName() string {
+	parts := make([]string, 2)
+	for i := range parts {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(words))))
+		w := words[n.Int64()]
+		parts[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(parts, " ")
+}

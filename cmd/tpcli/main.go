@@ -36,6 +36,8 @@ commands:
   remove <peer>                 forget a paired device
   run                           stay online and receive files
   send <peer> <file>...         send files to a paired device
+  share [-unlimited] <file>...  make a link anyone can download the files from in a
+                                browser (first person only, unless -unlimited)
   network                       check how reachable this device is (router type,
                                 port forwarding); forwarding is removed on exit
 
@@ -167,6 +169,9 @@ func runCommand(ctx context.Context, n *node.Node, ui *console, cmd string, args
 			return err
 		}
 		return n.Peers.Remove(p.ID)
+
+	case "share":
+		return shareLink(ctx, n, args)
 
 	case "network":
 		go n.Run(ctx)
