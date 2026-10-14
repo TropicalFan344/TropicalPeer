@@ -41,7 +41,7 @@ body {
 }
 main { max-width: 34rem; margin: 0 auto; padding: 32px 16px 48px; }
 .brand { margin: 0 0 32px; font-weight: 600; letter-spacing: 0.02em; color: var(--primary); }
-h1 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 8px; font-weight: 600; }
+h1 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 8px; font-weight: 600; text-wrap: balance; }
 p { margin: 0 0 16px; }
 .muted { color: var(--muted); }
 .you { font-size: 0.875rem; color: var(--muted); margin-bottom: 24px; }

@@ -4,18 +4,17 @@
 
 export type FileInfo = { name: string; size: number }
 export type Hello = { name: string; from: string; files: FileInfo[]; total: number }
+// error is a code: 'cancel' (the sender cancelled), 'lost', 'cancelled'
+// (here), or the browser's own message when saving failed (savingFailed).
 export type GetResult = { sha256?: string; error?: string; savingFailed?: boolean }
 
 type Handlers = {
   onHello: (h: Hello) => void
+  // gone, used, busy, auth, cancel, lost or unreachable
   onError: (code: string) => void
 }
 
 const authContext = 'tropicalpeer-link-v1'
-
-// Steps for remote debugging (read window.__tpLog from a driver).
-const debugLog: string[] = ((window as unknown as { __tpLog: string[] }).__tpLog = [])
-const note = (s: string) => debugLog.push(`${Math.round(performance.now())} ${s}`)
 
 function b64urlDecode(s: string): Uint8Array {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)
@@ -56,7 +55,7 @@ export async function connect(link: string, secret: string, h: Handlers) {
   const failOnce = (code: string) => {
     if (finished) return
     finished = true
-    current?.resolve({ error: code === 'cancel' ? 'The sender cancelled.' : 'The connection was lost.' })
+    current?.resolve({ error: code === 'cancel' ? 'cancel' : 'lost' })
     current = undefined
     h.onError(code)
     pc?.close()
@@ -69,7 +68,6 @@ export async function connect(link: string, secret: string, h: Handlers) {
 
   ws.onmessage = async (ev) => {
     const m = JSON.parse(ev.data)
-    note('ws ' + m.type)
     if (m.type === 'error') return failOnce(m.error)
     if (m.type === 'ended') {
       if (!authed) failOnce('gone')
@@ -78,19 +76,17 @@ export async function connect(link: string, secret: string, h: Handlers) {
     if (m.type === 'opened') {
       session = m.session
       pc = new RTCPeerConnection({ iceServers: m.ice ?? [] })
-      ;(window as unknown as { __tpPC: RTCPeerConnection }).__tpPC = pc // for remote debugging
       dc = pc.createDataChannel('files', { ordered: true })
       dc.binaryType = 'arraybuffer'
       pc.onicecandidate = (e) => e.candidate && signal({ candidate: e.candidate.toJSON() })
       pc.onconnectionstatechange = () => {
-        if (pc?.connectionState === 'failed') failOnce("couldn't connect to the sender's device")
+        if (pc?.connectionState === 'failed') failOnce('unreachable')
       }
       dc.onopen = onOpen
       // One message at a time, in order: checking the sender's key is
       // async, and what follows it (the file list) must wait for it.
       dc.onmessage = (ev) => {
         inbox = inbox.then(() => onMessage(ev)).catch((e) => {
-            note('message: ' + e)
           })
       }
       dc.onclose = () => failOnce('lost')
@@ -118,11 +114,9 @@ export async function connect(link: string, secret: string, h: Handlers) {
   let fps: [string, string] = ['', ''] // sender, browser
 
   async function onOpen() {
-    note('dc open')
     try {
       fps = [fingerprint(pc!.remoteDescription?.sdp), fingerprint(pc!.localDescription?.sdp)]
-    } catch (e) {
-      note('fingerprint: ' + e)
+    } catch {
       return failOnce('auth')
     }
     const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, mac('browser', session, ...fps)))
@@ -149,7 +143,6 @@ export async function connect(link: string, secret: string, h: Handlers) {
       return
     }
     const m = JSON.parse(ev.data)
-    note('dc ' + m.type)
     if (!authed) {
       if (m.type === 'error') return failOnce(m.error)
       if (m.type !== 'auth') return
