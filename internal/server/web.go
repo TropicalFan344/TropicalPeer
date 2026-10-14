@@ -25,6 +25,13 @@ func (s *Server) WebHandler() http.Handler {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
+		// Downloads (/r/dl/<id>) only exist inside the page's service worker.
+		// A browser retrying an interrupted one asks the network instead; it
+		// must fail, or it would save whatever came back as the file.
+		if strings.HasPrefix(name, "dl/") {
+			http.NotFound(w, r)
+			return
+		}
 		// A link's own page (/r/<id>) is the app; anything with a dot is a file.
 		if name == "" || !strings.Contains(path.Base(name), ".") {
 			h.Set("Content-Security-Policy", "default-src 'self'; connect-src 'self' wss: ws:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
