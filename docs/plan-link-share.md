@@ -155,8 +155,9 @@ first.
     dependency through Wails).
 - TURN through pion/turn on UDP and TCP 3478, relay ports UDP 40100-40119
   (outside the Windows dynamic range, where Hyper-V/WSL reserve blocks such
-  as 49162-49261). Credentials are per session (TURN REST style). TODO:
-  `-relay-rate` for TURN.
+  as 49162-49261). Credentials are per session (TURN REST style). `-relay-rate` caps each
+  allocation too (32 MB/s by default); a session gets at most 6 allocations
+  and the server 256.
 - New flags: `-domain` (Let's Encrypt via `autocert`, TLS-ALPN on 443),
   `-cert`/`-key` (own certificate), `-http` (plain HTTP behind a reverse
   proxy), `-turn-port`, `-links=false` to turn the whole feature off.

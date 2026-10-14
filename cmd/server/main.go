@@ -94,7 +94,7 @@ func main() {
 	}
 
 	if lf.enabled() {
-		more, err := lf.start(ctx, logger, srv, *upnp)
+		more, err := lf.start(ctx, logger, srv, *upnp, *relayRate<<20)
 		if err != nil {
 			logger.Fatalf("links: %v", err)
 		}

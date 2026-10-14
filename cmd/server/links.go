@@ -64,7 +64,8 @@ func (f *linkFlags) enabled() bool { return *f.domain != "" }
 
 // start serves the receiver page and signaling, and the TURN relay. It
 // returns the extra ports to forward.
-func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.Server, upnp bool) ([]portmap.Spec, error) {
+// relayRate caps each TURN allocation in bytes per second (0 = unlimited).
+func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.Server, upnp bool, relayRate int64) ([]portmap.Spec, error) {
 	_, webPortStr, err := net.SplitHostPort(*f.web)
 	if err != nil {
 		return nil, fmt.Errorf("bad -web %q: %v", *f.web, err)
@@ -101,7 +102,7 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 	}
 	t, err := server.StartTURN(server.TURNConfig{
 		Port: *f.turnPort, Host: turnHost, PublicIP: ip,
-		RelayMin: lo, RelayMax: hi, AllowLAN: *f.allowLAN,
+		RelayMin: lo, RelayMax: hi, AllowLAN: *f.allowLAN, Rate: relayRate,
 	})
 	if err != nil {
 		return nil, err

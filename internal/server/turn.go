@@ -30,7 +30,18 @@ type TURNConfig struct {
 	RelayMin int    // UDP port range for relay allocations
 	RelayMax int
 	AllowLAN bool // let the relay send to private addresses (a sender on the server's own network)
+	// Rate caps each relay allocation in bytes per second, both directions
+	// together (0 = unlimited), like the QUIC relay's -relay-rate.
+	Rate int64
 }
+
+// Allocation limits: a session is one browser and one sender, each with a
+// UDP and maybe a TCP allocation; the total keeps a busy server's ports and
+// memory in check.
+const (
+	maxAllocationsPerSession = 6
+	maxAllocations           = 256
+)
 
 // StartTURN listens on cfg.Port (UDP and TCP).
 func StartTURN(cfg TURNConfig) (*TURN, error) {
@@ -45,13 +56,14 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 	}
 	secret := randomHex(32)
 	gen := func() turn.RelayAddressGenerator {
-		return &turn.RelayAddressGeneratorPortRange{
+		return &limitedGenerator{RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
 			RelayAddress: cfg.PublicIP,
 			Address:      "0.0.0.0",
 			MinPort:      uint16(cfg.RelayMin),
 			MaxPort:      uint16(cfg.RelayMax),
-		}
+		}, rate: cfg.Rate}
 	}
+	q := &quota{perSession: map[string]int{}}
 	allow := func(_ net.Addr, peer net.IP) bool {
 		if peer.IsLoopback() || peer.IsUnspecified() || peer.IsMulticast() || peer.IsLinkLocalUnicast() {
 			return false
@@ -59,8 +71,13 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 		return cfg.AllowLAN || !peer.IsPrivate()
 	}
 	srv, err := turn.NewServer(turn.ServerConfig{
-		Realm:              "tropicalpeer",
-		AuthHandler:        turn.LongTermTURNRESTAuthHandler(secret, nil),
+		Realm:        "tropicalpeer",
+		AuthHandler:  turn.LongTermTURNRESTAuthHandler(secret, nil),
+		QuotaHandler: q.allow,
+		EventHandler: turn.EventHandler{
+			OnAllocationCreated: func(_, _ net.Addr, _, userID, _ string, _ net.Addr, _ int) { q.add(userID, 1) },
+			OnAllocationDeleted: func(_, _ net.Addr, _, userID, _ string) { q.add(userID, -1) },
+		},
 		PacketConnConfigs:  []turn.PacketConnConfig{{PacketConn: udp, RelayAddressGenerator: gen(), PermissionHandler: allow}},
 		ListenerConfigs:    []turn.ListenerConfig{{Listener: tcp, RelayAddressGenerator: gen(), PermissionHandler: allow}},
 		AllocationLifetime: 10 * time.Minute,
