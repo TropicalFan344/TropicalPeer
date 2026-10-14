@@ -162,6 +162,7 @@
     "visitorRefused": "お断りしました：このリンクは 1 人用です",
     "visitorFailed": "相手のブラウザとの接続が切れました",
     "visitorLeft": "ページを閉じました",
+    "visitorCancelled": "ダウンロードをキャンセルしました",
     "qrLabel": "{what} へのリンクの QR コード",
     "emptyTitle": "リンクはまだありません",
     "emptyBody": "「新しいリンク」を選ぶか、ここにファイルをドロップしてください。TropicalPeer が開いている間、コードを読み取るかリンクを開いた人はブラウザでダウンロードできます。",

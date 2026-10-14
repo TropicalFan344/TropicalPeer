@@ -162,6 +162,7 @@
     "visitorRefused": "已拒絕：這個連結只給一個人",
     "visitorFailed": "與對方瀏覽器的連線中斷了",
     "visitorLeft": "已關閉頁面",
+    "visitorCancelled": "取消了下載",
     "qrLabel": "{what} 的連結 QR 碼",
     "emptyTitle": "還沒有連結",
     "emptyBody": "按「新增連結」，或把檔案拖到這裡。只要 TropicalPeer 開著，任何掃描 QR 碼或開啟連結的人都能在瀏覽器下載。",

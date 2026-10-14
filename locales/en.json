@@ -162,6 +162,7 @@
     "visitorRefused": "Turned away: the link was for one person only",
     "visitorFailed": "Lost the connection to their browser",
     "visitorLeft": "Closed the page",
+    "visitorCancelled": "Cancelled the download",
     "qrLabel": "QR code for the link to {what}",
     "emptyTitle": "No links yet",
     "emptyBody": "Choose New link, or drop files here. Anyone who scans the code or opens the link can download them in a browser while TropicalPeer stays open.",

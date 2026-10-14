@@ -162,6 +162,7 @@
     "visitorRefused": "Rechazado: el enlace era para una sola persona",
     "visitorFailed": "Se perdió la conexión con su navegador",
     "visitorLeft": "Cerró la página",
+    "visitorCancelled": "Canceló la descarga",
     "qrLabel": "Código QR del enlace a {what}",
     "emptyTitle": "Aún no hay enlaces",
     "emptyBody": "Elige Nuevo enlace o suelta archivos aquí. Quien escanee el código o abra el enlace podrá descargarlos en un navegador mientras TropicalPeer siga abierto.",

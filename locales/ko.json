@@ -162,6 +162,7 @@
     "visitorRefused": "거절됨: 한 사람만을 위한 링크입니다",
     "visitorFailed": "상대 브라우저와의 연결이 끊겼습니다",
     "visitorLeft": "페이지를 닫았습니다",
+    "visitorCancelled": "다운로드를 취소했습니다",
     "qrLabel": "{what} 링크의 QR 코드",
     "emptyTitle": "아직 링크가 없습니다",
     "emptyBody": "새 링크를 누르거나 파일을 여기로 끌어 놓으세요. TropicalPeer가 열려 있는 동안 코드를 스캔하거나 링크를 연 사람은 브라우저에서 내려받을 수 있습니다.",

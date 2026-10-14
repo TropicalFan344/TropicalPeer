@@ -4,7 +4,7 @@
 
 export type FileInfo = { name: string; size: number }
 export type Hello = { name: string; from: string; files: FileInfo[]; total: number }
-export type GetResult = { sha256?: string; error?: string }
+export type GetResult = { sha256?: string; error?: string; savingFailed?: boolean }
 
 type Handlers = {
   onHello: (h: Hello) => void
@@ -12,6 +12,10 @@ type Handlers = {
 }
 
 const authContext = 'tropicalpeer-link-v1'
+
+// Steps for remote debugging (read window.__tpLog from a driver).
+const debugLog: string[] = ((window as unknown as { __tpLog: string[] }).__tpLog = [])
+const note = (s: string) => debugLog.push(`${Math.round(performance.now())} ${s}`)
 
 function b64urlDecode(s: string): Uint8Array {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)
@@ -42,9 +46,12 @@ export async function connect(link: string, secret: string, h: Handlers) {
   let finished = false
   let authed = false
   const early: RTCIceCandidateInit[] = []
+  let inbox = Promise.resolve()
 
   // The file being received: chunks go to onChunk, one at a time.
-  let current: { onChunk: (b: Uint8Array) => Promise<void>; writes: Promise<void>; resolve: (r: GetResult) => void } | undefined
+  let current:
+    | { onChunk: (b: Uint8Array) => Promise<void>; writes: Promise<void>; resolve: (r: GetResult) => void; broken: boolean }
+    | undefined
 
   const failOnce = (code: string) => {
     if (finished) return
@@ -62,6 +69,7 @@ export async function connect(link: string, secret: string, h: Handlers) {
 
   ws.onmessage = async (ev) => {
     const m = JSON.parse(ev.data)
+    note('ws ' + m.type)
     if (m.type === 'error') return failOnce(m.error)
     if (m.type === 'ended') {
       if (!authed) failOnce('gone')
@@ -78,7 +86,13 @@ export async function connect(link: string, secret: string, h: Handlers) {
         if (pc?.connectionState === 'failed') failOnce("couldn't connect to the sender's device")
       }
       dc.onopen = onOpen
-      dc.onmessage = onMessage
+      // One message at a time, in order: checking the sender's key is
+      // async, and what follows it (the file list) must wait for it.
+      dc.onmessage = (ev) => {
+        inbox = inbox.then(() => onMessage(ev)).catch((e) => {
+            note('message: ' + e)
+          })
+      }
       dc.onclose = () => failOnce('lost')
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
@@ -104,9 +118,11 @@ export async function connect(link: string, secret: string, h: Handlers) {
   let fps: [string, string] = ['', ''] // sender, browser
 
   async function onOpen() {
+    note('dc open')
     try {
       fps = [fingerprint(pc!.remoteDescription?.sdp), fingerprint(pc!.localDescription?.sdp)]
-    } catch {
+    } catch (e) {
+      note('fingerprint: ' + e)
       return failOnce('auth')
     }
     const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, mac('browser', session, ...fps)))
@@ -118,10 +134,22 @@ export async function connect(link: string, secret: string, h: Handlers) {
       if (!authed || !current) return
       const chunk = new Uint8Array(ev.data as ArrayBuffer)
       const c = current
-      c.writes = c.writes.then(() => c.onChunk(chunk))
+      c.writes = c.writes
+        .then(() => (c.broken ? undefined : c.onChunk(chunk)))
+        .catch((e) => {
+          // Saving failed, most often because the download was cancelled
+          // in the browser: stop the sender instead of letting it send the
+          // rest into nowhere.
+          if (c.broken) return
+          c.broken = true
+          if (current === c) current = undefined
+          c.resolve({ error: String(e?.message ?? e), savingFailed: true })
+          stopSender()
+        })
       return
     }
     const m = JSON.parse(ev.data)
+    note('dc ' + m.type)
     if (!authed) {
       if (m.type === 'error') return failOnce(m.error)
       if (m.type !== 'auth') return
@@ -139,10 +167,9 @@ export async function connect(link: string, secret: string, h: Handlers) {
         const c = current
         if (!c) return
         current = undefined
-        c.writes.then(
-          () => c.resolve({ sha256: m.sha256 }),
-          (e) => c.resolve({ error: String(e?.message ?? e) }),
-        )
+        c.writes.then(() => {
+          if (!c.broken) c.resolve({ sha256: m.sha256 })
+        })
         break
       }
       case 'cancel':
@@ -154,21 +181,25 @@ export async function connect(link: string, secret: string, h: Handlers) {
     }
   }
 
+  function stopSender() {
+    finished = true
+    try {
+      dc?.send(JSON.stringify({ type: 'cancel' }))
+    } catch {}
+    setTimeout(() => pc?.close(), 300)
+  }
+
   return {
     get(index: number, onChunk: (b: Uint8Array) => Promise<void>): Promise<GetResult> {
       return new Promise((resolve) => {
-        current = { onChunk, writes: Promise.resolve(), resolve }
+        current = { onChunk, writes: Promise.resolve(), resolve, broken: false }
         dc!.send(JSON.stringify({ type: 'get', index }))
       })
     },
     cancel() {
-      finished = true
       current?.resolve({ error: 'cancelled' })
       current = undefined
-      try {
-        dc?.send(JSON.stringify({ type: 'cancel' }))
-      } catch {}
-      setTimeout(() => pc?.close(), 300)
+      stopSender()
     },
     finish() {
       finished = true

@@ -162,6 +162,7 @@
     "visitorRefused": "已拒绝：这个链接只给一个人",
     "visitorFailed": "与对方浏览器的连接断开了",
     "visitorLeft": "已关闭页面",
+    "visitorCancelled": "取消了下载",
     "qrLabel": "{what} 的链接二维码",
     "emptyTitle": "还没有链接",
     "emptyBody": "点击“新建链接”，或把文件拖到这里。只要 TropicalPeer 开着，任何扫描二维码或打开链接的人都能在浏览器中下载。",

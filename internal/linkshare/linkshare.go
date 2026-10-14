@@ -413,24 +413,26 @@ func (v *visitor) run() {
 			v.finish(Failed, "couldn't connect to the browser")
 		}
 	})
-	chans := make(chan *webrtc.DataChannel, 1)
+	// The handlers go on in the callback itself: the page sends its key
+	// check the moment the channel opens, and a message that arrives before
+	// OnMessage is set is lost.
+	chans := make(chan *channel, 1)
 	v.pc.OnDataChannel(func(dc *webrtc.DataChannel) {
 		select {
-		case chans <- dc:
+		case chans <- newChannel(dc):
 		default:
 		}
 	})
 
-	var dc *webrtc.DataChannel
+	var ch *channel
 	select {
-	case dc = <-chans:
+	case ch = <-chans:
 	case <-time.After(connectTimeout):
 		v.finish(Failed, "couldn't connect to the browser")
 		return
 	case <-v.ctx.Done():
 		return
 	}
-	ch := newChannel(dc)
 	select {
 	case <-ch.open:
 	case <-time.After(connectTimeout):
@@ -440,9 +442,13 @@ func (v *visitor) run() {
 		return
 	}
 	v.opened.Store(true)
-	go func() { <-v.ctx.Done(); dc.Close() }()
+	go func() { <-v.ctx.Done(); ch.dc.Close() }()
 
 	err := v.serve(ch)
+	if errors.Is(err, errCancelled) {
+		v.finish(Cancelled, err.Error())
+		return
+	}
 	if err != nil {
 		if v.ctx.Err() != nil {
 			return // already finished (cancelled or link stopped)
@@ -486,6 +492,7 @@ func (v *visitor) serve(ch *channel) error {
 	got, _ := base64.RawURLEncoding.DecodeString(m.MAC)
 	if m.Type != "auth" || !hmac.Equal(got, want) {
 		ch.sendJSON(pageMsg{Type: "error", Error: "auth"})
+		ch.flush()
 		return errors.New("the browser doesn't have this link's key")
 	}
 	if err := ch.sendJSON(pageMsg{Type: "auth", MAC: base64.RawURLEncoding.EncodeToString(v.s.mac("sender", v.info.Session, localFP, remoteFP))}); err != nil {
@@ -499,7 +506,7 @@ func (v *visitor) serve(ch *channel) error {
 	{
 		if taken {
 			ch.sendJSON(pageMsg{Type: "error", Error: "used"})
-			time.Sleep(time.Second) // let it arrive before closing
+			ch.flush()
 			v.finish(Refused, "")
 			return nil
 		}

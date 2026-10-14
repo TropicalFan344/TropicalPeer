@@ -166,6 +166,11 @@ async function downloadAll(session: Awaited<ReturnType<typeof connect>>, h: Hell
       }
       return sink.write(chunk)
     })
+    if (result.savingFailed) {
+      await sink.abort().catch(() => {})
+      fail('Download cancelled', 'It was stopped in the browser. Open the link again to download it once more.')
+      return
+    }
     if (result.error) {
       await sink.abort()
       if (result.error !== 'cancelled') {

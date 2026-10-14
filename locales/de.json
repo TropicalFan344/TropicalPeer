@@ -162,6 +162,7 @@
     "visitorRefused": "Abgewiesen: Der Link war nur für eine Person",
     "visitorFailed": "Verbindung zu ihrem Browser verloren",
     "visitorLeft": "Hat die Seite geschlossen",
+    "visitorCancelled": "Hat den Download abgebrochen",
     "qrLabel": "QR-Code für den Link zu {what}",
     "emptyTitle": "Noch keine Links",
     "emptyBody": "Wähle „Neuer Link“ oder zieh Dateien hierher. Wer den Code scannt oder den Link öffnet, kann sie im Browser herunterladen, solange TropicalPeer geöffnet ist.",

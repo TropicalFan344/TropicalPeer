@@ -10,7 +10,10 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-var errClosed = errors.New("the browser disconnected")
+var (
+	errClosed    = errors.New("the browser disconnected")
+	errCancelled = errors.New("the receiver cancelled")
+)
 
 // channel turns a DataChannel's callbacks into blocking calls.
 type channel struct {
@@ -22,6 +25,9 @@ type channel struct {
 	once   sync.Once
 
 	low chan struct{} // signalled when the send buffer drains
+
+	cancelled  chan struct{} // closed when the page says "cancel", even mid-file
+	cancelOnce sync.Once
 }
 
 func newChannel(dc *webrtc.DataChannel) *channel {
@@ -31,6 +37,8 @@ func newChannel(dc *webrtc.DataChannel) *channel {
 		msgs:   make(chan pageMsg, 16),
 		closed: make(chan struct{}),
 		low:    make(chan struct{}, 1),
+
+		cancelled: make(chan struct{}),
 	}
 	var openOnce sync.Once
 	markOpen := func() { openOnce.Do(func() { close(c.open) }) }
@@ -46,6 +54,9 @@ func newChannel(dc *webrtc.DataChannel) *channel {
 		var pm pageMsg
 		if json.Unmarshal(m.Data, &pm) != nil {
 			return
+		}
+		if pm.Type == "cancel" {
+			c.cancelOnce.Do(func() { close(c.cancelled) })
 		}
 		select {
 		case c.msgs <- pm:
@@ -98,9 +109,16 @@ func (c *channel) sendBinary(ctx context.Context, b []byte) error {
 		case <-time.After(100 * time.Millisecond): // in case the signal raced
 		case <-c.closed:
 			return errClosed
+		case <-c.cancelled:
+			return errCancelled
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+	select {
+	case <-c.cancelled:
+		return errCancelled
+	default:
 	}
 	if err := c.dc.Send(b); err != nil {
 		select {
@@ -111,4 +129,14 @@ func (c *channel) sendBinary(ctx context.Context, b []byte) error {
 		return err
 	}
 	return nil
+}
+
+// flush waits (up to a second) for queued messages to leave, so a last
+// message isn't cut off by closing the channel right after it.
+func (c *channel) flush() {
+	deadline := time.Now().Add(time.Second)
+	for c.dc.BufferedAmount() > 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	time.Sleep(100 * time.Millisecond) // and through the SCTP stack
 }

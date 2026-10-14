@@ -190,7 +190,10 @@ func visitorError(c *Core, v linkshare.Visitor) string {
 	case linkshare.Failed:
 		return c.T("links.visitorFailed")
 	case linkshare.Cancelled:
-		if strings.Contains(v.Error, "receiver") {
+		switch {
+		case strings.Contains(v.Error, "receiver cancelled"):
+			return c.T("links.visitorCancelled")
+		case strings.Contains(v.Error, "receiver"):
 			return c.T("links.visitorLeft")
 		}
 	}
