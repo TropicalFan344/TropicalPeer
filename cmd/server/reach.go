@@ -45,12 +45,19 @@ func checkReach(ctx context.Context, logger *log.Logger, public net.IP, local ne
 	case len(bad) == len(checks):
 		logger.Printf("ports: couldn't reach this server at its public address %s from inside your network. Your router may just not allow that; if devices elsewhere can connect, all is well.", public)
 	default:
+		// local is set when we asked the router (UPnP): the forward exists
+		// but doesn't work. Otherwise there's simply no forward yet.
+		why := "Your router accepted the forward but doesn't pass the traffic. Forward them by hand"
+		if local == nil {
+			why = "Forward them"
+			local = outboundIP()
+		}
 		to := "this computer"
 		if local != nil {
 			to = local.String()
 		}
-		logger.Printf("ports: NOT reachable at %s: %s. Your router accepted the forward but doesn't pass the traffic. Forward these by hand on your router's port forwarding page, to %s (same port numbers).",
-			public, strings.Join(bad, ", "), to)
+		logger.Printf("ports: NOT reachable at %s: %s. %s on your router's port forwarding page, to %s (same port numbers).",
+			public, strings.Join(bad, ", "), why, to)
 	}
 }
 
@@ -90,4 +97,14 @@ func reachable(ctx context.Context, ip net.IP, c reachCheck) bool {
 		}
 	}
 	return false
+}
+
+// outboundIP is this computer's address on its network (no packet is sent).
+func outboundIP() net.IP {
+	c, err := net.Dial("udp4", "192.0.2.1:9")
+	if err != nil {
+		return nil
+	}
+	defer c.Close()
+	return c.LocalAddr().(*net.UDPAddr).IP
 }
