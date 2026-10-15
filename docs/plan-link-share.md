@@ -289,6 +289,10 @@ plainly that whoever serves the page could read the link's secret.
   `.duckdns.org` domain the server gets the certificate by DNS-01 through the
   DuckDNS API (`-duckdns-token`, default `$DUCKDNS_TOKEN`) and serves HTTPS on
   another port (`-web :8443`). It also keeps the DuckDNS address current.
+  A domain on Cloudflare works the same way with `-cloudflare-token`
+  (default `$CLOUDFLARE_API_TOKEN`): the server keeps the name's A record on
+  the address Cloudflare sees (DNS only, as the proxy can't carry TURN) and
+  sets `_acme-challenge.<name>` for DNS-01.
 - Chrome on Android has `showSaveFilePicker`; on phones the page skips it and
   downloads straight to Downloads.
 - A phone drops its server connection whenever the app is briefly in the

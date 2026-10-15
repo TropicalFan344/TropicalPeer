@@ -36,6 +36,7 @@ type linkFlags struct {
 	origins  *string
 	acmeDir  *string
 	duck     *string
+	cf       *string
 
 	// set by start
 	foundIP net.IP
@@ -56,6 +57,7 @@ func (f *linkFlags) register() {
 	f.allowLAN = flag.Bool("turn-allow-lan", false, "let the TURN relay reach any private address (without it, only the addresses a link's own sender and browser connect from)")
 	f.origins = flag.String("web-origins", "", "comma-separated extra origins allowed to use signaling (a separately hosted receiver page)")
 	f.duck = flag.String("duckdns-token", os.Getenv("DUCKDNS_TOKEN"), "DuckDNS token (default $DUCKDNS_TOKEN): with a .duckdns.org -domain, keeps its address current and gets the certificate through DNS, so port 443 needn't be reachable")
+	f.cf = flag.String("cloudflare-token", os.Getenv("CLOUDFLARE_API_TOKEN"), "Cloudflare API token that may edit the zone's DNS (default $CLOUDFLARE_API_TOKEN): with a -domain on Cloudflare, keeps its A record on this network's address and gets the certificate through DNS, so port 443 needn't be reachable")
 	dir, _ := os.UserConfigDir()
 	f.acmeDir = flag.String("acme-dir", filepath.Join(dir, "TropicalPeer", "acme"), "where Let's Encrypt certificates are kept")
 }
@@ -92,6 +94,16 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 		webURL += "/"
 	}
 
+	// With a DNS provider's API, point the name here first: finding the
+	// public address may look the name up.
+	var dc *dnsCert
+	if p := f.dnsProvider(); p != nil {
+		dc = &dnsCert{domain: *f.domain, dir: *f.acmeDir, dns: p, logger: logger}
+		if err := p.updateIP(ctx); err != nil {
+			logger.Printf("%s: %v", p.label(), err)
+		}
+	}
+
 	ip, err := f.findPublicIP(ctx, upnp)
 	if err != nil {
 		return nil, err
@@ -125,13 +137,12 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 		go func() { logErr(logger, hs.ListenAndServe()) }()
 	case *f.cert != "":
 		go func() { logErr(logger, hs.ListenAndServeTLS(*f.cert, *f.key)) }()
-	case isDuckDNS(*f.domain) && *f.duck != "":
-		d := &duckDNS{domain: *f.domain, token: *f.duck, dir: *f.acmeDir, logger: logger}
-		go d.keepIP(ctx)
-		if err := d.start(ctx); err != nil {
+	case dc != nil:
+		go dc.keepIP(ctx)
+		if err := dc.start(ctx); err != nil {
 			return nil, fmt.Errorf("certificate: %w", err)
 		}
-		hs.TLSConfig = &tls.Config{GetCertificate: d.getCertificate, MinVersion: tls.VersionTLS12}
+		hs.TLSConfig = &tls.Config{GetCertificate: dc.getCertificate, MinVersion: tls.VersionTLS12}
 		go func() { logErr(logger, hs.ListenAndServeTLS("", "")) }()
 	default:
 		m := &autocert.Manager{
@@ -154,6 +165,21 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 	return specs, nil
 }
 
+// dnsProvider is the DNS API to keep the name and get the certificate with:
+// DuckDNS for a .duckdns.org name with its token, else Cloudflare with a
+// token. Nil without one, or with -cert or -web-plain.
+func (f *linkFlags) dnsProvider() dnsProvider {
+	switch {
+	case *f.plain || *f.cert != "":
+		return nil
+	case isDuckDNS(*f.domain) && *f.duck != "":
+		return &duckDNS{domain: *f.domain, token: *f.duck}
+	case *f.cf != "":
+		return &cloudflare{domain: *f.domain, token: *f.cf}
+	}
+	return nil
+}
+
 func (f *linkFlags) findPublicIP(ctx context.Context, upnp bool) (net.IP, error) {
 	if *f.publicIP != "" {
 		ip := net.ParseIP(*f.publicIP).To4()
@@ -171,10 +197,14 @@ func (f *linkFlags) findPublicIP(ctx context.Context, upnp bool) (net.IP, error)
 		}
 	}
 	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", *f.domain)
-	if err != nil || len(ips) == 0 {
-		return nil, fmt.Errorf("can't find this server's public address: pass -public-ip (%v)", err)
+	if err == nil && len(ips) > 0 {
+		return ips[0], nil
 	}
-	return ips[0], nil
+	// A name just made may not resolve yet; ask from outside instead.
+	if ip, err2 := publicIPv4(ctx); err2 == nil {
+		return ip, nil
+	}
+	return nil, fmt.Errorf("can't find this server's public address: pass -public-ip (%v)", err)
 }
 
 func logErr(logger *log.Logger, err error) {

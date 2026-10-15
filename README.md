@@ -198,6 +198,13 @@ Links let someone download from your device in a browser, without the app. For t
   ```
 
   The token can come from the `DUCKDNS_TOKEN` environment variable instead. At startup the server checks that its ports answer at your public address. Some routers accept the UPnP request and then don't pass the traffic; it then names the ports to forward by hand on the router's port forwarding page, to this computer.
+- **At home, with your own domain on Cloudflare:** the same, through Cloudflare's API. In the Cloudflare dashboard, create an API token from the "Edit zone DNS" template for your domain's zone, then:
+
+  ```sh
+  tropicalpeer-server -upnp -domain share.example.com -web :8443 -cloudflare-token YOUR_TOKEN
+  ```
+
+  The token can come from the `CLOUDFLARE_API_TOKEN` environment variable instead. The server creates or updates the name's A record with your current address, every 10 minutes, and keeps it **DNS only**: Cloudflare's proxy can't carry the TURN relay, so don't turn it on for this name.
 - **On a VPS** with your own domain pointing at it: `-domain example.com` gets a certificate on port 443 by itself. Add these to the systemd unit above, so it can keep the certificate and use port 443:
 
   ```ini
