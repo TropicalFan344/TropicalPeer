@@ -4,13 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#0f3b2d" />
     <title>TropicalPeer</title>
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
+    <header class="rail">
+      <p class="wordmark">Tropical<span>Peer</span></p>
+    </header>
     <main id="app">
-      <p class="brand">TropicalPeer</p>
-      <section id="view" aria-live="polite"></section>
+      <section id="view"></section>
+      <p id="announce" class="sr-only" aria-live="polite"></p>
     </main>
     <script type="module" src="./src/main.ts"></script>
   </body>

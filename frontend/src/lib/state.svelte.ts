@@ -50,6 +50,9 @@ export const app = $state({
   update: null as Update | null,
   links: [] as Link[], // newest first
   linksAvailable: false, // the rendezvous server supports links
+  // A link being set up: who may download is asked first. Empty = the
+  // files are chosen after that question (New link); null = no dialog.
+  linkDraft: null as PickedFile[] | null,
 })
 
 export async function initState() {
@@ -215,23 +218,29 @@ function upsertLink(l: Link) {
   }
 }
 
-/** Opens the file picker and makes a link for what was chosen. */
-export async function pickAndShareLink() {
-  let files: PickedFile[]
-  try {
-    files = await api.pickFiles()
-  } catch (e) {
-    toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
-    return
-  }
-  if (files.length) await shareLink(files)
+/** New link: asks who may download, then for the files. */
+export function pickAndShareLink() {
+  app.linkDraft = []
 }
 
-/** Makes a link for the files (paths on desktop, documents on Android). */
-export async function shareLink(files: PickedFile[]) {
-  if (!files.length) return
+/** Asks who may download these files, then makes the link. */
+export function shareLink(files: PickedFile[]) {
+  if (files.length) app.linkDraft = files
+}
+
+/** Makes a link; with no files, opens the file picker first. */
+export async function createLink(files: PickedFile[], unlimited: boolean) {
+  if (!files.length) {
+    try {
+      files = await api.pickFiles()
+    } catch (e) {
+      toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
+      return
+    }
+    if (!files.length) return
+  }
   try {
-    const l = await api.createLink(files, false)
+    const l = await api.createLink(files, unlimited)
     upsertLink(l)
   } catch (e) {
     toast(errorText(e), 'error', 6000)

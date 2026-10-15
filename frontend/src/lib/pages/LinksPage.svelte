@@ -17,7 +17,7 @@
       <p class="mt-1 max-w-[60ch] text-muted">{t('links.subtitle')}</p>
     </div>
     {#if app.linksAvailable}
-      <button class="btn-primary" onclick={pickAndShareLink}><Link2 size={16} /> {t('links.new')}</button>
+      <button class="btn-primary whitespace-nowrap" onclick={pickAndShareLink}><Link2 size={16} /> {t('links.new')}</button>
     {/if}
   </header>
 
@@ -36,6 +36,7 @@
       <Upload size={20} strokeWidth={1.75} class="mb-1 text-muted" />
       <h2 class="text-xl font-medium">{t('links.emptyTitle')}</h2>
       <p class="max-w-[60ch] text-muted">{t(isAndroid ? 'links.emptyBodyTouch' : 'links.emptyBody')}</p>
+      <button class="btn-primary mt-3" onclick={pickAndShareLink}><Link2 size={16} /> {t('links.new')}</button>
     </section>
   {:else}
     {#if drag.active}

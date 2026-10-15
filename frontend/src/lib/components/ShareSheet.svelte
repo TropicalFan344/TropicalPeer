@@ -25,7 +25,7 @@
     const chosen = app.shared
     close()
     app.page = 'links'
-    await shareLink(chosen)
+    shareLink(chosen)
   }
 
   async function send(peer: Peer) {
@@ -40,18 +40,6 @@
   <Dialog title={t('share.send', { what })} onclose={close}>
     {#if total >= 0}
       <p class="-mt-2 mb-3 text-sm text-muted">{formatSize(total)}</p>
-    {/if}
-    {#if app.linksAvailable}
-      <button
-        class="-mx-2 mb-1 flex min-h-15 w-[calc(100%+1rem)] items-center gap-3.5 rounded-md px-2 text-left hover:bg-surface-2 active:bg-surface-2"
-        onclick={byLink}
-      >
-        <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"><Link2 size={20} /></span>
-        <span class="min-w-0 flex-1">
-          <span class="display block text-[17px] leading-tight font-medium">{t('links.shareByLink')}</span>
-          <span class="block text-xs text-muted">{t('links.shareByLinkHint')}</span>
-        </span>
-      </button>
     {/if}
     {#if app.peers.length}
       <ul class="-mx-2 flex flex-col" aria-label={t('share.choose')}>
@@ -75,6 +63,22 @@
       <button class="btn-primary mt-5 w-full" onclick={() => (pairing = true)}>
         <Plus size={18} /> {t('peers.add')}
       </button>
+    {/if}
+    {#if app.linksAvailable}
+      <!-- After the devices: pairing is the main road, the link the side path
+           for someone without the app. -->
+      <div class="mt-3 border-t border-line pt-3">
+        <button
+          class="-mx-2 flex min-h-15 w-[calc(100%+1rem)] items-center gap-3.5 rounded-md px-2 text-left hover:bg-surface-2 active:bg-surface-2"
+          onclick={byLink}
+        >
+          <span class="flex size-10 shrink-0 items-center justify-center text-primary"><Link2 size={22} strokeWidth={1.75} /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-medium">{t('links.shareByLink')}</span>
+            <span class="block text-sm text-muted">{t('links.shareByLinkHint')}</span>
+          </span>
+        </button>
+      </div>
     {/if}
   </Dialog>
 {/if}

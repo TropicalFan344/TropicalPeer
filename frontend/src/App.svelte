@@ -6,6 +6,7 @@
   import TabBar from './lib/components/TabBar.svelte'
   import Toasts from './lib/components/Toasts.svelte'
   import ShareSheet from './lib/components/ShareSheet.svelte'
+  import NewLinkDialog from './lib/components/NewLinkDialog.svelte'
   import OfferStrip from './lib/components/OfferStrip.svelte'
   import PeersPage from './lib/pages/PeersPage.svelte'
   import SettingsPage from './lib/pages/SettingsPage.svelte'
@@ -82,4 +83,5 @@
 </div>
 
 <ShareSheet />
+<NewLinkDialog />
 <Toasts />
