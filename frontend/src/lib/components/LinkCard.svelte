@@ -10,7 +10,7 @@
   import WaveBand from './WaveBand.svelte'
   import Dialog from './Dialog.svelte'
   import { api, errorText, isAndroid, type Link, type Visitor } from '../api'
-  import { toast, visitorActive } from '../state.svelte'
+  import { stopLink, toast, visitorActive } from '../state.svelte'
   import { formatSize } from '../format'
   import { t, what } from '../i18n.svelte'
   import { dur, easeOutExpo } from '../motion'
@@ -68,7 +68,7 @@
   let confirmStop = $state(false)
   function stop() {
     if (!link.ended && link.visitors.some((v) => v.status === 'sending')) confirmStop = true
-    else api.stopLink(link.id)
+    else stopLink(link.id)
   }
 
   function status(v: Visitor): string {
@@ -226,7 +226,7 @@
         class="btn-danger"
         onclick={() => {
           confirmStop = false
-          api.stopLink(link.id)
+          stopLink(link.id)
         }}
       >
         <X size={16} /> {t('links.stop')}

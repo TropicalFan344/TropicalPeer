@@ -51,6 +51,7 @@ type linkState struct {
 	order    map[string]int
 	emitted  time.Time
 	pendingE bool
+	removed  bool // stopped and forgotten: the UI has dropped it, so no more updates
 }
 
 type speedometer struct {
@@ -203,6 +204,10 @@ func visitorError(c *Core, v linkshare.Visitor) string {
 // emitLink pushes a link to the UI, at most every progressEvery unless now.
 func (c *Core) emitLink(ls *linkState, now bool) {
 	ls.mu.Lock()
+	if ls.removed {
+		ls.mu.Unlock()
+		return
+	}
 	if !now && time.Since(ls.emitted) < progressEvery {
 		if !ls.pendingE {
 			ls.pendingE = true
@@ -254,8 +259,10 @@ func (c *Core) StopLink(id string) {
 	if ls == nil {
 		return
 	}
+	// Mark it first: stopping wakes the link's own goroutines, and an update
+	// from them after link:removed would bring the card back, unremovable.
 	ls.mu.Lock()
-	ls.dto.Ended = "stopped"
+	ls.removed = true
 	ls.mu.Unlock()
 	ls.share.Stop()
 	c.emit("link:removed", id)

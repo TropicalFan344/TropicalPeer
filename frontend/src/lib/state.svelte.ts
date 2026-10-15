@@ -67,9 +67,7 @@ export async function initState() {
     api.linksAvailable().then((a) => (app.linksAvailable = a))
   })
   on('link:update', upsertLink)
-  on('link:removed', (id) => {
-    app.links = app.links.filter((l) => l.id !== id)
-  })
+  on('link:removed', forgetLink)
   on('network:changed', (n) => {
     app.network = n
     if (!n.checking) app.networkCheckedAt = Date.now()
@@ -204,7 +202,23 @@ export const visitorActive = (v: { status: string }) => v.status === 'connecting
 /** People downloading from links right now. */
 export const activeVisitors = () => app.links.reduce((n, l) => n + l.visitors.filter((v) => v.status === 'sending').length, 0)
 
+// Links stopped here: an update still on its way for one must not bring
+// its card back.
+const removedLinks = new Set<string>()
+
+function forgetLink(id: string) {
+  removedLinks.add(id)
+  app.links = app.links.filter((l) => l.id !== id)
+}
+
+/** Stops a link and drops its card at once. */
+export function stopLink(id: string) {
+  forgetLink(id)
+  api.stopLink(id)
+}
+
 function upsertLink(l: Link) {
+  if (removedLinks.has(l.id)) return
   const i = app.links.findIndex((x) => x.id === l.id)
   const prev = i >= 0 ? app.links[i] : null
   if (i >= 0) app.links[i] = l
