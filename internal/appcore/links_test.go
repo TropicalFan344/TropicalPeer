@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -76,5 +77,35 @@ func TestStopLinkRightAway(t *testing.T) {
 	}
 	if got := c.ListLinks(); len(got) != 0 {
 		t.Fatalf("ListLinks = %d links after stopping them all", len(got))
+	}
+}
+
+// A link for a file the app can't read is refused when it's made, not when
+// someone tries to download it.
+func TestCreateLinkUnreadable(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	srv := server.New(log.New(io.Discard, "", 0))
+	srv.Links = &server.Links{WebURL: "http://test/r/", ICE: func(string) []rendezvous.ICEServer { return nil }}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go srv.Serve(ctx, ln)
+	c := New(t.TempDir(), func(string, any) {})
+	c.ctx = ctx
+	c.node, _ = startNode(t, ctx, ln.Addr().String(), "Me", node.Events{})
+	for deadline := time.Now().Add(10 * time.Second); c.node.LinksURL() == ""; time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the server never offered links")
+		}
+	}
+	locked := transfer.Source{Name: "secret.pdf", Size: 3, Open: func() (io.ReadCloser, error) { return nil, os.ErrPermission }}
+	_, err = c.CreateLinkSources([]transfer.Source{slowSource("ok.txt", []byte("ok")), locked}, false)
+	if want := c.T("links.cantRead", "name", "secret.pdf"); err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %q", err, want)
+	}
+	if len(c.ListLinks()) != 0 {
+		t.Fatal("the link was made anyway")
 	}
 }

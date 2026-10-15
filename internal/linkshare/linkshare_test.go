@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -489,4 +490,25 @@ func TestSenderChecksRealCertificate(t *testing.T) {
 	b := openLink(t, wsURL, s.ID, secret)
 	b.next("auth")
 	b.next("hello")
+}
+
+// A file that can't be read when someone asks for it (moved, deleted) ends
+// that download with a reason both sides can show, not a lost connection.
+func TestUnreadableFile(t *testing.T) {
+	gone := transfer.Source{Name: "moved.bin", Size: 10, Open: func() (io.ReadCloser, error) {
+		return nil, errors.New("no such file")
+	}}
+	s, st, wsURL, secret := share(t, []transfer.Source{gone}, Unlimited)
+	b := openLink(t, wsURL, s.ID, secret)
+	b.next("auth")
+	b.next("hello")
+	b.send(`{"type":"get","index":0}`)
+	if m := b.next("error"); m.Error != "unreadable" {
+		t.Fatalf("the page heard %q", m.Error)
+	}
+	v := st.waitFor(t, Failed)
+	var ue *UnreadableError
+	if !errors.As(v.Err, &ue) || ue.Name != "moved.bin" {
+		t.Fatalf("visitor error %v", v.Err)
+	}
 }

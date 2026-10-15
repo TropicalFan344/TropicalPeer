@@ -47,7 +47,7 @@ function fail(title: string, detail: string) {
 
 /** A failure the page knows by code: gone, used, busy, auth, cancel, lost, unreachable. */
 function failWith(code: string) {
-  const known = ['gone', 'used', 'busy', 'auth', 'cancel', 'lost', 'unreachable']
+  const known = ['gone', 'used', 'busy', 'auth', 'cancel', 'lost', 'unreachable', 'unreadable']
   const c = known.includes(code) ? code : 'unreachable'
   fail(t(c + 'Title'), t(c + 'Body'))
 }
@@ -198,7 +198,7 @@ async function downloadAll(session: Awaited<ReturnType<typeof connect>>, h: Hell
     }
     if (result.error) {
       await sink.abort()
-      if (result.error === 'cancel') failWith('cancel')
+      if (result.error === 'cancel' || result.error === 'unreadable') failWith(result.error)
       else if (result.error !== 'cancelled') fail(t('stoppedTitle'), t(wentAway ? 'backgroundBody' : 'lostBody'))
       return
     }

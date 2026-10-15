@@ -182,6 +182,8 @@
     "visitorFailed": "與對方瀏覽器的連線中斷了",
     "visitorLeft": "已關閉頁面",
     "visitorCancelled": "取消了下載",
+    "cantRead": "無法讀取 {name}。檔案可能已移動，或 TropicalPeer 沒有權限開啟它。",
+    "visitorCantRead": "這台裝置上無法讀取 {name}",
     "qrLabel": "{what} 的連結 QR 碼",
     "emptyTitle": "還沒有連結",
     "emptyBody": "按「新增連結」，或把檔案拖到這裡。只要 TropicalPeer 開著，任何掃描 QR 碼或開啟連結的人都能在瀏覽器下載。",
@@ -529,6 +531,8 @@
     "lostTitle": "連線中斷了",
     "lostBody": "重新開啟連結即可重來。",
     "unreachableTitle": "無法連到傳送者",
-    "unreachableBody": "你們的裝置無法連線。請再試一次，或請對方確認 TropicalPeer 是開著的。"
+    "unreachableBody": "你們的裝置無法連線。請再試一次，或請對方確認 TropicalPeer 是開著的。",
+    "unreadableTitle": "無法讀取這個檔案",
+    "unreadableBody": "檔案可能已在傳送者的裝置上被移動或刪除。請對方重新分享。"
   }
 }

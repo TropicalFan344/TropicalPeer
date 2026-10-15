@@ -182,6 +182,8 @@
     "visitorFailed": "相手のブラウザとの接続が切れました",
     "visitorLeft": "ページを閉じました",
     "visitorCancelled": "ダウンロードをキャンセルしました",
+    "cantRead": "{name} を読み取れません。移動されたか、TropicalPeer に開く権限がない可能性があります。",
+    "visitorCantRead": "このデバイスで {name} を読み取れませんでした",
     "qrLabel": "{what} へのリンクの QR コード",
     "emptyTitle": "リンクはまだありません",
     "emptyBody": "「新しいリンク」を選ぶか、ここにファイルをドロップしてください。TropicalPeer が開いている間、コードを読み取るかリンクを開いた人はブラウザでダウンロードできます。",
@@ -529,6 +531,8 @@
     "lostTitle": "接続が切れました",
     "lostBody": "もう一度リンクを開くと最初からやり直せます。",
     "unreachableTitle": "送信者に接続できませんでした",
-    "unreachableBody": "お互いのデバイスが接続できませんでした。もう一度試すか、相手に TropicalPeer が開いているか確認してもらってください。"
+    "unreachableBody": "お互いのデバイスが接続できませんでした。もう一度試すか、相手に TropicalPeer が開いているか確認してもらってください。",
+    "unreadableTitle": "ファイルを読み取れませんでした",
+    "unreadableBody": "送信者のデバイスで移動または削除された可能性があります。もう一度共有してもらってください。"
   }
 }

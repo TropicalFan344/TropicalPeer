@@ -182,6 +182,8 @@
     "visitorFailed": "Verbindung zu ihrem Browser verloren",
     "visitorLeft": "Hat die Seite geschlossen",
     "visitorCancelled": "Hat den Download abgebrochen",
+    "cantRead": "{name} kann nicht gelesen werden. Die Datei wurde vielleicht verschoben, oder TropicalPeer darf sie nicht öffnen.",
+    "visitorCantRead": "{name} konnte auf diesem Gerät nicht gelesen werden",
     "qrLabel": "QR-Code für den Link zu {what}",
     "emptyTitle": "Noch keine Links",
     "emptyBody": "Wähle „Neuer Link“ oder zieh Dateien hierher. Wer den Code scannt oder den Link öffnet, kann sie im Browser herunterladen, solange TropicalPeer geöffnet ist.",
@@ -529,6 +531,8 @@
     "lostTitle": "Die Verbindung ist abgebrochen",
     "lostBody": "Öffne den Link erneut, um neu zu beginnen.",
     "unreachableTitle": "Absender nicht erreichbar",
-    "unreachableBody": "Eure Geräte konnten sich nicht verbinden. Versuch es noch einmal, oder bitte ihn zu prüfen, ob TropicalPeer geöffnet ist."
+    "unreachableBody": "Eure Geräte konnten sich nicht verbinden. Versuch es noch einmal, oder bitte ihn zu prüfen, ob TropicalPeer geöffnet ist.",
+    "unreadableTitle": "Die Datei konnte nicht gelesen werden",
+    "unreadableBody": "Sie wurde auf dem Gerät des Absenders vielleicht verschoben oder gelöscht. Bitte ihn, sie noch einmal zu teilen."
   }
 }

@@ -182,6 +182,8 @@
     "visitorFailed": "Connexion à son navigateur perdue",
     "visitorLeft": "A fermé la page",
     "visitorCancelled": "A annulé le téléchargement",
+    "cantRead": "Impossible de lire {name}. Il a peut-être été déplacé, ou TropicalPeer n’a pas le droit de l’ouvrir.",
+    "visitorCantRead": "Impossible de lire {name} sur cet appareil",
     "qrLabel": "Code QR du lien vers {what}",
     "emptyTitle": "Aucun lien pour l’instant",
     "emptyBody": "Choisissez Nouveau lien ou déposez des fichiers ici. Quiconque scanne le code ou ouvre le lien peut les télécharger dans un navigateur tant que TropicalPeer reste ouvert.",
@@ -529,6 +531,8 @@
     "lostTitle": "La connexion a été perdue",
     "lostBody": "Rouvrez le lien pour recommencer.",
     "unreachableTitle": "Impossible de joindre l’expéditeur",
-    "unreachableBody": "Vos appareils n’ont pas pu se connecter. Réessayez, ou demandez-lui de vérifier que TropicalPeer est ouvert."
+    "unreachableBody": "Vos appareils n’ont pas pu se connecter. Réessayez, ou demandez-lui de vérifier que TropicalPeer est ouvert.",
+    "unreadableTitle": "Le fichier n’a pas pu être lu",
+    "unreadableBody": "Il a peut-être été déplacé ou supprimé sur l’appareil de l’expéditeur. Demandez-lui de le partager à nouveau."
   }
 }

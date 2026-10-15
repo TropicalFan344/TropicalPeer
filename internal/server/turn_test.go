@@ -2,6 +2,7 @@ package server
 
 import (
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -147,6 +148,9 @@ func lanIP(t *testing.T) string {
 // are; ended sessions lose their credentials.
 func TestTURNSessionGate(t *testing.T) {
 	lan := net.ParseIP(lanIP(t))
+	old := relaySweep
+	relaySweep = 50 * time.Millisecond
+	defer func() { relaySweep = old }()
 	var mu sync.Mutex
 	live := map[string][]net.IP{"mine": {lan}, "other": {net.IPv4(10, 1, 2, 3)}}
 	tn, err := StartTURN(TURNConfig{Port: 34782, Host: "127.0.0.1", PublicIP: net.IPv4(127, 0, 0, 1), RelayMin: 34820, RelayMax: 34829,
@@ -177,7 +181,7 @@ func TestTURNSessionGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer peer.Close()
-	c, _, err := allocate("mine")
+	c, relay, err := allocate("mine")
 	if err != nil {
 		t.Fatalf("an admitted session: %v", err)
 	}
@@ -210,5 +214,18 @@ func TestTURNSessionGate(t *testing.T) {
 	mu.Unlock()
 	if err := c.CreatePermission(&net.UDPAddr{IP: net.IPv4(8, 8, 4, 4), Port: 9}); err == nil {
 		t.Fatal("an ended session's credentials still worked")
+	}
+
+	// And its relay port is free again soon, not at the end of the
+	// allocation's lifetime: a home server may have only ten.
+	port := relay.LocalAddr().(*net.UDPAddr).Port
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		if pc, err := net.ListenPacket("udp4", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))); err == nil {
+			pc.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("relay port %d still taken after the session ended", port)
+		}
 	}
 }

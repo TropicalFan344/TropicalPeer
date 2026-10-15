@@ -102,7 +102,7 @@ export async function connect(link: string, secret: string, h: Handlers) {
   const failOnce = (code: string) => {
     if (finished) return
     finished = true
-    current?.resolve({ error: code === 'cancel' ? 'cancel' : 'lost' })
+    current?.resolve({ error: code === 'cancel' || code === 'unreadable' ? code : 'lost' })
     current = undefined
     h.onError(code)
     pc?.close()

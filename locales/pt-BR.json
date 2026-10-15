@@ -182,6 +182,8 @@
     "visitorFailed": "A conexão com o navegador caiu",
     "visitorLeft": "Fechou a página",
     "visitorCancelled": "Cancelou o download",
+    "cantRead": "Não foi possível ler {name}. Ele pode ter sido movido, ou o TropicalPeer não tem permissão para abri-lo.",
+    "visitorCantRead": "Não foi possível ler {name} neste dispositivo",
     "qrLabel": "Código QR do link para {what}",
     "emptyTitle": "Nenhum link ainda",
     "emptyBody": "Escolha Novo link ou solte arquivos aqui. Quem escanear o código ou abrir o link pode baixá-los no navegador enquanto o TropicalPeer estiver aberto.",
@@ -529,6 +531,8 @@
     "lostTitle": "A conexão caiu",
     "lostBody": "Abra o link de novo para recomeçar.",
     "unreachableTitle": "Não foi possível falar com quem envia",
-    "unreachableBody": "Os dispositivos não conseguiram se conectar. Tente de novo ou peça para verificar se o TropicalPeer está aberto."
+    "unreachableBody": "Os dispositivos não conseguiram se conectar. Tente de novo ou peça para verificar se o TropicalPeer está aberto.",
+    "unreadableTitle": "Não foi possível ler o arquivo",
+    "unreadableBody": "Ele pode ter sido movido ou apagado no dispositivo de quem enviou. Peça para compartilhar de novo."
   }
 }

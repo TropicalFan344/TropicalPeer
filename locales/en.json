@@ -182,6 +182,8 @@
     "visitorFailed": "Lost the connection to their browser",
     "visitorLeft": "Closed the page",
     "visitorCancelled": "Cancelled the download",
+    "cantRead": "Can't read {name}. It may have moved, or TropicalPeer isn't allowed to open it.",
+    "visitorCantRead": "Couldn't read {name} on this device",
     "qrLabel": "QR code for the link to {what}",
     "emptyTitle": "No links yet",
     "emptyBody": "Choose New link, or drop files here. Anyone who scans the code or opens the link can download them in a browser while TropicalPeer stays open.",
@@ -529,6 +531,8 @@
     "lostTitle": "The connection was lost",
     "lostBody": "Open the link again to start over.",
     "unreachableTitle": "Couldn't reach the sender",
-    "unreachableBody": "Their device and yours couldn't connect. Try again, or ask them to check that TropicalPeer is open."
+    "unreachableBody": "Their device and yours couldn't connect. Try again, or ask them to check that TropicalPeer is open.",
+    "unreadableTitle": "The file couldn't be read",
+    "unreadableBody": "It may have been moved or deleted on the sender's device. Ask them to share it again."
   }
 }

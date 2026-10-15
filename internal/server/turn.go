@@ -18,6 +18,7 @@ const turnCredentialLife = turnSessionMax // the session check (Session) ends th
 // connect directly. It only ever carries DTLS ciphertext.
 type TURN struct {
 	srv    *turn.Server
+	stop   chan struct{}
 	secret string
 	host   string // public name or IP used in URLs
 	port   int
@@ -66,8 +67,9 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 		return nil, err
 	}
 	secret := randomHex(32)
+	relays := &relaySockets{}
 	gen := func() turn.RelayAddressGenerator {
-		return &limitedGenerator{RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
+		return &limitedGenerator{relays: relays, RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
 			RelayAddress: cfg.PublicIP,
 			Address:      "0.0.0.0",
 			MinPort:      uint16(cfg.RelayMin),
@@ -119,7 +121,11 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 		tcp.Close()
 		return nil, fmt.Errorf("turn: %w", err)
 	}
-	return &TURN{srv: srv, secret: secret, host: cfg.Host, port: cfg.Port}, nil
+	t := &TURN{srv: srv, stop: make(chan struct{}), secret: secret, host: cfg.Host, port: cfg.Port}
+	if cfg.Session != nil {
+		go freeEndedRelays(relays, cfg.Session, t.stop)
+	}
+	return t, nil
 }
 
 // ICE returns the STUN and TURN servers for one session, with credentials
@@ -133,4 +139,29 @@ func (t *TURN) ICE(session string) []rendezvous.ICEServer {
 	}
 }
 
-func (t *TURN) Close() error { return t.srv.Close() }
+func (t *TURN) Close() error {
+	close(t.stop)
+	return t.srv.Close()
+}
+
+// freeEndedRelays closes the relay sockets of sessions that ended (the
+// sender dropped them, or their link is gone), every relaySweep.
+func freeEndedRelays(relays *relaySockets, session func(string) ([]net.IP, bool), stop <-chan struct{}) {
+	t := time.NewTicker(relaySweep)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			relays.closeEnded(func(s string) bool {
+				_, ok := session(s)
+				return ok
+			})
+		}
+	}
+}
+
+// relaySweep is how often ended sessions' relay sockets are closed (a
+// variable for tests).
+var relaySweep = 15 * time.Second

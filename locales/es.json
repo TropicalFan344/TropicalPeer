@@ -182,6 +182,8 @@
     "visitorFailed": "Se perdió la conexión con su navegador",
     "visitorLeft": "Cerró la página",
     "visitorCancelled": "Canceló la descarga",
+    "cantRead": "No se puede leer {name}. Puede que se haya movido o que TropicalPeer no tenga permiso para abrirlo.",
+    "visitorCantRead": "No se pudo leer {name} en este dispositivo",
     "qrLabel": "Código QR del enlace a {what}",
     "emptyTitle": "Aún no hay enlaces",
     "emptyBody": "Elige Nuevo enlace o suelta archivos aquí. Quien escanee el código o abra el enlace podrá descargarlos en un navegador mientras TropicalPeer siga abierto.",
@@ -529,6 +531,8 @@
     "lostTitle": "Se perdió la conexión",
     "lostBody": "Abre el enlace de nuevo para empezar otra vez.",
     "unreachableTitle": "No se pudo contactar con quien envía",
-    "unreachableBody": "Vuestros dispositivos no pudieron conectarse. Inténtalo de nuevo o pídele que compruebe que TropicalPeer está abierto."
+    "unreachableBody": "Vuestros dispositivos no pudieron conectarse. Inténtalo de nuevo o pídele que compruebe que TropicalPeer está abierto.",
+    "unreadableTitle": "No se pudo leer el archivo",
+    "unreadableBody": "Puede que se haya movido o borrado en el dispositivo de quien lo envía. Pídele que lo comparta de nuevo."
   }
 }

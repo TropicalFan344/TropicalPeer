@@ -89,32 +89,41 @@ func (q *quota) add(src net.Addr, user string, n int) {
 	}
 }
 
-// limitedGenerator hands out relay sockets with a rate cap.
+// limitedGenerator hands out relay sockets with a rate cap, and keeps
+// track of them by session so a finished session's sockets can be closed.
 type limitedGenerator struct {
 	turn.RelayAddressGenerator
-	rate int64
+	rate   int64
+	relays *relaySockets
 }
 
 func (g *limitedGenerator) AllocatePacketConn(c turn.AllocateListenerConfig) (net.PacketConn, net.Addr, error) {
 	pc, addr, err := g.RelayAddressGenerator.AllocatePacketConn(c)
-	if err != nil || g.rate <= 0 {
+	if err != nil {
 		return pc, addr, err
 	}
-	return &limitedConn{PacketConn: pc, bucket: newBucket(g.rate)}, addr, nil
+	lc := &limitedConn{PacketConn: pc, session: sessionOf(c.UserID), relays: g.relays}
+	if g.rate > 0 {
+		lc.bucket = newBucket(g.rate)
+	}
+	g.relays.add(lc)
+	return lc, addr, nil
 }
 
-// limitedConn caps one allocation's traffic, both directions together.
-// Packets to the peer come from the server's shared read loop, so over the
-// cap they're dropped rather than waited for (WebRTC's congestion control
-// then backs off); packets from the peer are read on the allocation's own
-// goroutine, so that read waits instead.
+// limitedConn is one allocation's relay socket. It caps the traffic, both
+// directions together: packets to the peer come from the server's shared
+// read loop, so over the cap they're dropped rather than waited for
+// (WebRTC's congestion control then backs off); packets from the peer are
+// read on the allocation's own goroutine, so that read waits instead.
 type limitedConn struct {
 	net.PacketConn
-	bucket *bucket
+	bucket  *bucket // nil: no cap
+	session string
+	relays  *relaySockets
 }
 
 func (c *limitedConn) WriteTo(p []byte, addr net.Addr) (int, error) {
-	if !c.bucket.take(len(p)) {
+	if c.bucket != nil && !c.bucket.take(len(p)) {
 		return len(p), nil // dropped, as a congested network would
 	}
 	return c.PacketConn.WriteTo(p, addr)
@@ -122,10 +131,64 @@ func (c *limitedConn) WriteTo(p []byte, addr net.Addr) (int, error) {
 
 func (c *limitedConn) ReadFrom(p []byte) (int, net.Addr, error) {
 	n, addr, err := c.PacketConn.ReadFrom(p)
-	if err == nil {
+	if err == nil && c.bucket != nil {
 		c.bucket.wait(n)
 	}
 	return n, addr, err
+}
+
+func (c *limitedConn) Close() error {
+	c.relays.remove(c)
+	return c.PacketConn.Close()
+}
+
+// relaySockets are the open relay sockets, by session. Relay ports are few
+// (a home server may forward only ten), and an allocation lingers for its
+// whole lifetime after its browser goes away; closing the sockets of a
+// session that has ended gives its ports back at once.
+type relaySockets struct {
+	mu        sync.Mutex
+	bySession map[string]map[*limitedConn]bool
+}
+
+func (r *relaySockets) add(c *limitedConn) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bySession == nil {
+		r.bySession = map[string]map[*limitedConn]bool{}
+	}
+	if r.bySession[c.session] == nil {
+		r.bySession[c.session] = map[*limitedConn]bool{}
+	}
+	r.bySession[c.session][c] = true
+}
+
+func (r *relaySockets) remove(c *limitedConn) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.bySession[c.session], c)
+	if len(r.bySession[c.session]) == 0 {
+		delete(r.bySession, c.session)
+	}
+}
+
+// closeEnded closes the sockets of every session live no longer accepts.
+func (r *relaySockets) closeEnded(live func(session string) bool) int {
+	r.mu.Lock()
+	var ended []*limitedConn
+	for session, conns := range r.bySession {
+		if live(session) {
+			continue
+		}
+		for c := range conns {
+			ended = append(ended, c)
+		}
+	}
+	r.mu.Unlock()
+	for _, c := range ended {
+		c.Close()
+	}
+	return len(ended)
 }
 
 // bucket is a token bucket: rate bytes per second, a burst of one second.

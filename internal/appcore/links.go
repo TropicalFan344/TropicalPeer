@@ -92,6 +92,15 @@ func (c *Core) CreateLinkSources(sources []transfer.Source, unlimited bool) (Lin
 	if n.LinksURL() == "" {
 		return LinkDTO{}, c.errT("links.unsupported")
 	}
+	// A link for a file this app can't read would only fail later, in
+	// someone else's browser: say so now.
+	for _, s := range sources {
+		rc, err := s.Open()
+		if err != nil {
+			return LinkDTO{}, c.errT("links.cantRead", "name", s.Name)
+		}
+		rc.Close()
+	}
 	ls := &linkState{speeds: map[string]*speedometer{}, order: map[string]int{}}
 	limit := linkshare.FirstOnly
 	if unlimited {
@@ -189,6 +198,10 @@ func (c *Core) onVisitor(ls *linkState, v linkshare.Visitor) {
 func visitorError(c *Core, v linkshare.Visitor) string {
 	switch v.Status {
 	case linkshare.Failed:
+		var ue *linkshare.UnreadableError
+		if errors.As(v.Err, &ue) {
+			return c.T("links.visitorCantRead", "name", ue.Name)
+		}
 		return c.T("links.visitorFailed")
 	case linkshare.Cancelled:
 		switch {

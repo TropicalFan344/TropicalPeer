@@ -79,7 +79,18 @@ type Visitor struct {
 	Done    int64
 	Total   int64
 	Error   string
+	Err     error // the error behind Error, when there is one
 }
+
+// UnreadableError: a shared file couldn't be read when someone asked for it
+// (moved, deleted, or no longer allowed).
+type UnreadableError struct {
+	Name string
+	Err  error
+}
+
+func (e *UnreadableError) Error() string { return "can't read " + e.Name + ": " + e.Err.Error() }
+func (e *UnreadableError) Unwrap() error { return e.Err }
 
 // Options for Start.
 type Options struct {
@@ -397,9 +408,19 @@ func (s *Share) newName() string {
 // connect starts WebRTC with an admitted visitor, through the STUN/TURN
 // servers the server gave for its session.
 func (v *visitor) connect(servers []rendezvous.ICEServer) {
+	// TURN over UDP only, here: the browser has TCP for networks that block
+	// UDP, and each allocation takes one of the server's few relay ports.
 	cfg := webrtc.Configuration{}
 	for _, ice := range servers {
-		cfg.ICEServers = append(cfg.ICEServers, webrtc.ICEServer{URLs: ice.URLs, Username: ice.Username, Credential: ice.Credential})
+		var urls []string
+		for _, u := range ice.URLs {
+			if !strings.Contains(u, "transport=tcp") {
+				urls = append(urls, u)
+			}
+		}
+		if len(urls) > 0 {
+			cfg.ICEServers = append(cfg.ICEServers, webrtc.ICEServer{URLs: urls, Username: ice.Username, Credential: ice.Credential})
+		}
 	}
 	pc, err := v.s.api.NewPeerConnection(cfg)
 	if err != nil {
@@ -592,6 +613,9 @@ func (v *visitor) run() {
 		if v.ctx.Err() != nil {
 			return // already finished (cancelled or link stopped)
 		}
+		v.mu.Lock()
+		v.info.Err = err
+		v.mu.Unlock()
 		v.finish(Failed, err.Error())
 		return
 	}
@@ -693,6 +717,11 @@ func (v *visitor) serve(ch *channel) error {
 			}
 			v.setStatus(Sending)
 			if err := v.sendFile(ch, m.Index); err != nil {
+				var ue *UnreadableError
+				if errors.As(err, &ue) {
+					ch.sendJSON(pageMsg{Type: "error", Error: "unreadable"})
+					ch.flush()
+				}
 				return err
 			}
 			sent[m.Index] = true
@@ -711,7 +740,7 @@ func (v *visitor) sendFile(ch *channel, index int) error {
 	src := v.s.files[index]
 	f, err := src.Open()
 	if err != nil {
-		return fmt.Errorf("can't read %s: %v", src.Name, err)
+		return &UnreadableError{Name: src.Name, Err: err}
 	}
 	defer f.Close()
 	h := sha256.New()
@@ -720,7 +749,7 @@ func (v *visitor) sendFile(ch *channel, index int) error {
 	for n < src.Size {
 		k, err := io.ReadFull(f, buf[:min(int64(chunkSize), src.Size-n)])
 		if err != nil {
-			return fmt.Errorf("can't read %s: %v", src.Name, err)
+			return &UnreadableError{Name: src.Name, Err: err}
 		}
 		h.Write(buf[:k])
 		if err := ch.sendBinary(v.ctx, buf[:k]); err != nil {
