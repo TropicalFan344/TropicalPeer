@@ -61,7 +61,10 @@ stay open until the owner confirms them.
 
 `https://<page host>/r/<linkID>#<secret>`
 
-- `linkID`: 10 random bytes, base32. The server routes by it.
+- `linkID`: the first 10 bytes of SHA-256("tropicalpeer-link-id\n" | public
+  key), base32, where the key is an Ed25519 key the sender's app makes for
+  this link. The server routes by it, and only the holder of the private key
+  can host it.
 - `secret`: 16 random bytes, base64url, in the fragment. Browsers never send
   the fragment to any server, so the server can't learn it.
 - The QR code encodes the whole URL. The link lives only in the sender's
@@ -73,19 +76,41 @@ Each open link has its own TCP connection from the sender's app to the
 server (newline JSON, like pairing), so it doesn't touch presence. The
 server announces the `links` capability and its page URL in `registered`.
 
-- `link_host {link}` → `link_hosted {webURL}`: start routing a link; closing
-  the connection stops it.
-- `link_visitor {session, ice}`: the server tells the sender someone opened
-  it, with TURN credentials for that session.
-- `link_signal {session, data}`: SDP and ICE candidates, both directions.
-- `link_drop {session}`: either side ends a visitor.
+- `link_host {link, publicKey, time, sig}` → `link_hosted {webURL}`: start
+  routing a link. The server checks that the ID is the key's and that `sig`
+  (over "tropicalpeer-link-host" | link | time, within 5 minutes) is valid,
+  and refuses an ID that is already hosted. Closing the connection stops it.
+- `link_visitor {session}`: the server tells the sender someone opened it.
+- `link_signal {session, data}`: first the page's key check (`{hello}`), then
+  SDP and ICE candidates, both directions.
+- `link_admit {session}` → `link_admitted {session, ice}`: the sender vouches
+  for a page that passed the key check; only then does the server hand out
+  STUN/TURN servers, to both sides.
+- `link_drop {session, error}`: either side ends a visitor; the sender can
+  give the page a reason (`auth`, `used`, `cancel`).
 
 The browser connects to `wss://<server>/ws` and sends `{"type":"open","link":id}`.
-The server gives it a session ID and relays `signal` messages between it and
-the sender. If the link isn't open, the page says "This link has ended or the
-sender is offline." The server also hands both sides short-lived TURN
-credentials (HMAC of a per-start server secret, TURN REST style, valid for the
-session's lifetime).
+The server gives it a session ID (no STUN/TURN servers yet) and relays
+`signal` messages between it and the sender. If the link isn't open, the
+page says "This link has ended or the sender is offline." The page's first
+signal is `{hello: HMAC-SHA256(secret, "tropicalpeer-link-v2" | "hello" |
+linkID | session)}`. Until the sender has checked it, nothing else happens:
+no WebRTC, no candidates, no TURN credentials. A page that knows only the
+link ID learns nothing about the sender, not even its addresses, and the
+sender's app doesn't list it; one that never sends a valid hello is dropped
+after 30 seconds.
+
+TURN credentials are TURN REST style (HMAC of a per-start server secret), but
+the server also checks each request against its list of admitted sessions:
+they work while the link is hosted (or for 15 minutes after its host went
+away, while it reconnects), until the sender drops the session, and for 12
+hours at most. A session's relay sends to public addresses, and to private
+ones only where that session's own sender or browser connects from (a sender
+on the server's own network; one on the server's own machine counts as the
+machine's addresses). Loopback, multicast, link-local, carrier-grade NAT and
+reserved ranges are always refused. `-turn-allow-lan` opens all private
+addresses; it's off by default. Each client address gets at most 12
+allocations.
 
 The server enforces nothing about limits; the sender's app decides who gets
 files. The server only rate-limits opens per IP and caps visitors per link
@@ -94,17 +119,29 @@ files. The server only rate-limits opens per IP and caps visitors per link
 ### Authentication
 
 A server that relays signaling could swap in its own DTLS certificates and
-sit in the middle. To stop that, once the DataChannel opens, each side sends:
+sit in the middle. To stop that, once the DataChannel opens:
 
 ```
-HMAC-SHA256(secret, "tropicalpeer-link-v1" | role | linkID | session
-                    | sender fingerprint | browser fingerprint)
+page   → HMAC-SHA256(secret, P("browser"))
+sender → publicKey, Ed25519-Sign(linkKey, P("sender"))
+P(role) = "tropicalpeer-link-v2" | role | linkID | session
+          | sender fingerprint | browser fingerprint
 ```
 
-with the fingerprints read from its own local and remote descriptions. In the
-middle the two legs have different fingerprints, so the MACs can't match.
-Neither side sends anything else until the other's MAC checks out. After
-that, DTLS carries everything, so there's no second encryption layer.
+The page checks that the public key hashes to the link ID and that the
+signature is good. In the middle the two legs have different fingerprints,
+so neither check passes. Everyone who received the link knows the secret,
+but only the sender has the key, so nobody who had the link can pose as the
+sender (for example by hosting the link after it stopped). Neither side
+sends anything else until the other's check passes. After that, DTLS carries
+everything, so there's no second encryption layer.
+
+The fingerprints must be the ones DTLS actually used. The sender hashes the
+certificate the page presented in the handshake, not what the page's
+description says. The page refuses a description with more than one
+fingerprint (DTLS might accept a certificate by one while the check covers
+another), and where the browser exposes the sender's certificate (Chromium),
+checks it against the description too.
 
 What this doesn't cover: whoever serves the receiver page can serve code that
 reads the fragment. That's why the page host is configurable (see

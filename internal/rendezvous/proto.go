@@ -41,11 +41,13 @@ const (
 	TypeError         = "error"
 
 	// Share by link, on a connection of its own (see links.go):
-	TypeLinkHost    = "link_host"    // sender → server: route browsers that open Link to us
-	TypeLinkHosted  = "link_hosted"  // server → sender: done; WebURL is where links point
-	TypeLinkVisitor = "link_visitor" // server → sender: a browser opened the link (Session, ICE)
-	TypeLinkSignal  = "link_signal"  // both ways: WebRTC signaling for Session (Data)
-	TypeLinkDrop    = "link_drop"    // both ways: Session is over
+	TypeLinkHost     = "link_host"     // sender → server: route browsers that open Link to us (signed with the link's key)
+	TypeLinkHosted   = "link_hosted"   // server → sender: done; WebURL is where links point
+	TypeLinkVisitor  = "link_visitor"  // server → sender: a browser opened the link (Session)
+	TypeLinkSignal   = "link_signal"   // both ways: the key check, then WebRTC signaling for Session (Data)
+	TypeLinkAdmit    = "link_admit"    // sender → server: Session proved it has the link's secret
+	TypeLinkAdmitted = "link_admitted" // server → sender: STUN/TURN servers for the admitted Session (ICE)
+	TypeLinkDrop     = "link_drop"     // both ways: Session is over (Error: why, for the page)
 )
 
 // Msg is the envelope for every message. Only the fields relevant to Type are set.

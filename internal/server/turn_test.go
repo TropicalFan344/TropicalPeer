@@ -3,6 +3,7 @@ package server
 import (
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -139,4 +140,75 @@ func lanIP(t *testing.T) string {
 	}
 	t.Skip("no LAN address to relay to")
 	return ""
+}
+
+// Credentials only work for sessions the server says are live, and a
+// session's relay reaches private addresses only where its own two ends
+// are; ended sessions lose their credentials.
+func TestTURNSessionGate(t *testing.T) {
+	lan := net.ParseIP(lanIP(t))
+	var mu sync.Mutex
+	live := map[string][]net.IP{"mine": {lan}, "other": {net.IPv4(10, 1, 2, 3)}}
+	tn, err := StartTURN(TURNConfig{Port: 34782, Host: "127.0.0.1", PublicIP: net.IPv4(127, 0, 0, 1), RelayMin: 34820, RelayMax: 34829,
+		Session: func(s string) ([]net.IP, bool) {
+			mu.Lock()
+			defer mu.Unlock()
+			ips, ok := live[s]
+			return ips, ok
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tn.Close()
+	allocate := func(session string) (*turn.Client, net.PacketConn, error) {
+		creds := tn.ICE(session)[1]
+		addr := strings.TrimPrefix(strings.Split(creds.URLs[0], "?")[0], "turn:")
+		c := turnClient(t, addr, creds.Username, creds.Credential)
+		r, err := c.Allocate()
+		return c, r, err
+	}
+
+	if _, _, err := allocate("stranger"); err == nil {
+		t.Fatal("credentials for a session nobody admitted worked")
+	}
+
+	peer, err := net.ListenPacket("udp4", net.JoinHostPort(lan.String(), "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	c, _, err := allocate("mine")
+	if err != nil {
+		t.Fatalf("an admitted session: %v", err)
+	}
+	if err := c.CreatePermission(peer.LocalAddr()); err != nil {
+		t.Fatalf("the session's own private address: %v", err)
+	}
+	if err := c.CreatePermission(&net.UDPAddr{IP: net.IPv4(192, 168, 77, 1), Port: 5351}); err == nil {
+		t.Fatal("reached another private address (a router's NAT-PMP port, say)")
+	}
+	for _, ip := range []net.IP{net.IPv4(100, 64, 0, 1), net.IPv4(127, 0, 0, 1), net.IPv4(255, 255, 255, 255), net.IPv4(224, 0, 0, 251)} {
+		if err := c.CreatePermission(&net.UDPAddr{IP: ip, Port: 9}); err == nil {
+			t.Fatalf("reached %v", ip)
+		}
+	}
+	if err := c.CreatePermission(&net.UDPAddr{IP: net.IPv4(8, 8, 8, 8), Port: 9}); err != nil {
+		t.Fatalf("a public address: %v", err)
+	}
+
+	c2, _, err := allocate("other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c2.CreatePermission(peer.LocalAddr()); err == nil {
+		t.Fatal("another session reached this session's private address")
+	}
+
+	// The sender is done with the session: its credentials stop working.
+	mu.Lock()
+	delete(live, "mine")
+	mu.Unlock()
+	if err := c.CreatePermission(&net.UDPAddr{IP: net.IPv4(8, 8, 4, 4), Port: 9}); err == nil {
+		t.Fatal("an ended session's credentials still worked")
+	}
 }

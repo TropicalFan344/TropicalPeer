@@ -1,6 +1,13 @@
 // The browser side of share by link: signaling over the server's WebSocket,
-// a WebRTC DataChannel to the sender's device, and the key check that keeps
-// a server in the middle out (see internal/linkshare).
+// a WebRTC DataChannel to the sender's device, and the checks that keep a
+// server in the middle out (see internal/linkshare):
+//  1. through the server, prove we have the link's secret ("hello"); only
+//     then does the sender admit us and the server give STUN/TURN servers;
+//  2. on the DataChannel, prove the secret again and check the sender's
+//     signature, made with the key the link ID is a hash of; both bound to
+//     the DTLS fingerprints.
+import { ed25519 } from '@noble/curves/ed25519'
+import { sha256 } from '@noble/hashes/sha2'
 
 export type FileInfo = { name: string; size: number }
 export type Hello = { name: string; from: string; files: FileInfo[]; total: number }
@@ -14,7 +21,7 @@ type Handlers = {
   onError: (code: string) => void
 }
 
-const authContext = 'tropicalpeer-link-v1'
+const authContext = 'tropicalpeer-link-v2'
 
 function b64urlDecode(s: string): Uint8Array {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)
@@ -25,18 +32,58 @@ function b64urlEncode(b: Uint8Array): string {
   return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+// The DTLS fingerprint in a description. Exactly one is accepted: with
+// several, the browser's DTLS could accept a certificate by one of them
+// while the key check covers another.
 function fingerprint(sdp: string | undefined): string {
+  const found = new Set<string>()
   for (const line of (sdp ?? '').split(/\r?\n/)) {
     const m = line.match(/^a=fingerprint:(\S+) (\S+)/)
-    if (m && m[1].toLowerCase() === 'sha-256') return m[2].toUpperCase()
+    if (m) found.add(m[1].toLowerCase() + ' ' + m[2].toUpperCase())
   }
-  throw new Error('no DTLS fingerprint')
+  const [only] = found
+  if (found.size !== 1 || !only.startsWith('sha-256 ')) throw new Error('no single sha-256 DTLS fingerprint')
+  return only.slice('sha-256 '.length)
+}
+
+function hexFingerprint(b: Uint8Array): string {
+  return Array.from(b, (x) => x.toString(16).toUpperCase().padStart(2, '0')).join(':')
+}
+
+// The certificate the sender actually presented, where the browser says
+// (Chromium): it must be the one in its description.
+function remoteCertMatches(pc: RTCPeerConnection, fp: string): boolean {
+  const transport = pc.sctp?.transport as (RTCDtlsTransport & { getRemoteCertificates?: () => ArrayBuffer[] }) | undefined
+  const certs = transport?.getRemoteCertificates?.()
+  if (!certs?.length) return true // not available here; the single-fingerprint rule stands
+  return hexFingerprint(sha256(new Uint8Array(certs[0]))) === fp
+}
+
+// The link ID for a public key, as the sender's app makes it
+// (rendezvous.LinkIDFor): base32 of the first 10 bytes of a hash.
+function linkIDFor(pub: Uint8Array): string {
+  const prefix = new TextEncoder().encode('tropicalpeer-link-id\n')
+  const h = sha256(new Uint8Array([...prefix, ...pub])).slice(0, 10)
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = 0
+  let value = 0
+  let out = ''
+  for (const b of h) {
+    value = (value << 8) | b
+    bits += 8
+    while (bits >= 5) {
+      out += alphabet[(value >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+  }
+  return out
 }
 
 export async function connect(link: string, secret: string, h: Handlers) {
   const key = await crypto.subtle.importKey('raw', b64urlDecode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
-  const mac = (role: string, session: string, senderFP: string, browserFP: string) =>
+  const payload = (role: string, session: string, senderFP: string, browserFP: string) =>
     new TextEncoder().encode([authContext, role, link, session, senderFP, browserFP].join('\n'))
+  const hmac = async (data: Uint8Array) => b64urlEncode(new Uint8Array(await crypto.subtle.sign('HMAC', key, data)))
 
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws')
   let pc: RTCPeerConnection | undefined
@@ -74,7 +121,13 @@ export async function connect(link: string, secret: string, h: Handlers) {
       return
     }
     if (m.type === 'opened') {
+      // Prove we have the secret; the sender admits us only then.
       session = m.session
+      const hello = await hmac(new TextEncoder().encode([authContext, 'hello', link, session].join('\n')))
+      signal({ hello })
+      return
+    }
+    if (m.type === 'admitted') {
       pc = new RTCPeerConnection({ iceServers: m.ice ?? [] })
       dc = pc.createDataChannel('files', { ordered: true })
       dc.binaryType = 'arraybuffer'
@@ -119,8 +172,8 @@ export async function connect(link: string, secret: string, h: Handlers) {
     } catch {
       return failOnce('auth')
     }
-    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, mac('browser', session, ...fps)))
-    dc!.send(JSON.stringify({ type: 'auth', mac: b64urlEncode(sig) }))
+    if (!remoteCertMatches(pc!, fps[0])) return failOnce('auth')
+    dc!.send(JSON.stringify({ type: 'auth', mac: await hmac(payload('browser', session, ...fps)) }))
   }
 
   async function onMessage(ev: MessageEvent) {
@@ -146,7 +199,13 @@ export async function connect(link: string, secret: string, h: Handlers) {
     if (!authed) {
       if (m.type === 'error') return failOnce(m.error)
       if (m.type !== 'auth') return
-      const ok = await crypto.subtle.verify('HMAC', key, b64urlDecode(m.mac), mac('sender', session, ...fps))
+      // Only the sender has the link's key: its ID is a hash of the public
+      // key, and the signature covers this connection's fingerprints.
+      let ok = false
+      try {
+        const pub = b64urlDecode(m.pub)
+        ok = linkIDFor(pub) === link && ed25519.verify(b64urlDecode(m.sig), payload('sender', session, ...fps), pub)
+      } catch {}
       if (!ok) return failOnce('auth')
       authed = true
       ws.close() // signaling is no longer needed

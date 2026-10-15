@@ -3,19 +3,26 @@ package linkshare
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,8 +57,10 @@ func memFile(name string, data []byte) transfer.Source {
 	}}
 }
 
-// browser plays the receiver page: it opens the link and, like the page,
-// sends its key check the moment the DataChannel opens.
+// browser plays the receiver page: it opens the link, proves it has the
+// secret through the server, and once admitted connects; like the page, it
+// sends its key check the moment the DataChannel opens, and checks the
+// sender's signature against the link ID.
 type browser struct {
 	t      *testing.T
 	pc     *webrtc.PeerConnection
@@ -59,6 +68,8 @@ type browser struct {
 	msgs   chan pageMsg
 	chunks chan []byte
 	closed chan struct{}
+
+	signaled atomic.Bool // the sender sent WebRTC signaling (an answer or candidates)
 }
 
 func openLink(t *testing.T, wsURL, link, secretB64 string) *browser {
@@ -77,27 +88,57 @@ func openLink(t *testing.T, wsURL, link, secretB64 string) *browser {
 	sendWS(map[string]string{"type": "open", "link": link})
 	var opened struct {
 		Type, Session string
+		ICE           []rendezvous.ICEServer
 	}
 	if err := ws.ReadJSON(&opened); err != nil || opened.Type != "opened" {
 		t.Fatalf("open: %v %+v", err, opened)
 	}
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if len(opened.ICE) != 0 {
+		t.Fatal("the server handed out STUN/TURN servers before the key check")
+	}
+	b := &browser{t: t, msgs: make(chan pageMsg, 64), chunks: make(chan []byte, 4096), closed: make(chan struct{})}
+	secret, _ := base64.RawURLEncoding.DecodeString(secretB64)
+	hm := hmac.New(sha256.New, secret)
+	hm.Write([]byte(strings.Join([]string{authContext, "hello", link, opened.Session}, "\n")))
+	sendWS(map[string]any{"type": "signal", "data": map[string]string{"hello": base64.RawURLEncoding.EncodeToString(hm.Sum(nil))}})
+
+	var admitted struct {
+		Type, Error string
+		ICE         []rendezvous.ICEServer
+		Data        json.RawMessage
+	}
+	if err := ws.ReadJSON(&admitted); err != nil {
+		t.Fatalf("waiting to be admitted: %v", err)
+	}
+	switch admitted.Type {
+	case "admitted":
+	case "error":
+		b.msgs <- pageMsg{Type: "error", Error: admitted.Error}
+		return b
+	default:
+		t.Fatalf("before admission the server sent %+v", admitted)
+	}
+
+	cfg := webrtc.Configuration{}
+	if offerCert != nil {
+		cfg.Certificates = []webrtc.Certificate{*offerCert}
+	}
+	pc, err := webrtc.NewPeerConnection(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { pc.Close() })
-	b := &browser{t: t, pc: pc, msgs: make(chan pageMsg, 64), chunks: make(chan []byte, 4096), closed: make(chan struct{})}
+	b.pc = pc
 	b.dc, _ = pc.CreateDataChannel("files", nil)
-	secret, _ := base64.RawURLEncoding.DecodeString(secretB64)
-	mac := func(role string) []byte {
+	payload := func(role string) []byte {
 		senderFP, _ := fingerprint(pc.RemoteDescription())
 		browserFP, _ := fingerprint(pc.LocalDescription())
-		m := hmac.New(sha256.New, secret)
-		fmt.Fprintf(m, "%s\n%s\n%s\n%s\n%s\n%s", authContext, role, link, opened.Session, senderFP, browserFP)
-		return m.Sum(nil)
+		return []byte(strings.Join([]string{authContext, role, link, opened.Session, senderFP, browserFP}, "\n"))
 	}
 	b.dc.OnOpen(func() {
-		b.dc.SendText(fmt.Sprintf(`{"type":"auth","mac":%q}`, base64.RawURLEncoding.EncodeToString(mac("browser"))))
+		m := hmac.New(sha256.New, secret)
+		m.Write(payload("browser"))
+		b.dc.SendText(fmt.Sprintf(`{"type":"auth","mac":%q}`, base64.RawURLEncoding.EncodeToString(m.Sum(nil))))
 	})
 	var once sync.Once
 	b.dc.OnClose(func() { once.Do(func() { close(b.closed) }) })
@@ -109,9 +150,10 @@ func openLink(t *testing.T, wsURL, link, secretB64 string) *browser {
 		var pm pageMsg
 		json.Unmarshal(m.Data, &pm)
 		if pm.Type == "auth" {
-			got, _ := base64.RawURLEncoding.DecodeString(pm.MAC)
-			if !hmac.Equal(got, mac("sender")) {
-				t.Errorf("the sender's key check doesn't match")
+			pub, _ := base64.RawURLEncoding.DecodeString(pm.Pub)
+			sig, _ := base64.RawURLEncoding.DecodeString(pm.Sig)
+			if len(pub) != ed25519.PublicKeySize || rendezvous.LinkIDFor(pub) != link || !ed25519.Verify(pub, payload("sender"), sig) {
+				t.Errorf("the sender's signature doesn't check out")
 			}
 		}
 		b.msgs <- pm
@@ -124,7 +166,11 @@ func openLink(t *testing.T, wsURL, link, secretB64 string) *browser {
 	})
 	offer, _ := pc.CreateOffer(nil)
 	pc.SetLocalDescription(offer)
-	sendWS(map[string]any{"type": "signal", "data": map[string]any{"sdp": pc.LocalDescription()}})
+	sent := *pc.LocalDescription()
+	if mungeOffer != nil {
+		sent.SDP = mungeOffer(sent.SDP)
+	}
+	sendWS(map[string]any{"type": "signal", "data": map[string]any{"sdp": sent}})
 	go func() {
 		for {
 			var m struct {
@@ -138,14 +184,23 @@ func openLink(t *testing.T, wsURL, link, secretB64 string) *browser {
 				return
 			}
 			if m.Data.SDP != nil {
+				b.signaled.Store(true)
 				pc.SetRemoteDescription(*m.Data.SDP)
 			} else if m.Data.Candidate != nil {
+				b.signaled.Store(true)
 				pc.AddICECandidate(*m.Data.Candidate)
 			}
 		}
 	}()
 	return b
 }
+
+// For TestSenderChecksRealCertificate: the test browser's certificate, and
+// a change to the offer as a server in the middle might make it.
+var (
+	offerCert  *webrtc.Certificate
+	mungeOffer func(sdp string) string
+)
 
 func (b *browser) next(want string) pageMsg {
 	b.t.Helper()
@@ -245,22 +300,104 @@ func TestDownload(t *testing.T) {
 	b.send(`{"type":"done"}`)
 	st.waitFor(t, Done)
 
-	// First person only: the next one is turned away.
+	// First person only: the next one is turned away, before connecting.
 	b2 := openLink(t, wsURL, s.ID, secret)
-	b2.next("auth")
 	if m := b2.next("error"); m.Error != "used" {
 		t.Fatalf("second visitor: %+v", m)
 	}
 	st.waitFor(t, Refused)
 }
 
+// Someone who knows the link ID but not its secret is turned away before
+// anything starts: no STUN/TURN servers, no WebRTC, so nothing about the
+// sender (not even its addresses) reaches them, and the sender's app
+// doesn't list them.
 func TestWrongKey(t *testing.T) {
 	s, st, wsURL, _ := share(t, []transfer.Source{memFile("a.bin", []byte("hello"))}, Unlimited)
 	b := openLink(t, wsURL, s.ID, base64.RawURLEncoding.EncodeToString(make([]byte, 16)))
 	if m := b.next("error"); m.Error != "auth" {
 		t.Fatalf("got %+v", m)
 	}
-	st.waitFor(t, Failed)
+	if b.pc != nil || b.signaled.Load() {
+		t.Fatal("a page without the key got as far as WebRTC")
+	}
+	time.Sleep(200 * time.Millisecond)
+	st.mu.Lock()
+	n := len(st.last)
+	st.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("the sender listed %d visitors without the key", n)
+	}
+}
+
+// A page that opens the link and never proves the secret is dropped.
+func TestSilentVisitorDropped(t *testing.T) {
+	old := authTimeout
+	authTimeout = 300 * time.Millisecond
+	defer func() { authTimeout = old }()
+	s, _, wsURL, _ := share(t, []transfer.Source{memFile("a.bin", []byte("hello"))}, Unlimited)
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close()
+	ws.WriteJSON(map[string]string{"type": "open", "link": s.ID})
+	ws.SetReadDeadline(time.Now().Add(15 * time.Second))
+	for {
+		var m struct{ Type, Error string }
+		if err := ws.ReadJSON(&m); err != nil {
+			t.Fatalf("never dropped: %v", err)
+		}
+		if m.Type == "error" {
+			if m.Error != "auth" {
+				t.Fatalf("dropped with %q", m.Error)
+			}
+			return
+		}
+	}
+}
+
+// Nobody but the holder of a link's key can host its ID: not with another
+// key, and not by replaying the real host's request while the link is up.
+func TestOnlyOwnerHostsLink(t *testing.T) {
+	c, _ := startServer(t)
+	s, err := Start(context.Background(), c, []transfer.Source{memFile("a.bin", []byte("x"))}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+
+	host := func(m rendezvous.Msg) string {
+		nc, err := net.Dial("tcp", c.Addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer nc.Close()
+		conn := rendezvous.NewConn(nc)
+		if err := conn.Send(m); err != nil {
+			t.Fatal(err)
+		}
+		reply, err := conn.RecvMsg()
+		if err != nil {
+			return err.Error()
+		}
+		return reply.Type
+	}
+	pub, key, _ := ed25519.GenerateKey(nil)
+	now := time.Now().Unix()
+	// Another key, claiming the link's ID.
+	if got := host(rendezvous.Msg{Type: rendezvous.TypeLinkHost, Link: s.ID, PublicKey: pub, Time: now, Sig: ed25519.Sign(key, rendezvous.LinkHostPayload(s.ID, now))}); got == rendezvous.TypeLinkHosted {
+		t.Fatal("hosted someone else's link with another key")
+	}
+	// The real key's ID, without a valid signature.
+	own := s.key.Public().(ed25519.PublicKey)
+	if got := host(rendezvous.Msg{Type: rendezvous.TypeLinkHost, Link: s.ID, PublicKey: own, Time: now, Sig: ed25519.Sign(key, rendezvous.LinkHostPayload(s.ID, now))}); got == rendezvous.TypeLinkHosted {
+		t.Fatal("hosted the link without its key's signature")
+	}
+	// A correct request (as if replayed) while the link is up.
+	if got := host(rendezvous.Msg{Type: rendezvous.TypeLinkHost, Link: s.ID, PublicKey: own, Time: now, Sig: ed25519.Sign(s.key, rendezvous.LinkHostPayload(s.ID, now))}); got == rendezvous.TypeLinkHosted {
+		t.Fatal("took over a link that is up")
+	}
 }
 
 func TestReceiverCancelsMidFile(t *testing.T) {
@@ -302,8 +439,54 @@ func TestFirstOnlyFreedWhenFirstLeaves(t *testing.T) {
 	st.waitFor(t, Done)
 
 	b3 := openLink(t, wsURL, s.ID, secret)
-	b3.next("auth")
 	if m := b3.next("error"); m.Error != "used" {
 		t.Fatalf("after a finished download: %+v", m)
 	}
+}
+
+// The sender binds its check to the certificate the page actually used in
+// DTLS, not to what the page's description says. Here the offer lists the
+// real certificate first (by sha-1, which DTLS goes by) and a bogus sha-256
+// after it: a check that read the description's sha-256 would cover the
+// bogus one, which a server in the middle could pick to suit itself.
+func TestSenderChecksRealCertificate(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := webrtc.GenerateCertificate(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemText, err := cert.PEM()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var der []byte
+	for rest := []byte(pemText); ; {
+		var blk *pem.Block
+		if blk, rest = pem.Decode(rest); blk == nil {
+			break
+		}
+		if blk.Type == "CERTIFICATE" {
+			der = blk.Bytes
+		}
+	}
+	sum := sha1.Sum(der)
+	hexes := make([]string, len(sum))
+	for i, b := range sum {
+		hexes[i] = fmt.Sprintf("%02X", b)
+	}
+	bogus := strings.TrimSuffix(strings.Repeat("AB:", 32), ":")
+	offerCert = cert
+	mungeOffer = func(sdp string) string {
+		return regexp.MustCompile(`a=fingerprint:sha-256 [0-9A-Fa-f:]+`).ReplaceAllString(sdp,
+			"a=fingerprint:sha-1 "+strings.Join(hexes, ":")+"\r\na=fingerprint:sha-256 "+bogus)
+	}
+	defer func() { offerCert, mungeOffer = nil, nil }()
+
+	s, _, wsURL, secret := share(t, []transfer.Source{memFile("a.bin", []byte("hello"))}, Unlimited)
+	b := openLink(t, wsURL, s.ID, secret)
+	b.next("auth")
+	b.next("hello")
 }

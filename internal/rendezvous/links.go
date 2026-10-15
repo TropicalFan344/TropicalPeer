@@ -2,13 +2,16 @@ package rendezvous
 
 import (
 	"context"
-	"crypto/rand"
+	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // CapLinks: the server routes browsers to links (share by link).
@@ -19,25 +22,33 @@ const LinkIDLen = 10
 
 var linkEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// NewLinkID returns a random link ID: 16 characters, A-Z and 2-7.
-func NewLinkID() string {
-	b := make([]byte, LinkIDLen)
-	rand.Read(b)
-	return linkEncoding.EncodeToString(b)
+// LinkIDFor returns the ID of the link whose key is pub: 16 characters,
+// A-Z and 2-7, from a hash of the key. Only the holder of the private key
+// can host that ID on a server, and a browser checks the sender's signature
+// against it, so having had the link doesn't let anyone pose as its sender.
+func LinkIDFor(pub ed25519.PublicKey) string {
+	h := sha256.Sum256(append([]byte("tropicalpeer-link-id\n"), pub...))
+	return linkEncoding.EncodeToString(h[:LinkIDLen])
 }
 
-// ValidLinkID reports whether s looks like a link ID from NewLinkID.
+// LinkHostPayload is what a sender signs, with the link's key, to host it.
+func LinkHostPayload(link string, unixTime int64) []byte {
+	return []byte("tropicalpeer-link-host\n" + link + "\n" + strconv.FormatInt(unixTime, 10))
+}
+
+// ValidLinkID reports whether s looks like a link ID from LinkIDFor.
 func ValidLinkID(s string) bool {
 	b, err := linkEncoding.DecodeString(s)
 	return err == nil && len(b) == LinkIDLen && strings.ToUpper(s) == s
 }
 
 // LinkEvent is something the server tells a link's host: a browser opened
-// the link (Visitor), sent signaling (Signal), or left (Drop).
+// the link (Visitor), sent its key check or signaling (Signal), may now
+// connect (Admitted), or left (Drop).
 type LinkEvent struct {
-	Type    string // TypeLinkVisitor, TypeLinkSignal or TypeLinkDrop
+	Type    string // TypeLinkVisitor, TypeLinkSignal, TypeLinkAdmitted or TypeLinkDrop
 	Session string
-	ICE     []ICEServer     // Visitor: STUN/TURN servers to use for this session
+	ICE     []ICEServer     // Admitted: STUN/TURN servers to use for this session
 	Data    json.RawMessage // Signal
 }
 
@@ -54,15 +65,19 @@ type LinkHost struct {
 	Events <-chan LinkEvent // closed when the connection ends
 }
 
-// HostLink asks the server to route link to us.
-func (c *Client) HostLink(ctx context.Context, link string) (*LinkHost, error) {
+// HostLink asks the server to route the link of key to us.
+func (c *Client) HostLink(ctx context.Context, key ed25519.PrivateKey) (*LinkHost, error) {
+	pub := key.Public().(ed25519.PublicKey)
+	link := LinkIDFor(pub)
 	nc, conn, err := c.dial(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stop := context.AfterFunc(ctx, func() { nc.Close() })
 	defer stop()
-	if err := conn.Send(Msg{Type: TypeLinkHost, Link: link}); err != nil {
+	now := time.Now().Unix()
+	req := Msg{Type: TypeLinkHost, Link: link, PublicKey: pub, Time: now, Sig: ed25519.Sign(key, LinkHostPayload(link, now))}
+	if err := conn.Send(req); err != nil {
 		nc.Close()
 		return nil, err
 	}
@@ -89,7 +104,7 @@ func (c *Client) HostLink(ctx context.Context, link string) (*LinkHost, error) {
 				return
 			}
 			switch m.Type {
-			case TypeLinkVisitor, TypeLinkSignal, TypeLinkDrop:
+			case TypeLinkVisitor, TypeLinkSignal, TypeLinkAdmitted, TypeLinkDrop:
 				events <- LinkEvent{Type: m.Type, Session: m.Session, ICE: m.ICE, Data: m.Data}
 			}
 		}
@@ -108,11 +123,20 @@ func (h *LinkHost) Signal(session string, data any) error {
 	return h.conn.Send(Msg{Type: TypeLinkSignal, Session: session, Data: b})
 }
 
-// Drop disconnects the browser of session from the server.
-func (h *LinkHost) Drop(session string) error {
+// Admit tells the server that session proved it has the link's secret: it
+// gets STUN/TURN servers and may connect.
+func (h *LinkHost) Admit(session string) error {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
-	return h.conn.Send(Msg{Type: TypeLinkDrop, Session: session})
+	return h.conn.Send(Msg{Type: TypeLinkAdmit, Session: session})
+}
+
+// Drop disconnects the browser of session from the server, telling the page
+// why when code is set (an error code it knows, e.g. "auth" or "used").
+func (h *LinkHost) Drop(session, code string) error {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	return h.conn.Send(Msg{Type: TypeLinkDrop, Session: session, Error: code})
 }
 
 // Close stops routing the link; browsers still signaling are dropped.

@@ -211,7 +211,7 @@ Links let someone download from your device in a browser, without the app. For t
 
 Links end when the sending app quits. A dropped connection to the server, or a server restart, doesn't end them: the app reconnects them for 15 minutes, and downloads already running carry on, since they go device to browser.
 
-**What the server sees:** that someone opened a link, and their IP address. The secret part of a link sits after `#`, which browsers never send to servers. The browser and your device each prove they know it before any file data moves, so a server in the middle can't read or change the files. One limit applies to any web app like this: whoever serves the download page could serve a modified page that reads the secret. If you run your own server, that's you.
+**What the server sees:** that someone opened a link, and their IP address. The secret part of a link sits after `#`, which browsers never send to servers. A browser must prove it has the secret before your device starts a connection or the server hands it relay access, so knowing a link's address alone gets nobody anywhere. Each link also has its own key, which only your device holds: the browser checks your device's signature, so a server in the middle can't read or change the files, and nobody who received the link can pose as you. The TURN relay only carries traffic for browsers your device let in, and doesn't reach into the server's network (`-turn-allow-lan` changes that). One limit applies to any web app like this: whoever serves the download page could serve a modified page that reads the secret. If you run your own server, that's you.
 
 ## Develop
 

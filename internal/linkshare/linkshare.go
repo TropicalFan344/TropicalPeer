@@ -1,12 +1,22 @@
 // Package linkshare shares files by link: a browser that opens the link
 // downloads them straight from this device over a WebRTC DataChannel. The
 // rendezvous server relays signaling (and, if needed, DTLS ciphertext
-// through TURN); the link's secret, kept in the URL fragment, lets both sides
-// check that nobody sits between them.
+// through TURN). Each link has its own Ed25519 key, and its ID is a hash of
+// the public key. The URL fragment holds a secret the server never sees:
+//
+//  1. Over the server, the browser first proves it has the secret ("hello").
+//     Only then do we admit it: the server hands out STUN/TURN servers and
+//     we start WebRTC, so someone who only knows the link ID learns nothing,
+//     not even this device's addresses.
+//  2. On the DataChannel the browser proves the secret again, and we sign
+//     with the link's key; both are bound to the DTLS fingerprints. People
+//     who had the link know the secret but not the key, so none of them can
+//     pose as the sender, and a server in the middle fails both checks.
 package linkshare
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -32,10 +42,13 @@ const (
 	chunkSize      = 64 * 1024 // Safari's limit on one message is the tightest
 	highWater      = 4 << 20
 	lowWater       = 1 << 20
-	authTimeout    = 30 * time.Second
 	connectTimeout = 45 * time.Second
-	authContext    = "tropicalpeer-link-v1"
+	authContext    = "tropicalpeer-link-v2"
 )
+
+// authTimeout is how long a page has to prove it has the link's secret
+// (a variable for tests).
+var authTimeout = 30 * time.Second
 
 // Limit says how many people may download from a link.
 type Limit string
@@ -92,6 +105,7 @@ type Share struct {
 	total  int64
 	opts   Options
 	secret []byte
+	key    ed25519.PrivateKey // the link's own key; ID is derived from it
 	client *rendezvous.Client
 	api    *webrtc.API
 
@@ -103,8 +117,9 @@ type Share struct {
 
 	mu       sync.Mutex
 	visitors map[string]*visitor
-	holder   string // session of the person a FirstOnly link is for ("" = free)
-	used     bool   // that person finished downloading: the link is spent
+	knocking map[string]time.Time // opened the link, haven't proved the secret yet
+	holder   string               // session of the person a FirstOnly link is for ("" = free)
+	used     bool                 // that person finished downloading: the link is spent
 	names    map[string]bool
 }
 
@@ -119,11 +134,15 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 	if opts.Log == nil {
 		opts.Log = func(string, ...any) {}
 	}
-	id := rendezvous.NewLinkID()
-	host, err := c.HostLink(ctx, id)
+	_, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
+	host, err := c.HostLink(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	id := host.Link
 	secret := make([]byte, 16)
 	rand.Read(secret)
 
@@ -136,12 +155,14 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 		files:    files,
 		opts:     opts,
 		secret:   secret,
+		key:      key,
 		client:   c,
 		host:     host,
 		api:      webrtc.NewAPI(webrtc.WithSettingEngine(se)),
 		ctx:      sctxCtx,
 		cancel:   cancel,
 		visitors: map[string]*visitor{},
+		knocking: map[string]time.Time{},
 		names:    map[string]bool{},
 	}
 	for _, f := range files {
@@ -182,7 +203,19 @@ func (s *Share) CancelVisitor(session string) {
 	s.mu.Unlock()
 	if v != nil {
 		v.finish(Cancelled, "")
+		if !v.started() {
+			// Still waiting to connect: tell the page, and let it go.
+			s.currentHost().Drop(session, "cancel")
+			s.forget(session)
+		}
 	}
+}
+
+// started reports whether WebRTC with the visitor began (it was admitted).
+func (v *visitor) started() bool {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.pc != nil
 }
 
 func (s *Share) loop() {
@@ -220,7 +253,7 @@ func (s *Share) reconnect() *rendezvous.LinkHost {
 		case <-time.After(reconnectWaits[min(i, len(reconnectWaits)-1)]):
 		}
 		ctx, cancel := context.WithTimeout(s.ctx, 15*time.Second)
-		h, err := s.client.HostLink(ctx, s.ID)
+		h, err := s.client.HostLink(ctx, s.key)
 		cancel()
 		if err == nil {
 			return h
@@ -231,36 +264,121 @@ func (s *Share) reconnect() *rendezvous.LinkHost {
 
 // serveHost handles what the server sends until its connection ends.
 func (s *Share) serveHost(host *rendezvous.LinkHost) {
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
+		case <-tick.C:
+			s.dropSilentKnocks(host)
 		case ev, ok := <-host.Events:
 			if !ok {
 				return
 			}
 			switch ev.Type {
 			case rendezvous.TypeLinkVisitor:
-				s.addVisitor(ev)
+				// Someone opened the link. Nothing more happens until the
+				// page proves it has the secret.
+				s.mu.Lock()
+				s.knocking[ev.Session] = time.Now()
+				s.mu.Unlock()
 			case rendezvous.TypeLinkSignal:
+				s.mu.Lock()
+				v := s.visitors[ev.Session]
+				_, knocking := s.knocking[ev.Session]
+				delete(s.knocking, ev.Session)
+				s.mu.Unlock()
+				switch {
+				case v != nil:
+					v.signal(ev.Data)
+				case knocking:
+					s.hello(host, ev.Session, ev.Data)
+				}
+			case rendezvous.TypeLinkAdmitted:
 				s.mu.Lock()
 				v := s.visitors[ev.Session]
 				s.mu.Unlock()
 				if v != nil {
-					v.signal(ev.Data)
+					v.connect(ev.ICE)
 				}
 			case rendezvous.TypeLinkDrop:
 				// The page closed its signaling socket. That's normal once
 				// WebRTC is up; only a visitor still connecting is lost.
 				s.mu.Lock()
 				v := s.visitors[ev.Session]
+				delete(s.knocking, ev.Session)
 				s.mu.Unlock()
 				if v != nil && !v.opened.Load() {
 					v.finish(Failed, "the page was closed")
+					if !v.started() {
+						s.forget(ev.Session)
+					}
 				}
 			}
 		}
 	}
+}
+
+// dropSilentKnocks turns away pages that opened the link but never proved
+// they have its secret.
+func (s *Share) dropSilentKnocks(host *rendezvous.LinkHost) {
+	var gone []string
+	s.mu.Lock()
+	for session, at := range s.knocking {
+		if time.Since(at) > authTimeout {
+			gone = append(gone, session)
+			delete(s.knocking, session)
+		}
+	}
+	s.mu.Unlock()
+	for _, session := range gone {
+		host.Drop(session, "auth")
+	}
+}
+
+// helloMsg is the page's first message through the server: proof that it
+// has the link's secret, before anything else happens.
+type helloMsg struct {
+	Hello string `json:"hello"`
+}
+
+// hello checks a page's proof of the secret; a page that has it becomes a
+// visitor, and the server lets it connect.
+func (s *Share) hello(host *rendezvous.LinkHost, session string, data json.RawMessage) {
+	var m helloMsg
+	got, err := []byte(nil), json.Unmarshal(data, &m)
+	if err == nil {
+		got, err = base64.RawURLEncoding.DecodeString(m.Hello)
+	}
+	if err != nil || !hmac.Equal(got, s.helloMAC(session)) {
+		s.opts.Log("link: a page without this link's key was turned away")
+		host.Drop(session, "auth")
+		return
+	}
+	ctx, cancel := context.WithCancel(s.ctx)
+	v := &visitor{s: s, ctx: ctx, cancel: cancel, info: Visitor{Session: session, Name: s.newName(), Status: Connecting, Total: s.total}}
+	s.mu.Lock()
+	spent := s.opts.Limit == FirstOnly && s.used
+	s.visitors[session] = v
+	s.mu.Unlock()
+	v.update()
+	if spent {
+		host.Drop(session, "used")
+		v.finish(Refused, "")
+		s.forget(session)
+		return
+	}
+	if err := host.Admit(session); err != nil {
+		v.finish(Failed, "lost the server")
+		s.forget(session)
+	}
+}
+
+func (s *Share) forget(session string) {
+	s.mu.Lock()
+	delete(s.visitors, session)
+	s.mu.Unlock()
 }
 
 func (s *Share) newName() string {
@@ -276,22 +394,27 @@ func (s *Share) newName() string {
 	return pairing.RandomName()
 }
 
-func (s *Share) addVisitor(ev rendezvous.LinkEvent) {
+// connect starts WebRTC with an admitted visitor, through the STUN/TURN
+// servers the server gave for its session.
+func (v *visitor) connect(servers []rendezvous.ICEServer) {
 	cfg := webrtc.Configuration{}
-	for _, ice := range ev.ICE {
+	for _, ice := range servers {
 		cfg.ICEServers = append(cfg.ICEServers, webrtc.ICEServer{URLs: ice.URLs, Username: ice.Username, Credential: ice.Credential})
 	}
-	pc, err := s.api.NewPeerConnection(cfg)
+	pc, err := v.s.api.NewPeerConnection(cfg)
 	if err != nil {
-		s.opts.Log("link: peer connection: %v", err)
+		v.s.opts.Log("link: peer connection: %v", err)
+		v.finish(Failed, "couldn't start a connection")
 		return
 	}
-	ctx, cancel := context.WithCancel(s.ctx)
-	v := &visitor{s: s, pc: pc, ctx: ctx, cancel: cancel, info: Visitor{Session: ev.Session, Name: s.newName(), Status: Connecting, Total: s.total}}
-	s.mu.Lock()
-	s.visitors[ev.Session] = v
-	s.mu.Unlock()
-	v.update()
+	v.mu.Lock()
+	if v.pc != nil || v.ctx.Err() != nil {
+		v.mu.Unlock()
+		pc.Close()
+		return
+	}
+	v.pc = pc
+	v.mu.Unlock()
 	go v.run()
 }
 
@@ -367,6 +490,12 @@ func (v *visitor) signal(data json.RawMessage) {
 	if json.Unmarshal(data, &m) != nil {
 		return
 	}
+	v.mu.Lock()
+	started := v.pc != nil
+	v.mu.Unlock()
+	if !started {
+		return // not admitted yet: the page has no business signaling
+	}
 	switch {
 	case m.SDP != nil && m.SDP.Type == webrtc.SDPTypeOffer:
 		if err := v.pc.SetRemoteDescription(*m.SDP); err != nil {
@@ -404,7 +533,7 @@ func (v *visitor) signal(data json.RawMessage) {
 
 func (v *visitor) run() {
 	defer v.pc.Close()
-	defer func() { v.s.currentHost().Drop(v.info.Session) }() // the host may change meanwhile
+	defer func() { v.s.currentHost().Drop(v.info.Session, "") }() // the host may change meanwhile
 	defer func() {
 		v.s.mu.Lock()
 		delete(v.s.visitors, v.info.Session)
@@ -472,6 +601,8 @@ func (v *visitor) run() {
 type pageMsg struct {
 	Type   string     `json:"type"` // auth, hello, get, end, cancel, error
 	MAC    string     `json:"mac,omitempty"`
+	Pub    string     `json:"pub,omitempty"` // auth from us: the link's public key
+	Sig    string     `json:"sig,omitempty"` // auth from us: its signature
 	Name   string     `json:"name,omitempty"`
 	From   string     `json:"from,omitempty"`
 	Files  []fileInfo `json:"files,omitempty"`
@@ -487,12 +618,16 @@ type fileInfo struct {
 }
 
 func (v *visitor) serve(ch *channel) error {
-	// Both sides prove they know the link's secret, bound to the DTLS
-	// fingerprints each actually sees, so a relay in the middle fails.
+	// The page proves it knows the link's secret and we sign with the link's
+	// key, both bound to the DTLS fingerprints each side actually sees, so a
+	// relay in the middle fails. Ours is the certificate in our own
+	// description; the page's is the certificate DTLS actually got, not what
+	// its description says (one with several fingerprints could pass DTLS
+	// with one and the check with another).
 	localFP, err1 := fingerprint(v.pc.LocalDescription())
-	remoteFP, err2 := fingerprint(v.pc.RemoteDescription())
+	remoteFP, err2 := remoteFingerprint(v.pc)
 	if err1 != nil || err2 != nil {
-		return errors.New("no DTLS fingerprint in the session description")
+		return errors.New("no DTLS fingerprint to check")
 	}
 	m, err := ch.recv(v.ctx, authTimeout)
 	if err != nil {
@@ -505,7 +640,9 @@ func (v *visitor) serve(ch *channel) error {
 		ch.flush()
 		return errors.New("the browser doesn't have this link's key")
 	}
-	if err := ch.sendJSON(pageMsg{Type: "auth", MAC: base64.RawURLEncoding.EncodeToString(v.s.mac("sender", v.info.Session, localFP, remoteFP))}); err != nil {
+	sig := ed25519.Sign(v.s.key, v.s.authPayload("sender", v.info.Session, localFP, remoteFP))
+	pub := v.s.key.Public().(ed25519.PublicKey)
+	if err := ch.sendJSON(pageMsg{Type: "auth", Pub: base64.RawURLEncoding.EncodeToString(pub), Sig: base64.RawURLEncoding.EncodeToString(sig)}); err != nil {
 		return err
 	}
 
@@ -609,10 +746,43 @@ func (v *visitor) progress(n int64) {
 	}
 }
 
+// authPayload is what each side's DataChannel check covers.
+func (s *Share) authPayload(role, session, senderFP, browserFP string) []byte {
+	return []byte(strings.Join([]string{authContext, role, s.ID, session, senderFP, browserFP}, "\n"))
+}
+
+// mac is the page's proof of the secret on the DataChannel.
 func (s *Share) mac(role, session, senderFP, browserFP string) []byte {
 	m := hmac.New(sha256.New, s.secret)
-	fmt.Fprintf(m, "%s\n%s\n%s\n%s\n%s\n%s", authContext, role, s.ID, session, senderFP, browserFP)
+	m.Write(s.authPayload(role, session, senderFP, browserFP))
 	return m.Sum(nil)
+}
+
+// helloMAC is the page's proof of the secret through the server, before
+// anything else.
+func (s *Share) helloMAC(session string) []byte {
+	m := hmac.New(sha256.New, s.secret)
+	m.Write([]byte(strings.Join([]string{authContext, "hello", s.ID, session}, "\n")))
+	return m.Sum(nil)
+}
+
+// remoteFingerprint is the sha-256 fingerprint of the certificate the page
+// presented in the DTLS handshake.
+func remoteFingerprint(pc *webrtc.PeerConnection) (string, error) {
+	sctp := pc.SCTP()
+	if sctp == nil {
+		return "", errors.New("no SCTP transport")
+	}
+	der := sctp.Transport().GetRemoteCertificate()
+	if len(der) == 0 {
+		return "", errors.New("no remote certificate")
+	}
+	sum := sha256.Sum256(der)
+	parts := make([]string, len(sum))
+	for i, b := range sum {
+		parts[i] = fmt.Sprintf("%02X", b)
+	}
+	return strings.Join(parts, ":"), nil
 }
 
 // fingerprint returns the sha-256 DTLS fingerprint in a description,

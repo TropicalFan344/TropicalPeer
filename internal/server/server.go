@@ -87,6 +87,8 @@ type Server struct {
 	alt        net.PacketConn // second UDP port for router detection
 	altPort    int
 	links      map[string]*linkHost
+	linkLost   map[string]time.Time // when a link's host went away (it may come back)
+	turn       map[string]*turnSession
 	opens      map[string]int // link opens per IP this minute
 	opensReset time.Time
 }

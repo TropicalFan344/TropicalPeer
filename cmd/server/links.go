@@ -53,7 +53,7 @@ func (f *linkFlags) register() {
 	f.turnPort = flag.Int("turn-port", 3478, "TURN/STUN port (UDP and TCP)")
 	f.turnHost = flag.String("turn-host", "", "host name or IP browsers use for TURN/STUN (default -domain)")
 	f.relay = flag.String("turn-relay", "40100-40119", "UDP port range for TURN relay allocations")
-	f.allowLAN = flag.Bool("turn-allow-lan", true, "let the TURN relay reach private addresses (senders on this server's own network)")
+	f.allowLAN = flag.Bool("turn-allow-lan", false, "let the TURN relay reach any private address (without it, only the addresses a link's own sender and browser connect from)")
 	f.origins = flag.String("web-origins", "", "comma-separated extra origins allowed to use signaling (a separately hosted receiver page)")
 	f.duck = flag.String("duckdns-token", os.Getenv("DUCKDNS_TOKEN"), "DuckDNS token (default $DUCKDNS_TOKEN): with a .duckdns.org -domain, keeps its address current and gets the certificate through DNS, so port 443 needn't be reachable")
 	dir, _ := os.UserConfigDir()
@@ -103,6 +103,7 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 	t, err := server.StartTURN(server.TURNConfig{
 		Port: *f.turnPort, Host: turnHost, PublicIP: ip,
 		RelayMin: lo, RelayMax: hi, AllowLAN: *f.allowLAN, Rate: relayRate,
+		Session: srv.TURNSession,
 	})
 	if err != nil {
 		return nil, err

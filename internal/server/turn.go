@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"TropicalPeer/internal/rendezvous"
 )
 
-const turnCredentialLife = 24 * time.Hour
+const turnCredentialLife = turnSessionMax // the session check (Session) ends them sooner
 
 // TURN is the relay browsers and senders fall back to when WebRTC can't
 // connect directly. It only ever carries DTLS ciphertext.
@@ -29,17 +30,27 @@ type TURNConfig struct {
 	PublicIP net.IP // the address relayed packets appear from
 	RelayMin int    // UDP port range for relay allocations
 	RelayMax int
-	AllowLAN bool // let the relay send to private addresses (a sender on the server's own network)
+	// AllowLAN lets the relay send to any private address. Without it, a
+	// session's relay reaches private addresses only where its own sender or
+	// browser connects from (a sender on the server's own network).
+	AllowLAN bool
 	// Rate caps each relay allocation in bytes per second, both directions
 	// together (0 = unlimited), like the QUIC relay's -relay-rate.
 	Rate int64
+	// Session says whether a session's credentials still work (the sender
+	// admitted it and is still sharing) and which private addresses its
+	// relay may reach. Nil: credentials work until they expire, and only
+	// AllowLAN opens private addresses.
+	Session func(session string) (private []net.IP, ok bool)
 }
 
 // Allocation limits: a session is one browser and one sender, each with a
-// UDP and maybe a TCP allocation; the total keeps a busy server's ports and
-// memory in check.
+// UDP and maybe a TCP allocation; one address can't take more than a few
+// sessions' worth, and the total keeps a busy server's ports and memory in
+// check.
 const (
 	maxAllocationsPerSession = 6
+	maxAllocationsPerIP      = 12
 	maxAllocations           = 256
 )
 
@@ -63,20 +74,41 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 			MaxPort:      uint16(cfg.RelayMax),
 		}, rate: cfg.Rate}
 	}
-	q := &quota{perSession: map[string]int{}}
-	allow := func(_ net.Addr, peer net.IP) bool {
-		if peer.IsLoopback() || peer.IsUnspecified() || peer.IsMulticast() || peer.IsLinkLocalUnicast() {
+	q := &quota{perSession: map[string]int{}, perIP: map[string]int{}, owners: map[string]string{}}
+	// The relay sends only where a peer could be: never to this machine,
+	// multicast or reserved ranges, and to private networks only for the
+	// session's own two ends (or anywhere with AllowLAN).
+	allow := func(client net.Addr, peer net.IP) bool {
+		if blockedPeer(peer) {
 			return false
 		}
-		return cfg.AllowLAN || !peer.IsPrivate()
+		if !peer.IsPrivate() && !isCGNAT(peer) {
+			return true
+		}
+		if cfg.AllowLAN {
+			return true
+		}
+		if cfg.Session == nil {
+			return false
+		}
+		private, ok := cfg.Session(q.owner(client))
+		return ok && slices.ContainsFunc(private, peer.Equal)
+	}
+	rest := turn.LongTermTURNRESTAuthHandler(secret, nil)
+	authenticate := func(ra *turn.RequestAttributes) (string, []byte, bool) {
+		user, key, ok := rest(ra)
+		if ok && cfg.Session != nil {
+			_, ok = cfg.Session(user)
+		}
+		return user, key, ok
 	}
 	srv, err := turn.NewServer(turn.ServerConfig{
 		Realm:        "tropicalpeer",
-		AuthHandler:  turn.LongTermTURNRESTAuthHandler(secret, nil),
+		AuthHandler:  authenticate,
 		QuotaHandler: q.allow,
 		EventHandler: turn.EventHandler{
-			OnAllocationCreated: func(_, _ net.Addr, _, userID, _ string, _ net.Addr, _ int) { q.add(userID, 1) },
-			OnAllocationDeleted: func(_, _ net.Addr, _, userID, _ string) { q.add(userID, -1) },
+			OnAllocationCreated: func(src, _ net.Addr, _, userID, _ string, _ net.Addr, _ int) { q.add(src, userID, 1) },
+			OnAllocationDeleted: func(src, _ net.Addr, _, userID, _ string) { q.add(src, userID, -1) },
 		},
 		PacketConnConfigs:  []turn.PacketConnConfig{{PacketConn: udp, RelayAddressGenerator: gen(), PermissionHandler: allow}},
 		ListenerConfigs:    []turn.ListenerConfig{{Listener: tcp, RelayAddressGenerator: gen(), PermissionHandler: allow}},
