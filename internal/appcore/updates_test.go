@@ -138,6 +138,12 @@ func TestAutomaticUpdate(t *testing.T) {
 	c.mu.Unlock()
 	waitUpdate("notice", func(d UpdateDTO) bool { return d.RestartAt != 0 })
 	waitUpdate("install", func(d UpdateDTO) bool { return d.State == UpdateInstalling })
+	// The state says "installing" just before the relaunch call.
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if _, r := up.counts(); r > 0 {
+			break
+		}
+	}
 	if i, r := up.counts(); i != 1 || r != 1 {
 		t.Fatalf("installed %d, relaunched %d; want 1, 1", i, r)
 	}
