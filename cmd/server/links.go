@@ -121,6 +121,9 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 		return nil, err
 	}
 	go func() { <-ctx.Done(); t.Close() }()
+	if *f.publicIP == "" {
+		go keepPublicIP(ctx, logger, t, upnp)
+	}
 
 	links := &server.Links{WebURL: webURL, ICE: t.ICE}
 	for _, o := range strings.Split(*f.origins, ",") {
@@ -205,6 +208,47 @@ func (f *linkFlags) findPublicIP(ctx context.Context, upnp bool) (net.IP, error)
 		return ip, nil
 	}
 	return nil, fmt.Errorf("can't find this server's public address: pass -public-ip (%v)", err)
+}
+
+// publicIPCheckEvery is how often the relay looks for a new public address.
+// Until it notices, relayed links can't connect.
+const publicIPCheckEvery = 2 * time.Minute
+
+// keepPublicIP follows this network's public address: a home connection's
+// changes now and then, and relay allocations must announce the current one.
+func keepPublicIP(ctx context.Context, logger *log.Logger, t *server.TURN, upnp bool) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(publicIPCheckEvery):
+		}
+		ip, err := currentPublicIP(ctx, upnp)
+		if err != nil {
+			if ctx.Err() == nil {
+				logger.Printf("relay: %v", err)
+			}
+			continue
+		}
+		if old := t.PublicIP(); !ip.Equal(old) {
+			logger.Printf("relay: public address changed from %s to %s", old, ip)
+			t.SetPublicIP(ip)
+		}
+	}
+}
+
+// currentPublicIP asks the router (with -upnp) or a service on the internet;
+// not DNS, which lags behind a change.
+func currentPublicIP(ctx context.Context, upnp bool) (net.IP, error) {
+	if upnp {
+		dctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		r, err := portmap.Discover(dctx)
+		cancel()
+		if err == nil {
+			return net.IP(r.ExternalIP.AsSlice()).To4(), nil
+		}
+	}
+	return publicIPv4(ctx)
 }
 
 func logErr(logger *log.Logger, err error) {

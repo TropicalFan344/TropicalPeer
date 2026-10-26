@@ -229,3 +229,29 @@ func TestTURNSessionGate(t *testing.T) {
 		}
 	}
 }
+
+// After the public address changes, new allocations announce the new one.
+func TestTURNPublicIPChanges(t *testing.T) {
+	tn, err := StartTURN(TURNConfig{Port: 34880, Host: "127.0.0.1", PublicIP: net.IPv4(127, 0, 0, 1), RelayMin: 34890, RelayMax: 34899, AllowLAN: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tn.Close()
+	allocate := func(session string) net.IP {
+		creds := tn.ICE(session)[1]
+		addr := strings.TrimPrefix(strings.Split(creds.URLs[0], "?")[0], "turn:")
+		relay, err := turnClient(t, addr, creds.Username, creds.Credential).Allocate()
+		if err != nil {
+			t.Fatalf("allocate: %v", err)
+		}
+		defer relay.Close()
+		return relay.LocalAddr().(*net.UDPAddr).IP
+	}
+	if ip := allocate("before"); !ip.Equal(net.IPv4(127, 0, 0, 1)) {
+		t.Fatalf("relay announced %v, want 127.0.0.1", ip)
+	}
+	tn.SetPublicIP(net.IPv4(203, 0, 113, 7))
+	if ip := allocate("after"); !ip.Equal(net.IPv4(203, 0, 113, 7)) {
+		t.Fatalf("relay announced %v after the change, want 203.0.113.7", ip)
+	}
+}

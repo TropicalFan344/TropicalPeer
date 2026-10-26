@@ -4,6 +4,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/turn/v5"
@@ -93,14 +94,18 @@ func (q *quota) add(src net.Addr, user string, n int) {
 // track of them by session so a finished session's sockets can be closed.
 type limitedGenerator struct {
 	turn.RelayAddressGenerator
-	rate   int64
-	relays *relaySockets
+	rate     int64
+	relays   *relaySockets
+	publicIP *atomic.Pointer[net.IP] // announced instead of the generator's fixed address
 }
 
 func (g *limitedGenerator) AllocatePacketConn(c turn.AllocateListenerConfig) (net.PacketConn, net.Addr, error) {
 	pc, addr, err := g.RelayAddressGenerator.AllocatePacketConn(c)
 	if err != nil {
 		return pc, addr, err
+	}
+	if ua, ok := addr.(*net.UDPAddr); ok && g.publicIP != nil {
+		addr = &net.UDPAddr{IP: *g.publicIP.Load(), Port: ua.Port}
 	}
 	lc := &limitedConn{PacketConn: pc, session: sessionOf(c.UserID), relays: g.relays}
 	if g.rate > 0 {

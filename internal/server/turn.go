@@ -5,6 +5,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/turn/v5"
@@ -22,6 +23,8 @@ type TURN struct {
 	secret string
 	host   string // public name or IP used in URLs
 	port   int
+
+	publicIP *atomic.Pointer[net.IP] // what new allocations announce; see SetPublicIP
 }
 
 // TURNConfig sets up StartTURN.
@@ -68,8 +71,10 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 	}
 	secret := randomHex(32)
 	relays := &relaySockets{}
+	publicIP := &atomic.Pointer[net.IP]{}
+	publicIP.Store(&cfg.PublicIP)
 	gen := func() turn.RelayAddressGenerator {
-		return &limitedGenerator{relays: relays, RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
+		return &limitedGenerator{relays: relays, publicIP: publicIP, RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
 			RelayAddress: cfg.PublicIP,
 			Address:      "0.0.0.0",
 			MinPort:      uint16(cfg.RelayMin),
@@ -121,12 +126,20 @@ func StartTURN(cfg TURNConfig) (*TURN, error) {
 		tcp.Close()
 		return nil, fmt.Errorf("turn: %w", err)
 	}
-	t := &TURN{srv: srv, stop: make(chan struct{}), secret: secret, host: cfg.Host, port: cfg.Port}
+	t := &TURN{srv: srv, stop: make(chan struct{}), secret: secret, host: cfg.Host, port: cfg.Port, publicIP: publicIP}
 	if cfg.Session != nil {
 		go freeEndedRelays(relays, cfg.Session, t.stop)
 	}
 	return t, nil
 }
+
+// SetPublicIP changes the address relayed packets appear from, for
+// allocations made from now on: a home connection's address changes now
+// and then, and allocations announcing the old one can't be reached.
+func (t *TURN) SetPublicIP(ip net.IP) { t.publicIP.Store(&ip) }
+
+// PublicIP is the address new allocations announce.
+func (t *TURN) PublicIP() net.IP { return *t.publicIP.Load() }
 
 // ICE returns the STUN and TURN servers for one session, with credentials
 // that work only for it and expire.
