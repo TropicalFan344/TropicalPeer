@@ -47,6 +47,9 @@ func shareLink(ctx context.Context, n *node.Node, args []string) error {
 				if v.Error != "" {
 					msg = ": " + v.Error
 				}
+				if v.Relayed {
+					msg += " (relayed)"
+				}
 				fmt.Printf("\n%s: %s%s\n", v.Name, v.Status, msg)
 			}
 		},

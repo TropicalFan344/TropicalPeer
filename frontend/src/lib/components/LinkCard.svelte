@@ -3,7 +3,7 @@
   // them: what is this, is anyone using it, how do I hand it over. The QR is
   // the handover for someone in the room, so it stays beside the card on a
   // computer and opens on demand on a phone, where Share is the usual way.
-  import { Copy, Check, X, User, Users, Share2, QrCode as QrIcon, Unlock } from '@lucide/svelte'
+  import { Copy, Check, X, User, Users, Share2, QrCode as QrIcon, Unlock, Route } from '@lucide/svelte'
   import { slide } from 'svelte/transition'
   import QrCode from './QrCode.svelte'
   import Bed from './Bed.svelte'
@@ -193,7 +193,15 @@
                 <WaveBand value={v.total ? v.done / v.total : 0} flowing label={t('links.sendingTo', { name: v.name })} />
               </div>
             {/if}
-            <div class="mt-0.5 text-sm {tone(v)}">{status(v)}</div>
+            <!-- Phone: the badge wraps rather than cutting the status short. -->
+            <div class="mt-0.5 flex items-center gap-3 text-sm max-sm:flex-wrap max-sm:gap-y-0.5">
+              <span class="truncate {tone(v)} max-sm:overflow-visible max-sm:whitespace-normal">{status(v)}</span>
+              {#if v.relayed && (v.status === 'waiting' || v.status === 'sending' || v.status === 'done')}
+                <span class="flex shrink-0 items-center gap-1 text-muted" title={t('transfer.relayedTip')}>
+                  <Route size={13} strokeWidth={1.75} /> {t('transfer.relayed')}
+                </span>
+              {/if}
+            </div>
           </div>
           {#if v.status === 'sending'}
             <button class="btn-quiet shrink-0" aria-label={t('links.cancelFor', { name: v.name })} onclick={() => api.cancelLinkVisitor(link.id, v.session)}>

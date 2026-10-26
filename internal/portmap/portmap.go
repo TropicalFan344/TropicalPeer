@@ -133,6 +133,16 @@ func Map(ctx context.Context, internalPort int, lifetime time.Duration) (*Mappin
 	if err != nil {
 		return nil, err
 	}
+	return r.Map(ctx, internalPort, lifetime)
+}
+
+// Map is the package's Map on a router already found, which saves the
+// seconds discovery takes. The router's external address is read again
+// first: it may have changed since discovery.
+func (r *Router) Map(ctx context.Context, internalPort int, lifetime time.Duration) (*Mapping, error) {
+	if err := r.refreshExternalIP(ctx); err != nil {
+		return nil, err
+	}
 	ports := []int{internalPort}
 	for range 3 {
 		ports = append(ports, 20000+rand.IntN(40000))
@@ -261,6 +271,30 @@ func discoverNATPMP(ctx context.Context) (*Router, error) {
 		return nil, err
 	}
 	return &Router{Method: "NAT-PMP", ExternalIP: netip.AddrFrom4(res.ExternalIPAddress), LocalIP: local, pmp: c}, nil
+}
+
+func (r *Router) refreshExternalIP(ctx context.Context) error {
+	var ip netip.Addr
+	if r.igd != nil {
+		s, err := r.igd.GetExternalIPAddressCtx(ctx)
+		if err != nil {
+			return err
+		}
+		if ip, err = netip.ParseAddr(s); err != nil {
+			return fmt.Errorf("router reported external address %q", s)
+		}
+	} else {
+		res, err := withContext(ctx, r.pmp.GetExternalAddress)
+		if err != nil {
+			return err
+		}
+		ip = netip.AddrFrom4(res.ExternalIPAddress)
+	}
+	if !IsPublic(ip) {
+		return ErrNotPublic
+	}
+	r.ExternalIP = ip
+	return nil
 }
 
 // withContext runs a blocking NAT-PMP call, giving up when ctx ends.

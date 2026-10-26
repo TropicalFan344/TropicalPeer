@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,6 +35,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"TropicalPeer/internal/pairing"
+	"TropicalPeer/internal/portmap"
 	"TropicalPeer/internal/rendezvous"
 	"TropicalPeer/internal/transfer"
 )
@@ -80,6 +82,7 @@ type Visitor struct {
 	Total   int64
 	Error   string
 	Err     error // the error behind Error, when there is one
+	Relayed bool  // connected through the TURN relay rather than directly
 }
 
 // UnreadableError: a shared file couldn't be read when someone asked for it
@@ -99,6 +102,9 @@ type Options struct {
 	OnUpdate   func(Visitor)                 // every status change and progress tick
 	OnServer   func(connected bool)          // the link lost or regained the server
 	Log        func(format string, a ...any) // optional
+	// PortMapping has the router forward the link's port (UPnP / NAT-PMP),
+	// so browsers behind any router can connect directly (see direct.go).
+	PortMapping bool
 }
 
 // How long a link keeps trying to get back to the server before it ends.
@@ -118,7 +124,9 @@ type Share struct {
 	secret []byte
 	key    ed25519.PrivateKey // the link's own key; ID is derived from it
 	client *rendezvous.Client
-	api    *webrtc.API
+	keep   func(net.IP) bool // the local addresses visitors are offered
+
+	router atomic.Pointer[portmap.Router] // forwards visitors' ports, if it can (see direct.go)
 
 	hostMu sync.Mutex
 	host   *rendezvous.LinkHost
@@ -157,8 +165,6 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 	secret := make([]byte, 16)
 	rand.Read(secret)
 
-	se := webrtc.SettingEngine{}
-	se.SetICETimeouts(10*time.Second, 30*time.Second, 2*time.Second)
 	sctxCtx, cancel := context.WithCancel(context.Background())
 	s := &Share{
 		ID:       id,
@@ -169,7 +175,6 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 		key:      key,
 		client:   c,
 		host:     host,
-		api:      webrtc.NewAPI(webrtc.WithSettingEngine(se)),
 		ctx:      sctxCtx,
 		cancel:   cancel,
 		visitors: map[string]*visitor{},
@@ -178,6 +183,10 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 	}
 	for _, f := range files {
 		s.total += f.Size
+	}
+	s.keep = keepLocalIP()
+	if opts.PortMapping {
+		go s.findRouter()
 	}
 	go s.loop()
 	return s, nil
@@ -422,7 +431,7 @@ func (v *visitor) connect(servers []rendezvous.ICEServer) {
 			cfg.ICEServers = append(cfg.ICEServers, webrtc.ICEServer{URLs: urls, Username: ice.Username, Credential: ice.Credential})
 		}
 	}
-	pc, err := v.s.api.NewPeerConnection(cfg)
+	pc, err := v.newAPI(servers).NewPeerConnection(cfg)
 	if err != nil {
 		v.s.opts.Log("link: peer connection: %v", err)
 		v.finish(Failed, "couldn't start a connection")
@@ -447,11 +456,28 @@ type visitor struct {
 
 	opened atomic.Bool // the DataChannel opened; signaling isn't needed any more
 
+	mapping *portmap.Mapping // the router's forward of this visitor's port; set before pc
+
 	mu       sync.Mutex
 	info     Visitor
 	lastTick time.Time
-	pending  []webrtc.ICECandidateInit // candidates that came before the offer
+	pending  []webrtc.ICECandidateInit // candidates that came before the offer (or while holding)
 	haveSDP  bool
+	holding  bool // keeping the browser's candidates back for mappedHeadStart
+}
+
+// relayed reports whether the connection runs through a TURN relay: either
+// end of the pair ICE picked is a relay candidate.
+func (v *visitor) relayed() bool {
+	sctp := v.pc.SCTP()
+	if sctp == nil {
+		return false
+	}
+	p, err := sctp.Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil || p == nil {
+		return false
+	}
+	return p.Local.Typ == webrtc.ICECandidateTypeRelay || p.Remote.Typ == webrtc.ICECandidateTypeRelay
 }
 
 func (v *visitor) status() Status {
@@ -534,15 +560,16 @@ func (v *visitor) signal(data json.RawMessage) {
 		v.s.currentHost().Signal(v.info.Session, signalMsg{SDP: v.pc.LocalDescription()})
 		v.mu.Lock()
 		v.haveSDP = true
-		pending := v.pending
-		v.pending = nil
-		v.mu.Unlock()
-		for _, c := range pending {
-			v.pc.AddICECandidate(c)
+		if v.mapping != nil {
+			// Let the browser reach the forwarded port first (see direct.go).
+			v.holding = true
+			time.AfterFunc(mappedHeadStart, v.stopHolding)
 		}
+		v.mu.Unlock()
+		v.addPending()
 	case m.Candidate != nil:
 		v.mu.Lock()
-		if !v.haveSDP {
+		if !v.haveSDP || v.holding {
 			v.pending = append(v.pending, *m.Candidate)
 			v.mu.Unlock()
 			return
@@ -550,6 +577,28 @@ func (v *visitor) signal(data json.RawMessage) {
 		v.mu.Unlock()
 		v.pc.AddICECandidate(*m.Candidate)
 	}
+}
+
+// addPending adds the browser's candidates that waited, unless they still must.
+func (v *visitor) addPending() {
+	v.mu.Lock()
+	if !v.haveSDP || v.holding {
+		v.mu.Unlock()
+		return
+	}
+	pending := v.pending
+	v.pending = nil
+	v.mu.Unlock()
+	for _, c := range pending {
+		v.pc.AddICECandidate(c)
+	}
+}
+
+func (v *visitor) stopHolding() {
+	v.mu.Lock()
+	v.holding = false
+	v.mu.Unlock()
+	v.addPending()
 }
 
 func (v *visitor) run() {
@@ -560,15 +609,32 @@ func (v *visitor) run() {
 		delete(v.s.visitors, v.info.Session)
 		v.s.mu.Unlock()
 	}()
+	var sentMapped sync.Once
 	v.pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
 			return
 		}
 		init := c.ToJSON()
 		v.s.currentHost().Signal(v.info.Session, signalMsg{Candidate: &init})
+		sentMapped.Do(func() {
+			if v.mapping != nil {
+				mc := mappedCandidate(v.mapping, init)
+				v.s.currentHost().Signal(v.info.Session, signalMsg{Candidate: &mc})
+			}
+		})
 	})
 	v.pc.OnConnectionStateChange(func(st webrtc.PeerConnectionState) {
 		v.s.opts.Log("link: %s connection %s", v.info.Name, st)
+		if st == webrtc.PeerConnectionStateConnected {
+			relayed := v.relayed()
+			v.mu.Lock()
+			changed := v.info.Relayed != relayed
+			v.info.Relayed = relayed
+			v.mu.Unlock()
+			if changed {
+				v.update()
+			}
+		}
 		if st == webrtc.PeerConnectionStateFailed {
 			v.finish(Failed, "couldn't connect to the browser")
 		}

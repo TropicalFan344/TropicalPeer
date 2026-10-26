@@ -40,7 +40,8 @@ type VisitorDTO struct {
 	Total   int64   `json:"total"`
 	Speed   float64 `json:"speed"`
 	Error   string  `json:"error"`
-	SeenAt  int64   `json:"seenAt"` // unix ms
+	SeenAt  int64   `json:"seenAt"`  // unix ms
+	Relayed bool    `json:"relayed"` // connected through the server's relay
 }
 
 type linkState struct {
@@ -186,6 +187,7 @@ func (c *Core) onVisitor(ls *linkState, v linkshare.Visitor) {
 	vd := &ls.dto.Visitors[i]
 	vd.Name, vd.Status, vd.Done, vd.Total = v.Name, string(v.Status), v.Done, v.Total
 	vd.Error = visitorError(c, v)
+	vd.Relayed = v.Relayed
 	vd.Speed = 0
 	if v.Status == linkshare.Sending {
 		vd.Speed = sp.rate

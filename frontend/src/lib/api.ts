@@ -117,6 +117,7 @@ export interface Visitor {
   speed: number
   error: string
   seenAt: number
+  relayed: boolean // connected through the server's relay
 }
 
 /** Files anyone with the link can download in a browser. */

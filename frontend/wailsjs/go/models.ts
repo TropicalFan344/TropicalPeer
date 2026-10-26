@@ -55,6 +55,7 @@ export namespace appcore {
 	    speed: number;
 	    error: string;
 	    seenAt: number;
+	    relayed: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new VisitorDTO(source);
@@ -70,6 +71,7 @@ export namespace appcore {
 	        this.speed = source["speed"];
 	        this.error = source["error"];
 	        this.seenAt = source["seenAt"];
+	        this.relayed = source["relayed"];
 	    }
 	}
 	export class LinkDTO {

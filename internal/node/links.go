@@ -13,6 +13,9 @@ func (n *Node) ShareLink(ctx context.Context, files []transfer.Source, opts link
 	if opts.SenderName == "" {
 		opts.SenderName = n.Identity.Name
 	}
+	n.mu.RLock()
+	opts.PortMapping = !n.settings.DisablePortMapping && n.ListenPacket == nil // real sockets only
+	n.mu.RUnlock()
 	s, err := linkshare.Start(ctx, n.rendezvous(), files, opts)
 	if err != nil {
 		return nil, err
