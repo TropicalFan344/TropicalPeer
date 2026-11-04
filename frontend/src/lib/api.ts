@@ -94,6 +94,9 @@ export interface Transfer {
   endedAt: number
 }
 
+/** What changes while bytes flow; the rest of the row arrives as 'transfer:update'. */
+export type TransferProgress = Pick<Transfer, 'id' | 'fileIndex' | 'done' | 'speed'>
+
 export const isActive = (t: Transfer) =>
   t.status === 'connecting' || t.status === 'waiting' || t.status === 'sending' || t.status === 'receiving'
 
@@ -208,6 +211,7 @@ interface EventMap {
   'pair:done': Peer
   'pair:failed': string
   'transfer:update': Transfer
+  'transfer:progress': TransferProgress
   'transfers:cleared': null
   'offer:new': Offer
   'offer:closed': { id: string; reason: string }

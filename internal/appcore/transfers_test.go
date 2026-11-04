@@ -40,6 +40,16 @@ func (r *recorder) emit(name string, data any) {
 	switch name {
 	case "transfer:update":
 		r.events = append(r.events, data.(TransferDTO))
+	case "transfer:progress":
+		// Applied to the latest row, as the frontend does.
+		p := data.(TransferProgress)
+		for i := len(r.events) - 1; i >= 0; i-- {
+			if d := r.events[i]; d.ID == p.ID {
+				d.FileIndex, d.Done, d.Speed = p.FileIndex, p.Done, p.Speed
+				r.events = append(r.events, d)
+				break
+			}
+		}
 	case "offer:new":
 		r.offers = append(r.offers, data.(OfferDTO))
 	case "offer:closed":

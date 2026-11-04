@@ -11,6 +11,7 @@ import {
   type ServerStatus,
   type PickedFile,
   type Transfer,
+  type TransferProgress,
   type Update,
   type Link,
   isAndroid,
@@ -83,6 +84,7 @@ export async function initState() {
   })
   on('peer:removedUs', (p) => toast(t('peer.removedUsToast', { name: p.name }), 'info', 8000))
   on('transfer:update', upsertTransfer)
+  on('transfer:progress', applyProgress)
   on('transfers:cleared', () => {
     app.transfers = app.transfers.filter(isActive)
   })
@@ -191,6 +193,16 @@ function upsertTransfer(x: Transfer) {
       else if (x.status === 'failed') toast(x.error || t('transfer.toastSendFailed', { name }), 'error', 6000)
     }
   }
+}
+
+// Progress changes a row in place, leaving its file list alone (a folder
+// can hold thousands of names). A late one doesn't touch a row that ended.
+function applyProgress(p: TransferProgress) {
+  const x = app.transfers.find((y) => y.id === p.id)
+  if (!x || !isActive(x)) return
+  x.fileIndex = p.fileIndex
+  x.done = p.done
+  x.speed = p.speed
 }
 
 export const activeTransfers = () => app.transfers.filter(isActive)

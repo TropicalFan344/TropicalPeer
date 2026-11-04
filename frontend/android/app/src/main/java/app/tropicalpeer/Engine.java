@@ -303,6 +303,9 @@ final class Engine {
                     track(json);
                     publishReceived(json);
                     break;
+                case "transfer:progress":
+                    trackProgress(json);
+                    break;
                 case "link:update":
                     trackLink(json);
                     break;
@@ -385,6 +388,21 @@ final class Engine {
             queueSync();
         } catch (Exception e) {
             Log.w(TAG, "couldn't read transfer update", e);
+        }
+    }
+
+    /** Moves a running transfer's numbers along; the rest of it comes with "transfer:update". */
+    private static void trackProgress(String json) {
+        try {
+            JSONObject p = new JSONObject(json);
+            JSONObject t = active.get(p.getString("id"));
+            if (t == null) return;
+            t.put("done", p.optLong("done"));
+            t.put("fileIndex", p.optInt("fileIndex"));
+            t.put("speed", p.optDouble("speed"));
+            queueSync();
+        } catch (Exception e) {
+            Log.w(TAG, "couldn't read transfer progress", e);
         }
     }
 

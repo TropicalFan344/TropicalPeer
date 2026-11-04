@@ -58,6 +58,16 @@ type TransferDTO struct {
 	EndedAt      int64     `json:"endedAt"`   // unix ms, 0 while active
 }
 
+// TransferProgress is pushed as "transfer:progress" while bytes flow: the
+// fields of a TransferDTO that change then. The whole row, with a file list
+// that can run to thousands of names, goes out only when anything else does.
+type TransferProgress struct {
+	ID        string  `json:"id"`
+	FileIndex int     `json:"fileIndex"`
+	Done      int64   `json:"done"`
+	Speed     float64 `json:"speed"`
+}
+
 func (t *TransferDTO) active() bool {
 	switch t.Status {
 	case StatusConnecting, StatusWaiting, StatusSending, StatusReceiving:
@@ -75,9 +85,8 @@ type transferState struct {
 	remoteID string            // receive: the sender's ID for the transfer (to ask it to resume)
 	lastAt   time.Time
 	lastDone int64
-	// Progress reaches the UI at most every progressEvery: each event
-	// carries the whole row, file list included, and a folder of small
-	// files would otherwise send thousands of them.
+	// Progress reaches the UI at most every progressEvery: a folder of
+	// small files would otherwise send thousands of events.
 	emittedAt   time.Time
 	emitPending bool
 }
@@ -90,7 +99,8 @@ const progressEvery = 100 * time.Millisecond
 var resumeWaits = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second, 30 * time.Second, 30 * time.Second, 60 * time.Second}
 
 // SendFiles starts sending the files at paths to a peer and returns
-// immediately. Progress arrives as "transfer:update" events.
+// immediately. Changes arrive as "transfer:update" events, progress as
+// "transfer:progress".
 func (c *Core) SendFiles(peerID string, paths []string) (TransferDTO, error) {
 	if _, err := c.n().Peers.Get(peerID); err != nil {
 		return TransferDTO{}, c.errT("transfer.peerGone")
@@ -555,14 +565,22 @@ func (c *Core) emitTransfer(st *transferState) {
 }
 
 // updateProgress is updateTransfer for progress, which is sent on at most
-// every progressEvery; the latest state always follows.
+// every progressEvery as a "transfer:progress"; the latest state always
+// follows. A change beyond the progress fields (such as waiting turning
+// into sending) goes out at once, as the whole row.
 func (c *Core) updateProgress(st *transferState, fn func(*TransferDTO)) {
 	c.mu.Lock()
+	before := st.dto
 	fn(&st.dto)
+	if st.dto.Status != before.Status || st.dto.Resuming != before.Resuming {
+		c.mu.Unlock()
+		c.emitTransfer(st)
+		return
+	}
 	wait := progressEvery - time.Since(st.emittedAt)
 	if wait <= 0 {
 		c.mu.Unlock()
-		c.emitTransfer(st)
+		c.emitProgress(st)
 		return
 	}
 	if !st.emitPending {
@@ -571,10 +589,18 @@ func (c *Core) updateProgress(st *transferState, fn func(*TransferDTO)) {
 			c.mu.Lock()
 			st.emitPending = false
 			c.mu.Unlock()
-			c.emitTransfer(st)
+			c.emitProgress(st)
 		})
 	}
 	c.mu.Unlock()
+}
+
+func (c *Core) emitProgress(st *transferState) {
+	c.mu.Lock()
+	st.emittedAt = time.Now()
+	p := TransferProgress{ID: st.dto.ID, FileIndex: st.dto.FileIndex, Done: st.dto.Done, Speed: st.dto.Speed}
+	c.mu.Unlock()
+	c.emit("transfer:progress", p)
 }
 
 // describeFiles checks that every path is a file we can send.
