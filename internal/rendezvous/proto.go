@@ -89,6 +89,10 @@ type Msg struct {
 	// connect_answer, connect_info: where the target can be reached through
 	// the TURN relay it was offered (ICE in connect_offer). Relayed paths.
 	TURNAddrs []string `json:"turnAddrs,omitempty"`
+	// Port prediction (node/predict.go). connect, connect_answer: the port
+	// of a fresh socket we'll punch from ("51234"). connect_offer,
+	// connect_info: the other device's, as ip:port at its public IP.
+	Predict string `json:"predict,omitempty"`
 
 	// link_*
 	Link   string          `json:"link,omitempty"`

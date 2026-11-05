@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -120,15 +121,24 @@ func (p *Presence) readLoop(onOffer func(*Presence, Msg)) {
 // Answer tells the server whether we take a connect offer. Only after a yes
 // does the device asking learn where we are.
 func (p *Presence) Answer(offer Msg, accept bool) error {
-	return p.AnswerTURN(offer, accept, nil)
+	return p.send(Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: accept})
 }
 
-// AnswerTURN is Answer that also says where we can be reached through the
-// TURN relay the offer came with.
-func (p *Presence) AnswerTURN(offer Msg, accept bool, turnAddrs []string) error {
+// Accept takes a connect offer and says where else we can be reached: the
+// addresses we reserved on the TURN relay the offer came with, and the port
+// of the fresh socket we punch from (0 = none).
+func (p *Presence) Accept(offer Msg, turnAddrs []string, predictPort int) error {
+	m := Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: true, TURNAddrs: turnAddrs}
+	if predictPort > 0 {
+		m.Predict = strconv.Itoa(predictPort)
+	}
+	return p.send(m)
+}
+
+func (p *Presence) send(m Msg) error {
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
-	return p.conn.Send(Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: accept, TURNAddrs: turnAddrs})
+	return p.conn.Send(m)
 }
 
 // SendNAT tells the server what this device's router is like, so it can
@@ -156,6 +166,12 @@ func (p *Presence) Close() error { return p.nc.Close() }
 // false), a relay session ID. The server tells the target about us at the
 // same moment.
 func (p *Presence) Connect(ctx context.Context, to string, noRelay bool) (Msg, error) {
+	return p.ConnectPredict(ctx, to, noRelay, 0)
+}
+
+// ConnectPredict is Connect that also tells the target the port of a fresh
+// socket we'll punch from (see node/predict.go); 0 = none.
+func (p *Presence) ConnectPredict(ctx context.Context, to string, noRelay bool, predictPort int) (Msg, error) {
 	b := make([]byte, 8)
 	rand.Read(b)
 	req := hex.EncodeToString(b)
@@ -170,7 +186,11 @@ func (p *Presence) Connect(ctx context.Context, to string, noRelay bool) (Msg, e
 	p.mu.Unlock()
 
 	p.wmu.Lock()
-	err := p.conn.Send(Msg{Type: TypeConnect, Req: req, To: to, NoRelay: noRelay})
+	m := Msg{Type: TypeConnect, Req: req, To: to, NoRelay: noRelay}
+	if predictPort > 0 {
+		m.Predict = strconv.Itoa(predictPort)
+	}
+	err := p.conn.Send(m)
 	p.wmu.Unlock()
 	if err != nil {
 		return Msg{}, err

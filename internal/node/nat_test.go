@@ -24,9 +24,10 @@ import (
 // placement is where a simulated device sits: on the open internet or
 // behind a home router of some kind.
 type placement struct {
-	name   string
-	public bool
-	kind   netsim.Kind
+	name      string
+	public    bool
+	kind      netsim.Kind
+	keepPorts bool // the router keeps a socket's own port when it can
 }
 
 var placements = []placement{
@@ -83,6 +84,9 @@ func (w *simWorld) device(t *testing.T, ctx context.Context, name string, pl pla
 	var nat *netsim.NAT
 	if !pl.public {
 		nat = w.net.NewNAT(ip, pl.kind)
+		if pl.keepPorts {
+			nat.KeepPorts()
+		}
 	}
 	w.lastNAT = nat
 	port := 7000
@@ -95,9 +99,12 @@ func (w *simWorld) device(t *testing.T, ctx context.Context, name string, pl pla
 	if err != nil {
 		t.Fatal(err)
 	}
-	n.ListenPacket = func(int) (net.PacketConn, error) {
+	n.ListenPacket = func(p int) (net.PacketConn, error) {
 		if nat != nil {
-			return nat.Listen(), nil
+			return nat.ListenPort(uint16(p)), nil
+		}
+		if p != 0 {
+			return w.net.ListenPublic(fmt.Sprintf("%s:%d", ip, p))
 		}
 		port++
 		return w.net.ListenPublic(fmt.Sprintf("%s:%d", ip, port))

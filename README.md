@@ -233,7 +233,7 @@ Leave out what you don't use. A flag or environment variable given still wins ov
 
 ### Cloudflare's TURN relay
 
-Two devices behind symmetric routers (each gives every destination its own port) can't connect directly, and a relay on a home connection depends on that connection. With a Cloudflare Realtime TURN key (`cloudflare_turn_key_id` and `cloudflare_turn_api_token` above, or `-cloudflare-turn-key` and `-cloudflare-turn-token`), the server also offers Cloudflare's relay:
+Two devices behind symmetric routers (each gives every destination its own port) can't punch through to each other the usual way. Many such routers keep a socket's own port when they can, so the apps try that too: each side opens a fresh socket on a random port and tells the other through the server, and the two connect directly. Where a router doesn't keep ports, only a relay works, and a relay on a home connection depends on that connection. With a Cloudflare Realtime TURN key (`cloudflare_turn_key_id` and `cloudflare_turn_api_token` above, or `-cloudflare-turn-key` and `-cloudflare-turn-token`), the server also offers Cloudflare's relay:
 
 - **Apps:** the receiving device reserves an address on Cloudflare's relay when a transfer starts, and the sender tries it next to the server's own relay; the first path to connect wins. Both devices need a version newer than 0.2.3.
 - **Links:** browsers get Cloudflare's relay next to the server's. With `-turn-port 0` the server runs no TURN relay of its own, which frees TCP and UDP 3478 and the `-turn-relay` ports on your router.

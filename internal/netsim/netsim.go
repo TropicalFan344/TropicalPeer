@@ -104,11 +104,22 @@ type NAT struct {
 	kind     Kind
 	publicIP netip.Addr
 
-	mu       sync.Mutex
-	nextPort uint16
-	nextHost byte
-	byKey    map[mapKey]*mapping
-	byPort   map[uint16]*mapping
+	mu        sync.Mutex
+	nextPort  uint16
+	nextHost  byte
+	keepPorts bool
+	byKey     map[mapKey]*mapping
+	byPort    map[uint16]*mapping
+	order     []uint16 // mapped ports, oldest first
+}
+
+// KeepPorts makes the router give a new mapping the inside socket's own port
+// when no other mapping holds it (and the next free one otherwise), as many
+// home routers do. Without it, mappings get ports 40000, 40001, ...
+func (nat *NAT) KeepPorts() {
+	nat.mu.Lock()
+	nat.keepPorts = true
+	nat.mu.Unlock()
 }
 
 type mapKey struct {
@@ -124,10 +135,16 @@ type mapping struct {
 }
 
 // Listen opens a socket on a new host behind this NAT.
-func (nat *NAT) Listen() *Conn {
+func (nat *NAT) Listen() *Conn { return nat.ListenPort(0) }
+
+// ListenPort is Listen with the socket on a chosen inside port (0 = 50000).
+func (nat *NAT) ListenPort(port uint16) *Conn {
+	if port == 0 {
+		port = 50000
+	}
 	nat.mu.Lock()
 	nat.nextHost++
-	inside := netip.AddrPortFrom(netip.AddrFrom4([4]byte{192, 168, 1, 10 + nat.nextHost}), 50000)
+	inside := netip.AddrPortFrom(netip.AddrFrom4([4]byte{192, 168, 1, 10 + nat.nextHost}), port)
 	nat.mu.Unlock()
 	return newConn(nat.net, inside, nat)
 }
@@ -141,7 +158,7 @@ func (nat *NAT) SetKind(kind Kind) {
 	defer nat.mu.Unlock()
 	nat.kind = kind
 	byKey := map[mapKey]*mapping{}
-	for port := uint16(40000); port < nat.nextPort; port++ { // oldest first
+	for _, port := range nat.order { // oldest first
 		m, ok := nat.byPort[port]
 		if !ok {
 			continue
@@ -166,11 +183,20 @@ func (nat *NAT) outbound(c *Conn, dst netip.AddrPort) netip.AddrPort {
 	}
 	m, ok := nat.byKey[key]
 	if !ok {
-		port := nat.nextPort
-		nat.nextPort++
+		var port uint16
+		if nat.keepPorts {
+			port = c.local.Port()
+			for nat.byPort[port] != nil {
+				port++
+			}
+		} else {
+			port = nat.nextPort
+			nat.nextPort++
+		}
 		m = &mapping{conn: c, public: netip.AddrPortFrom(nat.publicIP, port), dst: dst, allowed: map[netip.AddrPort]bool{}}
 		nat.byKey[key] = m
 		nat.byPort[port] = m
+		nat.order = append(nat.order, port)
 	}
 	m.allowed[dst] = true
 	return m.public

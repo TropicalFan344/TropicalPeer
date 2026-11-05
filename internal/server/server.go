@@ -320,6 +320,9 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 		Type: rendezvous.TypeConnectOffer, From: from.id,
 		Candidates: fromCands, Session: session, Nonce: nonce, Relay: relay, NAT: fromNAT,
 	}
+	s.mu.Lock()
+	offer.Predict = predictedLocked(from, m.Predict)
+	s.mu.Unlock()
 	if appTURN {
 		if offer.ICE = s.AppTURN.ICE(session); offer.ICE == nil {
 			s.endAppTURN(session) // Cloudflare unreachable: the other paths remain
@@ -328,17 +331,18 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 	}
 	to.send(offer)
 
-	introduce := func(turnAddrs []string) {
+	introduce := func(answer rendezvous.Msg) {
 		s.mu.Lock()
 		reply.Candidates, reply.NAT = s.candidatesLocked(to), to.nat
+		reply.Predict = predictedLocked(to, answer.Predict)
 		s.mu.Unlock()
 		reply.Session, reply.Nonce, reply.Relay = session, nonce, relay
-		reply.TURNAddrs = turnAddrs
+		reply.TURNAddrs = answer.TURNAddrs
 		from.send(reply)
-		s.Logger.Printf("connect %s -> %s (relay %v, turn %d)", from.id, to.id, relay, len(turnAddrs))
+		s.Logger.Printf("connect %s -> %s (relay %v, turn %d, predict %v)", from.id, to.id, relay, len(answer.TURNAddrs), reply.Predict != "")
 	}
 	if w == nil {
-		introduce(nil)
+		introduce(rendezvous.Msg{})
 		return
 	}
 	// Wait for the answer without holding up the requester's other messages.
@@ -364,8 +368,23 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 			from.send(reply)
 			return
 		}
-		introduce(answer.TURNAddrs)
+		introduce(answer)
 	}()
+}
+
+// predictedLocked is where p's fresh punching socket on port should be
+// reachable: that port at the public IP its probes come from. "" when
+// there's no port or no recent probe.
+func predictedLocked(p *presence, port string) string {
+	n, err := strconv.Atoi(port)
+	if err != nil || n <= 0 || n > 65535 || p.reflexive == "" || time.Since(p.reflexiveAt) > 2*time.Minute {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(p.reflexive)
+	if err != nil {
+		return ""
+	}
+	return net.JoinHostPort(host, port)
 }
 
 func (s *Server) appTURNCountLocked(p *presence) int {

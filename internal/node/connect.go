@@ -195,7 +195,11 @@ func (n *Node) onConnectOffer(p *rendezvous.Presence, m rendezvous.Msg) {
 			turnAddrs = []string{a}
 		}
 	}
-	p.AnswerTURN(m, true, turnAddrs)
+	predictPort := 0
+	if m.Predict != "" {
+		predictPort = n.acceptPredicted(ctx, m.Predict, m.Nonce)
+	}
+	p.Accept(m, turnAddrs, predictPort)
 	go n.punch(ctx, m.Candidates, m.Nonce)
 	if m.Relay {
 		// Bind our end now, so a relayed dial from the sender lands.
@@ -227,9 +231,10 @@ func (n *Node) waitPresence(ctx context.Context) (*rendezvous.Presence, error) {
 }
 
 type dialResult struct {
-	conn    *quic.Conn
-	relayed bool
-	err     error
+	conn      *quic.Conn
+	relayed   bool
+	predicted bool // on the fresh socket of port prediction
+	err       error
 }
 
 // connect finds a path to peer: direct (LAN, or through both NATs) when
@@ -239,7 +244,22 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 	if err != nil {
 		return nil, false, err
 	}
-	info, err := p.Connect(ctx, peer.ID, !allowRelay)
+	var pred *predicted
+	if n.wantPredict(peer.ID) && !DevRelayOnly {
+		pred = n.openPredicted()
+	}
+	predictPort := 0
+	if pred != nil {
+		predictPort = pred.port
+	}
+	info, err := p.ConnectPredict(ctx, peer.ID, !allowRelay, predictPort)
+	// The fresh socket stays only if the connection runs on it.
+	predWon := false
+	defer func() {
+		if pred != nil && !predWon {
+			pred.close()
+		}
+	}()
 	if errors.Is(err, rendezvous.ErrPeerOffline) {
 		return nil, false, &OfflineError{Name: peer.Name}
 	}
@@ -256,9 +276,9 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 	defer cancel()
 	go n.punch(dialCtx, info.Candidates, info.Nonce)
 
-	results := make(chan dialResult, len(info.Candidates)+len(info.TURNAddrs)+1)
+	results := make(chan dialResult, len(info.Candidates)+len(info.TURNAddrs)+2)
 	attempts := 0
-	directFailed := make(chan struct{}, len(info.Candidates))
+	directFailed := make(chan struct{}, len(info.Candidates)+1)
 	candidates := info.Candidates
 	if DevRelayOnly && info.Relay {
 		candidates = nil
@@ -275,6 +295,17 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 				directFailed <- struct{}{}
 			}
 			results <- dialResult{conn: conn, err: err}
+		}()
+	}
+	// The predicted path: from our fresh socket to the peer's.
+	if pred != nil && info.Predict != "" {
+		attempts++
+		go func() {
+			conn, err := pred.dial(dialCtx, info.Predict, info.Nonce, tlsConf)
+			if err != nil {
+				directFailed <- struct{}{}
+			}
+			results <- dialResult{conn: conn, err: err, predicted: true}
 		}()
 	}
 	// Relayed paths: the server's own relay, and the TURN relay the peer
@@ -297,6 +328,9 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 		mine, _ := n.natProfile.Load().(rendezvous.NATProfile)
 		if rendezvous.DirectHopeless(&mine, info.NAT) {
 			delay = relayDelayHopeless
+			if pred != nil && info.Predict != "" {
+				delay = relayDelayPredicted
+			}
 		}
 		go func() {
 			// Give direct paths a head start; skip the wait once they've all failed.
@@ -347,6 +381,10 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 			return nil, false, fmt.Errorf("could not reach %s directly, and the server doesn't relay: %w", peer.Name, lastErr)
 		}
 		return nil, false, fmt.Errorf("could not reach %s: %w", peer.Name, lastErr)
+	}
+	if winner.predicted {
+		predWon = true
+		pred.keepUntilClosed(winner.conn)
 	}
 	return winner.conn, winner.relayed, nil
 }
