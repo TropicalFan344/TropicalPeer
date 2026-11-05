@@ -251,7 +251,7 @@ func runCommand(ctx context.Context, n *node.Node, ui *console, cmd string, args
 			OnProgress: func(pr transfer.Progress) { progress(p, pr) },
 			OnConnected: func(relayed bool) {
 				if relayed {
-					fmt.Println("Connected through the server's relay (still end-to-end encrypted).")
+					fmt.Println("Connected through a relay (still end-to-end encrypted).")
 				} else {
 					fmt.Println("Connected directly.")
 				}

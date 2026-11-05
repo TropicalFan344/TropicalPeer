@@ -7,6 +7,7 @@ package node
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -36,7 +37,7 @@ type Events struct {
 	// OnAccepted reports an incoming transfer that is about to start, whether
 	// the user accepted it or the peer's policy did. cancel aborts it; pause
 	// stops it keeping what arrived (the sender is told it was paused).
-	// relayed says the connection runs through the rendezvous server's relay.
+	// relayed says the connection runs through a relay (the rendezvous server's or a TURN relay).
 	// OnPathChanged reports a running incoming transfer moving to another
 	// connection (relay → direct); transferID is the sender's ID, as in the
 	// offer.
@@ -88,6 +89,7 @@ type Node struct {
 	port           int
 	relay          *relayConn
 	relayTransport *quic.Transport
+	serverTLS      *tls.Config // for incoming connections, on every path
 
 	presence   atomic.Value // *rendezvous.Presence while registered
 	linksURL   atomic.Value // string: the server's link page address, as last registered
@@ -228,6 +230,7 @@ func (n *Node) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	n.serverTLS = tlsConf
 	ln, err := n.transport.Listen(tlsConf, quicConfig)
 	if err != nil {
 		return err

@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -41,11 +42,25 @@ func main() {
 	relayRate := flag.Int64("relay-rate", 32, "per-transfer relay cap in MB/s (0 = unlimited)")
 	altPort := flag.Int("alt-port", 0, "second UDP port for router detection (0 = listen port + 100, -1 = off)")
 	upnp := flag.Bool("upnp", false, "ask the home router (UPnP / NAT-PMP) to forward the server's ports while it runs")
+	configPath := flag.String("config", "", "file with the API keys (default: "+configName+" in the working directory, else next to the server)")
 	var lf linkFlags
 	lf.register()
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.LstdFlags)
+	if path, err := findConfig(*configPath); err != nil {
+		logger.Fatalf("config: %v", err)
+	} else if path != "" {
+		cfg, err := loadConfig(path)
+		if err != nil {
+			logger.Fatalf("config: %v", err)
+		}
+		lf.applyConfig(cfg)
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		logger.Printf("config: keys from %s", path)
+	}
 	host, portStr, err := net.SplitHostPort(*listen)
 	if err != nil {
 		logger.Fatalf("bad -listen %q: %v", *listen, err)
@@ -93,8 +108,17 @@ func main() {
 		}
 	}
 
+	cf := lf.cloudflareTURN(ctx, logger)
+	if cf != nil {
+		srv.AppTURN = cf
+		go cf.RevokeEnded(func(session string) bool {
+			_, link := srv.TURNSession(session)
+			return link || srv.AppTURNLive(session)
+		}, ctx.Done())
+	}
+
 	if lf.enabled() {
-		more, err := lf.start(ctx, logger, srv, *upnp, *relayRate<<20)
+		more, err := lf.start(ctx, logger, srv, *upnp, *relayRate<<20, cf)
 		if err != nil {
 			logger.Fatalf("links: %v", err)
 		}

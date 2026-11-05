@@ -216,6 +216,30 @@ Links let someone download from your device in a browser, without the app. For t
   and open the ports: `sudo ufw allow 443/tcp && sudo ufw allow 3478 && sudo ufw allow 40100:40119/udp`.
 - **Behind a reverse proxy** that already does HTTPS (Caddy, nginx): `-domain example.com -web-plain -web 127.0.0.1:8080 -web-url https://example.com/r/`, and have the proxy forward `/r/` and `/ws` to `127.0.0.1:8080` (WebSockets included). The TURN ports stay open as above.
 
+### Keys in a config file
+
+Instead of typing tokens on the command line, put them in `tropicalpeer-server.json`, in the folder you start the server from or next to the server program (`-config PATH` picks another file):
+
+```json
+{
+  "cloudflare_api_token": "YOUR_DNS_TOKEN",
+  "duckdns_token": "",
+  "cloudflare_turn_key_id": "YOUR_TURN_KEY_ID",
+  "cloudflare_turn_api_token": "YOUR_TURN_KEY_API_TOKEN"
+}
+```
+
+Leave out what you don't use. A flag or environment variable given still wins over the file. Anyone who can read the file can use the keys, so keep it private.
+
+### Cloudflare's TURN relay
+
+Two devices behind symmetric routers (each gives every destination its own port) can't connect directly, and a relay on a home connection depends on that connection. With a Cloudflare Realtime TURN key (`cloudflare_turn_key_id` and `cloudflare_turn_api_token` above, or `-cloudflare-turn-key` and `-cloudflare-turn-token`), the server also offers Cloudflare's relay:
+
+- **Apps:** the receiving device reserves an address on Cloudflare's relay when a transfer starts, and the sender tries it next to the server's own relay; the first path to connect wins. Both devices need a version newer than 0.2.3.
+- **Links:** browsers get Cloudflare's relay next to the server's. With `-turn-port 0` the server runs no TURN relay of its own, which frees TCP and UDP 3478 and the `-turn-relay` ports on your router.
+
+The key and token stay on the server: devices and browsers get credentials made for one transfer or one link visit, which the server revokes when it ends. Relayed traffic counts against your Cloudflare allowance.
+
 Links end when the sending app quits. A dropped connection to the server, or a server restart, doesn't end them: the app reconnects them for 15 minutes, and downloads already running carry on, since they go device to browser.
 
 **What the server sees:** that someone opened a link, and their IP address. The secret part of a link sits after `#`, which browsers never send to servers. A browser must prove it has the secret before your device starts a connection or the server hands it relay access, so knowing a link's address alone gets nobody anywhere. Each link also has its own key, which only your device holds: the browser checks your device's signature, so a server in the middle can't read or change the files, and nobody who received the link can pose as you. The TURN relay only carries traffic for browsers your device let in, and doesn't reach into the server's network (`-turn-allow-lan` changes that). One limit applies to any web app like this: whoever serves the download page could serve a modified page that reads the secret. If you run your own server, that's you.

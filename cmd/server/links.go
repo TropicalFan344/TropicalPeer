@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 
 	"TropicalPeer/internal/portmap"
+	"TropicalPeer/internal/rendezvous"
 	"TropicalPeer/internal/server"
 )
 
@@ -38,6 +39,9 @@ type linkFlags struct {
 	duck     *string
 	cf       *string
 
+	cfTURNKey   *string
+	cfTURNToken *string
+
 	// set by start
 	foundIP net.IP
 	checks  []reachCheck
@@ -51,30 +55,71 @@ func (f *linkFlags) register() {
 	f.plain = flag.Bool("web-plain", false, "serve plain HTTP on -web, for running behind a reverse proxy that does HTTPS")
 	f.webURL = flag.String("web-url", "", "where links point (default https://<domain>/r/)")
 	f.publicIP = flag.String("public-ip", "", "this server's public IPv4 address, for the TURN relay (default: from the router with -upnp, else from DNS)")
-	f.turnPort = flag.Int("turn-port", 3478, "TURN/STUN port (UDP and TCP)")
+	f.turnPort = flag.Int("turn-port", 3478, "TURN/STUN port (UDP and TCP); 0 = no TURN relay here, only Cloudflare's (needs its key)")
 	f.turnHost = flag.String("turn-host", "", "host name or IP browsers use for TURN/STUN (default -domain)")
 	f.relay = flag.String("turn-relay", "40100-40119", "UDP port range for TURN relay allocations")
 	f.allowLAN = flag.Bool("turn-allow-lan", false, "let the TURN relay reach any private address (without it, only the addresses a link's own sender and browser connect from)")
 	f.origins = flag.String("web-origins", "", "comma-separated extra origins allowed to use signaling (a separately hosted receiver page)")
 	f.duck = flag.String("duckdns-token", os.Getenv("DUCKDNS_TOKEN"), "DuckDNS token (default $DUCKDNS_TOKEN): with a .duckdns.org -domain, keeps its address current and gets the certificate through DNS, so port 443 needn't be reachable")
 	f.cf = flag.String("cloudflare-token", os.Getenv("CLOUDFLARE_API_TOKEN"), "Cloudflare API token that may edit the zone's DNS (default $CLOUDFLARE_API_TOKEN): with a -domain on Cloudflare, keeps its A record on this network's address and gets the certificate through DNS, so port 443 needn't be reachable")
+	f.cfTURNKey = flag.String("cloudflare-turn-key", os.Getenv("CLOUDFLARE_TURN_KEY_ID"), "Cloudflare Realtime TURN key ID (default $CLOUDFLARE_TURN_KEY_ID): with its API token, devices and browsers that can't connect directly also get Cloudflare's TURN relay")
+	f.cfTURNToken = flag.String("cloudflare-turn-token", os.Getenv("CLOUDFLARE_TURN_API_TOKEN"), "API token of the Cloudflare TURN key (default $CLOUDFLARE_TURN_API_TOKEN)")
 	dir, _ := os.UserConfigDir()
 	f.acmeDir = flag.String("acme-dir", filepath.Join(dir, "TropicalPeer", "acme"), "where Let's Encrypt certificates are kept")
 }
 
 func (f *linkFlags) enabled() bool { return *f.domain != "" }
 
+// applyConfig takes the keys the flags and environment left unset from the
+// config file.
+func (f *linkFlags) applyConfig(c serverConfig) {
+	fill(f.cf, c.CloudflareAPIToken)
+	fill(f.duck, c.DuckDNSToken)
+	fill(f.cfTURNKey, c.CloudflareTURNKeyID)
+	fill(f.cfTURNToken, c.CloudflareTURNAPIToken)
+}
+
+// cloudflareTURN is Cloudflare's TURN relay, when its key is set and works.
+func (f *linkFlags) cloudflareTURN(ctx context.Context, logger *log.Logger) *server.CloudflareTURN {
+	key, token := *f.cfTURNKey, *f.cfTURNToken
+	if key == "" && token == "" {
+		return nil
+	}
+	if key == "" || token == "" {
+		logger.Printf("cloudflare turn: needs both the key ID and its API token; not using it")
+		return nil
+	}
+	cf := &server.CloudflareTURN{KeyID: key, Token: token, TTL: cloudflareTURNLife}
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := cf.Check(cctx); err != nil {
+		logger.Printf("%v; not using it", err)
+		return nil
+	}
+	logger.Printf("cloudflare turn: relay on for devices and links")
+	return cf
+}
+
+// cloudflareTURNLife is how long Cloudflare TURN credentials last; the
+// server revokes them sooner, once their session ends.
+const cloudflareTURNLife = 12 * time.Hour
+
 // start serves the receiver page and signaling, and the TURN relay. It
 // returns the extra ports to forward.
 // relayRate caps each TURN allocation in bytes per second (0 = unlimited).
-func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.Server, upnp bool, relayRate int64) ([]portmap.Spec, error) {
+// cf is Cloudflare's TURN relay (nil = none), offered next to this server's.
+func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.Server, upnp bool, relayRate int64, cf *server.CloudflareTURN) ([]portmap.Spec, error) {
 	_, webPortStr, err := net.SplitHostPort(*f.web)
 	if err != nil {
 		return nil, fmt.Errorf("bad -web %q: %v", *f.web, err)
 	}
 	webPort, _ := strconv.Atoi(webPortStr)
+	localTURN := *f.turnPort != 0
+	if !localTURN && cf == nil {
+		return nil, errors.New("-turn-port 0 turns this server's TURN relay off, which needs a working Cloudflare TURN key instead")
+	}
 	var lo, hi int
-	if _, err := fmt.Sscanf(*f.relay, "%d-%d", &lo, &hi); err != nil || lo <= 0 || hi < lo || hi > 65535 {
+	if _, err := fmt.Sscanf(*f.relay, "%d-%d", &lo, &hi); localTURN && (err != nil || lo <= 0 || hi < lo || hi > 65535) {
 		return nil, fmt.Errorf("bad -turn-relay %q", *f.relay)
 	}
 
@@ -112,20 +157,35 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 	if turnHost == "" {
 		turnHost = *f.domain
 	}
-	t, err := server.StartTURN(server.TURNConfig{
-		Port: *f.turnPort, Host: turnHost, PublicIP: ip,
-		RelayMin: lo, RelayMax: hi, AllowLAN: *f.allowLAN, Rate: relayRate,
-		Session: srv.TURNSession,
-	})
-	if err != nil {
-		return nil, err
-	}
-	go func() { <-ctx.Done(); t.Close() }()
-	if *f.publicIP == "" {
-		go keepPublicIP(ctx, logger, t, upnp)
+	var t *server.TURN
+	if localTURN {
+		t, err = server.StartTURN(server.TURNConfig{
+			Port: *f.turnPort, Host: turnHost, PublicIP: ip,
+			RelayMin: lo, RelayMax: hi, AllowLAN: *f.allowLAN, Rate: relayRate,
+			Session: srv.TURNSession,
+		})
+		if err != nil {
+			return nil, err
+		}
+		go func() { <-ctx.Done(); t.Close() }()
+		if *f.publicIP == "" {
+			go keepPublicIP(ctx, logger, t, upnp)
+		}
 	}
 
-	links := &server.Links{WebURL: webURL, ICE: t.ICE}
+	// Browsers get both relays when there are both: this server's is close
+	// by, Cloudflare's doesn't depend on this network.
+	ice := func(session string) []rendezvous.ICEServer {
+		var servers []rendezvous.ICEServer
+		if t != nil {
+			servers = append(servers, t.ICE(session)...)
+		}
+		if cf != nil {
+			servers = append(servers, cf.ICE(session)...)
+		}
+		return servers
+	}
+	links := &server.Links{WebURL: webURL, ICE: ice}
 	for _, o := range strings.Split(*f.origins, ",") {
 		if o = strings.TrimSpace(o); o != "" {
 			links.Origins = append(links.Origins, o)
@@ -157,11 +217,16 @@ func (f *linkFlags) start(ctx context.Context, logger *log.Logger, srv *server.S
 		hs.TLSConfig.MinVersion = tls.VersionTLS12
 		go func() { logErr(logger, hs.ListenAndServeTLS("", "")) }()
 	}
-	logger.Printf("links: receiver page at %s, TURN on %s:%d (relay %s, public %s)", webURL, turnHost, *f.turnPort, *f.relay, ip)
-
 	f.foundIP = ip
-	f.checks = []reachCheck{{"TCP", webPort}, {"TCP", *f.turnPort}, {"STUN", *f.turnPort}}
-	specs := []portmap.Spec{{Protocol: "TCP", Port: webPort}, {Protocol: "UDP", Port: *f.turnPort}, {Protocol: "TCP", Port: *f.turnPort}}
+	f.checks = []reachCheck{{"TCP", webPort}}
+	specs := []portmap.Spec{{Protocol: "TCP", Port: webPort}}
+	if !localTURN {
+		logger.Printf("links: receiver page at %s, relay through Cloudflare only (public %s)", webURL, ip)
+		return specs, nil
+	}
+	logger.Printf("links: receiver page at %s, TURN on %s:%d (relay %s, public %s)", webURL, turnHost, *f.turnPort, *f.relay, ip)
+	f.checks = append(f.checks, reachCheck{"TCP", *f.turnPort}, reachCheck{"STUN", *f.turnPort})
+	specs = append(specs, portmap.Spec{Protocol: "UDP", Port: *f.turnPort}, portmap.Spec{Protocol: "TCP", Port: *f.turnPort})
 	for p := lo; p <= hi; p++ {
 		specs = append(specs, portmap.Spec{Protocol: "UDP", Port: p})
 	}

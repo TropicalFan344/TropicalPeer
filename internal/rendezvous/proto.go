@@ -86,6 +86,9 @@ type Msg struct {
 	Nonce      string   `json:"nonce,omitempty"`
 	Relay      bool     `json:"relay,omitempty"`   // the server will relay this session
 	NoRelay    bool     `json:"noRelay,omitempty"` // connect: direct paths only (no relay session)
+	// connect_answer, connect_info: where the target can be reached through
+	// the TURN relay it was offered (ICE in connect_offer). Relayed paths.
+	TURNAddrs []string `json:"turnAddrs,omitempty"`
 
 	// link_*
 	Link   string          `json:"link,omitempty"`
@@ -107,6 +110,10 @@ type ICEServer struct {
 // CapAnswer: the device answers connect offers (connect_answer), so the
 // server shares its addresses only with devices it accepts.
 const CapAnswer = "answer"
+
+// CapTURN: the device can take a TURN relay with a connect offer (ICE),
+// reserve an address there, and answer with it (TURNAddrs).
+const CapTURN = "turn"
 
 // RegisterPayload is the byte string a device signs to prove it owns its ID.
 func RegisterPayload(id string, unixTime int64, port int, addrs []string) []byte {

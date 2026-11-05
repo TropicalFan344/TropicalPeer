@@ -51,6 +51,7 @@ type presence struct {
 	nat         *rendezvous.NATProfile // as last reported by the device
 
 	answers bool // answers connect offers (rendezvous.CapAnswer)
+	turn    bool // takes a TURN relay with a connect offer (rendezvous.CapTURN)
 }
 
 func (p *presence) send(m rendezvous.Msg) error {
@@ -78,6 +79,12 @@ type Server struct {
 	// Links enables share by link (nil = off). Set before serving.
 	Links *Links
 
+	// AppTURN, when set, also gives each introduction a TURN relay of its
+	// own (Cloudflare's): the target device reserves an address there and
+	// the requester dials it, which works between any two routers. It is
+	// one more relayed path next to Relay. Set before serving.
+	AppTURN TURNProvider
+
 	mu         sync.Mutex
 	online     map[string]*presence
 	nameplates map[string]*pending
@@ -91,7 +98,25 @@ type Server struct {
 	turn       map[string]*turnSession
 	opens      map[string]int // link opens per IP this minute
 	opensReset time.Time
+	appTURN    map[string]appTURNSession // by session ID
 }
+
+// TURNProvider mints TURN credentials for a session and revokes them.
+type TURNProvider interface {
+	ICE(session string) []rendezvous.ICEServer
+	Revoke(session string)
+}
+
+// appTURNSession is an introduction that got an AppTURN relay.
+type appTURNSession struct {
+	ends    [2]*presence // the two devices introduced
+	created time.Time
+}
+
+// maxAppTURNPerHour caps the AppTURN sessions a device starts or receives
+// in an hour: every one is relay allowance someone pays for, while a
+// transfer that keeps reconnecting needs only a few.
+const maxAppTURNPerHour = 30
 
 func New(logger *log.Logger) *Server {
 	return &Server{
@@ -102,13 +127,14 @@ func New(logger *log.Logger) *Server {
 		nameplates: map[string]*pending{},
 		sessions:   map[uint64]*relaySession{},
 		waiting:    map[string]*waitingAnswer{},
+		appTURN:    map[string]appTURNSession{},
 	}
 }
 
 // waitingAnswer is a connect offer sent to a device that answers offers.
 type waitingAnswer struct {
 	to     *presence
-	answer chan bool
+	answer chan rendezvous.Msg
 }
 
 // Serve accepts connections until ctx is cancelled.
@@ -186,8 +212,11 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 
 	p := &presence{id: m.ID, pub: m.PublicKey, addrs: addrs, nc: nc, conn: conn}
 	for _, c := range m.Caps {
-		if c == rendezvous.CapAnswer {
+		switch c {
+		case rendezvous.CapAnswer:
 			p.answers = true
+		case rendezvous.CapTURN:
+			p.turn = true
 		}
 	}
 	s.mu.Lock()
@@ -237,7 +266,7 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 			s.mu.Unlock()
 			if w != nil && w.to == p { // only the device asked may answer
 				select {
-				case w.answer <- req.Accept:
+				case w.answer <- req:
 				default:
 				}
 			}
@@ -276,48 +305,103 @@ func (s *Server) handleConnect(from *presence, m rendezvous.Msg) {
 	}
 	var w *waitingAnswer
 	if to.answers {
-		w = &waitingAnswer{to: to, answer: make(chan bool, 1)}
+		w = &waitingAnswer{to: to, answer: make(chan rendezvous.Msg, 1)}
 		s.waiting[session] = w
+	}
+	// Only a device that answers can hand back the address it reserved.
+	appTURN := s.AppTURN != nil && !m.NoRelay && to.answers && to.turn &&
+		s.appTURNCountLocked(from) < maxAppTURNPerHour && s.appTURNCountLocked(to) < maxAppTURNPerHour
+	if appTURN {
+		s.appTURN[session] = appTURNSession{ends: [2]*presence{from, to}, created: time.Now()}
 	}
 	s.mu.Unlock()
 
-	to.send(rendezvous.Msg{
+	offer := rendezvous.Msg{
 		Type: rendezvous.TypeConnectOffer, From: from.id,
 		Candidates: fromCands, Session: session, Nonce: nonce, Relay: relay, NAT: fromNAT,
-	})
+	}
+	if appTURN {
+		if offer.ICE = s.AppTURN.ICE(session); offer.ICE == nil {
+			s.endAppTURN(session) // Cloudflare unreachable: the other paths remain
+			appTURN = false
+		}
+	}
+	to.send(offer)
 
-	introduce := func() {
+	introduce := func(turnAddrs []string) {
 		s.mu.Lock()
 		reply.Candidates, reply.NAT = s.candidatesLocked(to), to.nat
 		s.mu.Unlock()
 		reply.Session, reply.Nonce, reply.Relay = session, nonce, relay
+		reply.TURNAddrs = turnAddrs
 		from.send(reply)
-		s.Logger.Printf("connect %s -> %s (relay %v)", from.id, to.id, relay)
+		s.Logger.Printf("connect %s -> %s (relay %v, turn %d)", from.id, to.id, relay, len(turnAddrs))
 	}
 	if w == nil {
-		introduce()
+		introduce(nil)
 		return
 	}
 	// Wait for the answer without holding up the requester's other messages.
 	go func() {
-		accepted := false
+		var answer rendezvous.Msg
 		select {
-		case accepted = <-w.answer:
+		case answer = <-w.answer:
 		case <-time.After(answerTimeout):
 		}
 		s.mu.Lock()
 		delete(s.waiting, session)
-		if !accepted && relay {
+		if !answer.Accept && relay {
 			delete(s.sessions, sessKey)
 		}
 		s.mu.Unlock()
-		if !accepted {
+		if !answer.Accept || len(answer.TURNAddrs) == 0 {
+			if appTURN {
+				s.endAppTURN(session)
+			}
+		}
+		if !answer.Accept {
 			reply.Error = "offline" // same as not being there at all
 			from.send(reply)
 			return
 		}
-		introduce()
+		introduce(answer.TURNAddrs)
 	}()
+}
+
+func (s *Server) appTURNCountLocked(p *presence) int {
+	n := 0
+	for _, a := range s.appTURN {
+		if (a.ends[0].id == p.id || a.ends[1].id == p.id) && time.Since(a.created) < time.Hour {
+			n++
+		}
+	}
+	return n
+}
+
+// endAppTURN forgets an AppTURN session and revokes its credentials.
+func (s *Server) endAppTURN(session string) {
+	s.mu.Lock()
+	delete(s.appTURN, session)
+	s.mu.Unlock()
+	go s.AppTURN.Revoke(session)
+}
+
+// AppTURNLive says whether an AppTURN session's credentials should keep
+// working: while both its devices stay online (a transfer through it can't
+// outlive them), for turnSessionMax at most. Sessions that ended are
+// forgotten.
+func (s *Server) AppTURNLive(session string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.appTURN[session]
+	if !ok {
+		return false
+	}
+	if s.online[a.ends[0].id] == a.ends[0] && s.online[a.ends[1].id] == a.ends[1] && time.Since(a.created) < turnSessionMax {
+		return true
+	}
+	delete(s.appTURN, session)
+	return false
 }
 
 // candidatesLocked lists where a device may be reached: its real UDP mapping

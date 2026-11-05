@@ -171,8 +171,8 @@ func (n *Node) punch(ctx context.Context, candidates []string, nonce string) {
 func (n *Node) onConnectOffer(p *rendezvous.Presence, m rendezvous.Msg) {
 	_, err := n.Peers.Get(m.From)
 	paired := err == nil
-	p.Answer(m, paired)
 	if !paired {
+		p.Answer(m, false)
 		// Not a paired device: don't open anything for it. If we removed
 		// it and it hasn't heard, tell it now that it's trying to reach us.
 		if r, ok := n.Peers.RemovedPeer(m.From); ok {
@@ -184,8 +184,18 @@ func (n *Node) onConnectOffer(p *rendezvous.Presence, m rendezvous.Msg) {
 	ctx := n.runCtx
 	n.mu.RUnlock()
 	if ctx == nil {
+		p.Answer(m, true)
 		return
 	}
+	// With a TURN relay on offer, reserve our address there first: the
+	// answer is the only way to tell the sender where it is.
+	var turnAddrs []string
+	if len(m.ICE) > 0 {
+		if a := n.openTURN(ctx, m.ICE, m.Candidates); a != "" {
+			turnAddrs = []string{a}
+		}
+	}
+	p.AnswerTURN(m, true, turnAddrs)
 	go n.punch(ctx, m.Candidates, m.Nonce)
 	if m.Relay {
 		// Bind our end now, so a relayed dial from the sender lands.
@@ -246,7 +256,7 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 	defer cancel()
 	go n.punch(dialCtx, info.Candidates, info.Nonce)
 
-	results := make(chan dialResult, len(info.Candidates)+1)
+	results := make(chan dialResult, len(info.Candidates)+len(info.TURNAddrs)+1)
 	attempts := 0
 	directFailed := make(chan struct{}, len(info.Candidates))
 	candidates := info.Candidates
@@ -267,9 +277,22 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 			results <- dialResult{conn: conn, err: err}
 		}()
 	}
+	// Relayed paths: the server's own relay, and the TURN relay the peer
+	// reserved an address on.
+	var relayDials []func() (*quic.Conn, error)
 	if info.Relay {
-		attempts++
-		directCount := attempts - 1
+		relayDials = append(relayDials, func() (*quic.Conn, error) { return n.dialRelay(dialCtx, info.Session, tlsConf) })
+	}
+	for _, t := range info.TURNAddrs {
+		addr, err := net.ResolveUDPAddr("udp", t)
+		if err != nil {
+			continue
+		}
+		relayDials = append(relayDials, func() (*quic.Conn, error) { return n.transport.Dial(dialCtx, addr, tlsConf, quicConfig) })
+	}
+	if len(relayDials) > 0 {
+		directCount := attempts
+		attempts += len(relayDials)
 		delay := relayDelay
 		mine, _ := n.natProfile.Load().(rendezvous.NATProfile)
 		if rendezvous.DirectHopeless(&mine, info.NAT) {
@@ -287,12 +310,18 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 				case <-directFailed:
 					failed++
 				case <-dialCtx.Done():
-					results <- dialResult{err: dialCtx.Err()}
+					for range relayDials {
+						results <- dialResult{err: dialCtx.Err()}
+					}
 					return
 				}
 			}
-			conn, err := n.dialRelay(dialCtx, info.Session, tlsConf)
-			results <- dialResult{conn: conn, relayed: true, err: err}
+			for _, dial := range relayDials {
+				go func() {
+					conn, err := dial()
+					results <- dialResult{conn: conn, relayed: true, err: err}
+				}()
+			}
 		}()
 	}
 	if attempts == 0 {
@@ -314,7 +343,7 @@ func (n *Node) connect(ctx context.Context, peer peers.Peer, allowRelay bool) (*
 		}
 	}
 	if winner.conn == nil {
-		if !info.Relay && allowRelay {
+		if !info.Relay && len(info.TURNAddrs) == 0 && allowRelay {
 			return nil, false, fmt.Errorf("could not reach %s directly, and the server doesn't relay: %w", peer.Name, lastErr)
 		}
 		return nil, false, fmt.Errorf("could not reach %s: %w", peer.Name, lastErr)

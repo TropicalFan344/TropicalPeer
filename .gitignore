@@ -4,6 +4,8 @@ frontend/android/keystore/
 *.jks
 *.keystore
 keystore.properties
+# Server config file with API keys.
+tropicalpeer-server.json
 # Personal DuckDNS updater with its token (scripts/duckdns.example.ps1 is the template).
 duckdns.ps1
 scripts/duckdns.ps1

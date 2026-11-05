@@ -57,7 +57,7 @@ func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string,
 		Port:      port,
 		Time:      now,
 		Sig:       ed25519.Sign(c.ID.PrivateKey, RegisterPayload(id, now, port, lanAddrs)),
-		Caps:      []string{CapAnswer},
+		Caps:      []string{CapAnswer, CapTURN},
 	})
 	if err != nil {
 		nc.Close()
@@ -120,9 +120,15 @@ func (p *Presence) readLoop(onOffer func(*Presence, Msg)) {
 // Answer tells the server whether we take a connect offer. Only after a yes
 // does the device asking learn where we are.
 func (p *Presence) Answer(offer Msg, accept bool) error {
+	return p.AnswerTURN(offer, accept, nil)
+}
+
+// AnswerTURN is Answer that also says where we can be reached through the
+// TURN relay the offer came with.
+func (p *Presence) AnswerTURN(offer Msg, accept bool, turnAddrs []string) error {
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
-	return p.conn.Send(Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: accept})
+	return p.conn.Send(Msg{Type: TypeConnectAnswer, Session: offer.Session, Accept: accept, TURNAddrs: turnAddrs})
 }
 
 // SendNAT tells the server what this device's router is like, so it can
