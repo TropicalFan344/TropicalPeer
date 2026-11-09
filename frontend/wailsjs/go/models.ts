@@ -164,6 +164,7 @@ export namespace appcore {
 	    total: number;
 	    saveDir: string;
 	    expiresAt: number;
+	    note: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new OfferDTO(source);
@@ -178,6 +179,7 @@ export namespace appcore {
 	        this.total = source["total"];
 	        this.saveDir = source["saveDir"];
 	        this.expiresAt = source["expiresAt"];
+	        this.note = source["note"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -276,6 +278,32 @@ export namespace appcore {
 	        this.portMapping = source["portMapping"];
 	    }
 	}
+	export class TextDTO {
+	    id: string;
+	    peerId: string;
+	    peerName: string;
+	    direction: string;
+	    body: string;
+	    at: number;
+	    unread: boolean;
+	    relayed: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.peerId = source["peerId"];
+	        this.peerName = source["peerName"];
+	        this.direction = source["direction"];
+	        this.body = source["body"];
+	        this.at = source["at"];
+	        this.unread = source["unread"];
+	        this.relayed = source["relayed"];
+	    }
+	}
 	export class TransferDTO {
 	    id: string;
 	    peerId: string;
@@ -296,6 +324,8 @@ export namespace appcore {
 	    saved: string[];
 	    startedAt: number;
 	    endedAt: number;
+	    note: string;
+	    noteLost: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new TransferDTO(source);
@@ -322,6 +352,8 @@ export namespace appcore {
 	        this.saved = source["saved"];
 	        this.startedAt = source["startedAt"];
 	        this.endedAt = source["endedAt"];
+	        this.note = source["note"];
+	        this.noteLost = source["noteLost"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

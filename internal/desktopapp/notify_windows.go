@@ -45,7 +45,7 @@ func (a *App) sendNote(n note) error {
 		Body:                cdata(n.body),
 		ActivationArguments: html.EscapeString(n.id + "|"),
 	}
-	if len(n.actions) > 0 {
+	if strings.HasPrefix(n.id, "offer:") {
 		t.Duration = toast.Long // an offer waits for an answer
 	}
 	for _, act := range n.actions {

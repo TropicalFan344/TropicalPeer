@@ -74,12 +74,24 @@ export function ListPeers() {
   return window['go']['desktopapp']['App']['ListPeers']();
 }
 
+export function ListTexts() {
+  return window['go']['desktopapp']['App']['ListTexts']();
+}
+
 export function ListTransfers() {
   return window['go']['desktopapp']['App']['ListTransfers']();
 }
 
+export function MarkTextRead(arg1) {
+  return window['go']['desktopapp']['App']['MarkTextRead'](arg1);
+}
+
 export function OpenFolder(arg1) {
   return window['go']['desktopapp']['App']['OpenFolder'](arg1);
+}
+
+export function OpenURL(arg1) {
+  return window['go']['desktopapp']['App']['OpenURL'](arg1);
 }
 
 export function PauseTransfer(arg1) {
@@ -130,8 +142,12 @@ export function SaveSettings(arg1) {
   return window['go']['desktopapp']['App']['SaveSettings'](arg1);
 }
 
-export function SendFiles(arg1, arg2) {
-  return window['go']['desktopapp']['App']['SendFiles'](arg1, arg2);
+export function SendFiles(arg1, arg2, arg3) {
+  return window['go']['desktopapp']['App']['SendFiles'](arg1, arg2, arg3);
+}
+
+export function SendText(arg1, arg2) {
+  return window['go']['desktopapp']['App']['SendText'](arg1, arg2);
 }
 
 export function SetAutoUpdate(arg1) {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strconv"
@@ -35,7 +36,9 @@ commands:
          [maxAutoSize]          optional: auto-accept only up to this size (e.g. 500MB)
   remove <peer>                 forget a paired device
   run                           stay online and receive files
-  send <peer> <file>...         send files to a paired device
+  send [-note <text>] <peer> <file>...
+                                send files to a paired device, with a note if given
+  send-text <peer> <text>|-     send a short text (- reads it from stdin)
   share [-unlimited] <file>...  make a link anyone can download the files from in a
                                 browser (first person only, unless -unlimited)
   network                       check how reachable this device is (router type,
@@ -231,8 +234,12 @@ func runCommand(ctx context.Context, n *node.Node, ui *console, cmd string, args
 		return err
 
 	case "send":
+		note := ""
+		if len(args) > 1 && args[0] == "-note" {
+			note, args = args[1], args[2:]
+		}
 		if len(args) < 2 {
-			return errors.New("usage: tpcli send <peer> <file>...")
+			return errors.New("usage: tpcli send [-note <text>] <peer> <file>...")
 		}
 		p, err := n.Peers.Find(args[0])
 		if err != nil {
@@ -248,6 +255,12 @@ func runCommand(ctx context.Context, n *node.Node, ui *console, cmd string, args
 		fmt.Printf("Sending to %s... (waiting for it to accept)\n", p.Name)
 		progress := ui.events().OnProgress
 		err = n.Send(ctx, p.ID, transfer.NewTransferID(), args[1:], node.SendOptions{
+			Note: note,
+			OnAccepted: func(noteShown bool) {
+				if note != "" && !noteShown {
+					fmt.Println("Accepted, but the other device is too old to show the note.")
+				}
+			},
 			OnProgress: func(pr transfer.Progress) { progress(p, pr) },
 			OnConnected: func(relayed bool) {
 				if relayed {
@@ -263,6 +276,39 @@ func runCommand(ctx context.Context, n *node.Node, ui *console, cmd string, args
 		}
 		ui.endLine()
 		fmt.Println("Done.")
+
+	case "send-text":
+		if len(args) != 2 {
+			return errors.New("usage: tpcli send-text <peer> <text>|-")
+		}
+		p, err := n.Peers.Find(args[0])
+		if err != nil {
+			return err
+		}
+		body := args[1]
+		if body == "-" {
+			b, err := io.ReadAll(io.LimitReader(os.Stdin, protocol.MaxTextBytes+1))
+			if err != nil {
+				return err
+			}
+			body = string(b)
+		}
+		errc := make(chan error, 1)
+		go func() { errc <- n.Run(ctx) }()
+		select {
+		case <-n.Ready():
+		case err := <-errc:
+			return err
+		}
+		relayed, err := n.SendText(ctx, p.ID, protocol.Text{ID: transfer.NewTextID(), Body: body})
+		if err != nil {
+			return err
+		}
+		how := "directly"
+		if relayed {
+			how = "through a relay (still end-to-end encrypted)"
+		}
+		fmt.Printf("Sent to %s, %s.\n", p.Name, how)
 
 	default:
 		return fmt.Errorf("unknown command %q (run tpcli without arguments for help)", cmd)
@@ -299,6 +345,9 @@ func (c *console) events() node.Events {
 			defer c.mu.Unlock()
 			c.endLineLocked()
 			fmt.Printf("\n%s wants to send %d file(s), %s:\n", peer.Name, len(offer.Files), formatSize(offer.TotalSize()))
+			if offer.Note != "" {
+				fmt.Printf("  Note: %s\n", offer.Note)
+			}
 			for _, f := range offer.Files {
 				fmt.Printf("  %s  (%s)\n", f.Name, formatSize(f.Size))
 			}
@@ -320,6 +369,12 @@ func (c *console) events() node.Events {
 			}
 			fmt.Printf("\r%s %s  %5.1f%%  %s / %s   ", verb, p.FileName, pct, formatSize(p.Done), formatSize(p.Total))
 			c.inLine = true
+		},
+		OnText: func(peer peers.Peer, text protocol.Text, relayed bool) {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+			c.endLineLocked()
+			fmt.Printf("Text from %s:\n%s\n", peer.Name, text.Body)
 		},
 		OnReceived: func(peer peers.Peer, offer protocol.Offer, files []transfer.Result, err error) {
 			c.mu.Lock()

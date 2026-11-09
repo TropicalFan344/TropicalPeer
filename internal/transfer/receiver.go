@@ -69,7 +69,8 @@ type Control struct {
 }
 
 // AcceptControl waits for the control stream a sender opens on a new
-// connection and reads its Hello: a new offer or a join of a running transfer.
+// connection and reads its Hello: a new offer, a join of a running transfer,
+// or one of the one-shot requests (resume, cancel, unpaired, text).
 func AcceptControl(ctx context.Context, conn *quic.Conn) (*Control, error) {
 	st, err := conn.AcceptStream(ctx)
 	if err != nil {
@@ -80,14 +81,17 @@ func AcceptControl(ctx context.Context, conn *quic.Conn) (*Control, error) {
 		st.CancelRead(0)
 		return nil, err
 	}
-	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" && c.Hello.Cancel == "" && !c.Hello.Unpaired {
-		st.CancelRead(0)
-		return nil, errors.New("control stream opened without an offer, join, resume or cancel")
+	if c.Hello.Offer == nil && c.Hello.Join == "" && c.Hello.Resume == "" && c.Hello.Cancel == "" && !c.Hello.Unpaired && c.Hello.Text == nil {
+		// Something a newer version asks for: say so, rather than hang up
+		// on it, so its app can tell its user this one needs updating.
+		c.Answer(false, protocol.Unsupported)
+		return nil, errUnknownHello
 	}
 	return c, nil
 }
 
-// Answer replies to a resume request: whether the transfer is coming.
+// Answer replies to a one-shot request: for a resume, whether the transfer
+// is coming; for a text, whether it was shown.
 func (c *Control) Answer(ok bool, reason string) {
 	c.wire.Send(protocol.JoinAck{OK: ok, Error: reason})
 	c.stream.Close()
@@ -176,6 +180,12 @@ func NewIncoming(c *Control) *Incoming {
 		conns:    []*quic.Conn{c.conn},
 		ctrl:     c.wire,
 		ctrls:    []*quic.Stream{c.stream},
+	}
+	// The note is the sender's words: clean it as a text, or drop it.
+	if note, err := protocol.CleanNote(in.Offer.Note); err == nil {
+		in.Offer.Note = note
+	} else {
+		in.Offer.Note = ""
 	}
 	return in
 }
@@ -287,7 +297,7 @@ func (in *Incoming) Receive(ctx, decideCtx context.Context, saveDir string, deci
 		return nil, err
 	}
 	resume, points := in.leftovers()
-	if err := in.sendCtrl(protocol.Response{Accept: true, Resume: points}); err != nil {
+	if err := in.sendCtrl(protocol.Response{Accept: true, Resume: points, NoteShown: offer.Note != ""}); err != nil {
 		return nil, err
 	}
 	in.mu.Lock()

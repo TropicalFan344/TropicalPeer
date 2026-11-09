@@ -47,6 +47,7 @@ type Core struct {
 	upd          updates
 	offers       map[string]*pendingOffer
 	lk           linkStore
+	texts        []TextDTO // oldest first; see texts.go
 
 	// emitFn pushes an event to the UI. data is nil for events without a payload.
 	emitFn Emit
@@ -235,6 +236,7 @@ func (c *Core) startNode() error {
 		OnResumeRequest: c.onResumeRequest,
 		OnCancelNotice:  c.onCancelNotice,
 		OnRemovedUs:     c.onRemovedUs,
+		OnText:          c.onText,
 	})
 	if err != nil {
 		return err

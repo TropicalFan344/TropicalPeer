@@ -154,8 +154,9 @@ func (a *App) JoinWithCode(code string) (appcore.PeerDTO, error) { return a.core
 
 // ---- Transfers and offers ----
 
-func (a *App) SendFiles(peerID string, paths []string) (appcore.TransferDTO, error) {
-	return a.core.SendFiles(peerID, paths)
+// SendFiles sends files to a peer; note (may be empty) goes with them.
+func (a *App) SendFiles(peerID string, paths []string, note string) (appcore.TransferDTO, error) {
+	return a.core.SendFilesNote(peerID, paths, note)
 }
 func (a *App) CancelTransfer(id string)                             { a.core.CancelTransfer(id) }
 func (a *App) RetryTransfer(id string) (appcore.TransferDTO, error) { return a.core.RetryTransfer(id) }
@@ -180,6 +181,28 @@ func (a *App) CreateLink(paths []string, unlimited bool) (appcore.LinkDTO, error
 func (a *App) ClearFinishedTransfers()                   { a.core.ClearFinishedTransfers() }
 func (a *App) ListOffers() []appcore.OfferDTO            { return a.core.ListOffers() }
 func (a *App) RespondOffer(id string, accept bool) error { return a.core.RespondOffer(id, accept) }
+
+// ---- Texts ----
+
+func (a *App) SendText(peerID, body string) (appcore.TextDTO, error) {
+	return a.core.SendText(peerID, body)
+}
+func (a *App) ListTexts() []appcore.TextDTO { return a.core.ListTexts() }
+func (a *App) MarkTextRead(id string) {
+	a.core.MarkTextRead(id)
+	a.removeNote("text:" + id)
+}
+
+// OpenURL opens a web link from a text in the system browser. Only http
+// and https links open.
+func (a *App) OpenURL(link string) error {
+	u, ok := appcore.WebAddress(link)
+	if !ok {
+		return errors.New(a.core.T("text.badLink"))
+	}
+	runtime.BrowserOpenURL(a.ctx, u)
+	return nil
+}
 
 // Restart restarts networking without quitting, applying settings that
 // only take effect on start (the listening port).

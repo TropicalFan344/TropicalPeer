@@ -64,6 +64,10 @@ type Events struct {
 	// success). err is context.Canceled when cancelled through OnAccepted's
 	// cancel, and satisfies transfer.IsCancelledByPeer when the sender gave up.
 	OnReceived func(peer peers.Peer, offer protocol.Offer, files []transfer.Result, err error)
+	// OnText shows a text from a peer. It has been cleaned (protocol.CleanText),
+	// and arrives once even if the peer sent it again. Blocked peers' texts
+	// never get here. Without OnText, texts are refused.
+	OnText func(peer peers.Peer, text protocol.Text, relayed bool)
 }
 
 type Node struct {
@@ -114,6 +118,7 @@ type Node struct {
 	portMapCancel context.CancelFunc
 
 	partials    *partials // what interrupted incoming transfers left behind
+	texts       textLog   // recent incoming texts, against repeats and floods
 	recvMu      sync.Mutex
 	receiving   map[string]*recvSession           // incoming transfers by recvKey
 	peerNAT     map[string]*rendezvous.NATProfile // last seen per peer
@@ -353,7 +358,16 @@ func (n *Node) handleIncoming(ctx context.Context, conn *quic.Conn, relayed bool
 		return
 	}
 	ctrl, err := transfer.AcceptControl(ctx, conn)
+	if transfer.IsUnknownHello(err) {
+		<-time.After(time.Second) // let the answer go out before hanging up
+		return
+	}
 	if err != nil {
+		return
+	}
+	if ctrl.Hello.Text != nil {
+		ctrl.Answer(n.receiveText(peer, *ctrl.Hello.Text, relayed))
+		<-time.After(time.Second) // let the answer go out before hanging up
 		return
 	}
 	if ctrl.Hello.Join != "" {
@@ -526,6 +540,10 @@ type SendOptions struct {
 	OnProgress func(transfer.Progress)
 	// OnConnected reports the path once a connection exists.
 	OnConnected func(relayed bool)
+	// Note goes with the offer; see transfer.SendOptions.
+	Note string
+	// OnAccepted runs when the peer accepts; see transfer.SendOptions.
+	OnAccepted func(noteShown bool)
 }
 
 // OfflineError means the peer isn't registered with the rendezvous server.
@@ -569,7 +587,11 @@ func (n *Node) SendSources(ctx context.Context, peerID, transferID string, files
 		opts.OnConnected(relayed)
 	}
 
-	topts := transfer.SendOptions{Report: opts.OnProgress}
+	note, err := protocol.CleanNote(opts.Note)
+	if err != nil {
+		return err
+	}
+	topts := transfer.SendOptions{Report: opts.OnProgress, Note: note, OnAccepted: opts.OnAccepted}
 	if relayed {
 		// Keep looking for a direct path; move over when one appears.
 		upgrades := make(chan *quic.Conn)

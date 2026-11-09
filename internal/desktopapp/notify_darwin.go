@@ -3,6 +3,7 @@ package desktopapp
 import (
 	"errors"
 	"log"
+	"strings"
 	"sync/atomic"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -11,7 +12,10 @@ import (
 // macOS notifications, through Wails (UNUserNotificationCenter). The first
 // time, macOS asks whether TropicalPeer may show them.
 
-const offerCategory = "offer"
+const (
+	offerCategory = "offer"
+	textCategory  = "text"
+)
 
 var notesReady atomic.Bool
 
@@ -44,6 +48,9 @@ func (a *App) sendNote(n note) error {
 	opts := runtime.NotificationOptions{ID: n.id, Title: n.title, Body: n.body}
 	if len(n.actions) > 0 {
 		opts.CategoryID = offerCategory
+		if strings.HasPrefix(n.id, "text:") {
+			opts.CategoryID = textCategory
+		}
 		return runtime.SendNotificationWithActions(a.ctx, opts)
 	}
 	return runtime.SendNotification(a.ctx, opts)
@@ -63,8 +70,9 @@ func (a *App) notesLanguageChanged() {
 	}
 }
 
-// registerOfferButtons names the offer buttons in the app's language: on a
-// Mac they belong to a category, not to each notification.
+// registerOfferButtons names the offer buttons (and a text's Copy) in the
+// app's language: on a Mac they belong to a category, not to each
+// notification.
 func (a *App) registerOfferButtons() {
 	err := runtime.RegisterNotificationCategory(a.ctx, runtime.NotificationCategory{
 		ID: offerCategory,
@@ -72,6 +80,13 @@ func (a *App) registerOfferButtons() {
 			{ID: "decline", Title: a.core.T("offer.decline"), Destructive: true},
 			{ID: "accept", Title: a.core.T("offer.accept")},
 		},
+	})
+	if err != nil {
+		log.Printf("notifications: %v", err)
+	}
+	err = runtime.RegisterNotificationCategory(a.ctx, runtime.NotificationCategory{
+		ID:      textCategory,
+		Actions: []runtime.NotificationAction{{ID: "copy", Title: a.core.T("text.copy")}},
 	})
 	if err != nil {
 		log.Printf("notifications: %v", err)

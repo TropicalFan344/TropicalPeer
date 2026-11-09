@@ -45,6 +45,10 @@ type Offer struct {
 	Files      []FileInfo `json:"files"`
 	// Resumable says the sender understands Response.Resume.
 	Resumable bool `json:"resumable,omitempty"`
+	// Note is a few words for the receiver, shown with the offer (see
+	// CleanNote). Receivers that know notes say so in Response.NoteShown;
+	// older ones ignore it.
+	Note string `json:"note,omitempty"`
 }
 
 // Fingerprint identifies exactly which files an offer lists (names and
@@ -67,8 +71,10 @@ func (o Offer) TotalSize() int64 {
 }
 
 // Hello opens every control stream: a new offer, a join of an existing
-// transfer from a new connection, a receiver's request to resume one, or
-// news that one was cancelled while nothing connected the two sides.
+// transfer from a new connection, a receiver's request to resume one, news
+// that one was cancelled while nothing connected the two sides, or a text.
+// A receiver that finds none of these (a newer sender's request it doesn't
+// know) answers JoinAck{Error: Unsupported}.
 type Hello struct {
 	Offer *Offer `json:"offer,omitempty"`
 	Join  string `json:"join,omitempty"` // transfer ID
@@ -82,7 +88,14 @@ type Hello struct {
 	// Unpaired tells the other side that it was removed here: it can't
 	// send to this device until the two pair again. Answered with a JoinAck.
 	Unpaired bool `json:"unpaired,omitempty"`
+	// Text is a short text to show the user. Answered with a JoinAck: OK
+	// when it was shown (or had been already), not OK when refused.
+	Text *Text `json:"text,omitempty"`
 }
+
+// Unsupported is the JoinAck error for a Hello the receiver doesn't know.
+const Unsupported = "unsupported"
+
 
 type Response struct {
 	Accept bool   `json:"accept"`
@@ -90,6 +103,10 @@ type Response struct {
 	// Resume lists what the receiver kept from an earlier attempt. Only
 	// sent in answer to a Resumable offer.
 	Resume []ResumePoint `json:"resume,omitempty"`
+	// NoteShown: the offer's note reached the person (this receiver knows
+	// notes). An accepted offer with a note but without this came from a
+	// version before notes: the files arrive, the note doesn't.
+	NoteShown bool `json:"noteShown,omitempty"`
 }
 
 // ResumePoint says the receiver holds the first Offset bytes of file Index,

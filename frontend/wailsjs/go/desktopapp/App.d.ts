@@ -38,9 +38,15 @@ export function ListOffers():Promise<Array<appcore.OfferDTO>>;
 
 export function ListPeers():Promise<Array<appcore.PeerDTO>>;
 
+export function ListTexts():Promise<Array<appcore.TextDTO>>;
+
 export function ListTransfers():Promise<Array<appcore.TransferDTO>>;
 
+export function MarkTextRead(arg1:string):Promise<void>;
+
 export function OpenFolder(arg1:string):Promise<void>;
+
+export function OpenURL(arg1:string):Promise<void>;
 
 export function PauseTransfer(arg1:string):Promise<void>;
 
@@ -66,7 +72,9 @@ export function RetryTransfer(arg1:string):Promise<appcore.TransferDTO>;
 
 export function SaveSettings(arg1:appcore.SettingsDTO):Promise<void>;
 
-export function SendFiles(arg1:string,arg2:Array<string>):Promise<appcore.TransferDTO>;
+export function SendFiles(arg1:string,arg2:Array<string>,arg3:string):Promise<appcore.TransferDTO>;
+
+export function SendText(arg1:string,arg2:string):Promise<appcore.TextDTO>;
 
 export function SetAutoUpdate(arg1:boolean):Promise<void>;
 

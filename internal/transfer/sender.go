@@ -28,6 +28,12 @@ type SendOptions struct {
 	Upgrades <-chan *quic.Conn
 	// OnUpgraded runs once the transfer has moved to an upgraded connection.
 	OnUpgraded func()
+	// Note goes with the offer (protocol.Offer.Note); it must already be
+	// cleaned (protocol.CleanNote).
+	Note string
+	// OnAccepted runs when the receiver accepts. noteShown says it showed
+	// the note (false if there was none, or the receiver is too old).
+	OnAccepted func(noteShown bool)
 }
 
 // sendSession is one outgoing transfer, possibly spanning several connections.
@@ -125,7 +131,7 @@ func Send(ctx context.Context, conn *quic.Conn, transferID string, files []Sourc
 	}
 	defer abortOnCancel(ctx, s.all, &err)()
 
-	offer := protocol.Offer{TransferID: transferID, Resumable: true}
+	offer := protocol.Offer{TransferID: transferID, Resumable: true, Note: opts.Note}
 	for _, f := range files {
 		if f.Size < 0 || f.Open == nil {
 			return fmt.Errorf("%s: can't tell how big this file is", f.Name)
@@ -169,6 +175,9 @@ func Send(ctx context.Context, conn *quic.Conn, transferID string, files []Sourc
 	}
 	if !resp.Accept {
 		return &RejectedError{Reason: resp.Reason}
+	}
+	if opts.OnAccepted != nil {
+		opts.OnAccepted(resp.NoteShown && offer.Note != "")
 	}
 	resume := map[int]protocol.ResumePoint{}
 	for _, p := range resp.Resume {

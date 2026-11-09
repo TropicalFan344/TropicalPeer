@@ -26,6 +26,7 @@ final class Notifier {
     static final String CH_OFFERS = "offers";
     static final String CH_ACTIVE = "active";
     static final String CH_RECEIVED = "received";
+    static final String CH_TEXTS = "texts";
     /** The foreground service's notification: transfer progress, or "Ready to receive". */
     static final int ID_SERVICE = 1;
 
@@ -53,9 +54,14 @@ final class Notifier {
         active.setShowBadge(false);
         NotificationChannel received = new NotificationChannel(CH_RECEIVED, t("android.chReceived"), NotificationManager.IMPORTANCE_DEFAULT);
         received.setDescription(t("android.chReceivedDesc"));
+        NotificationChannel texts = new NotificationChannel(CH_TEXTS, t("android.chTexts"), NotificationManager.IMPORTANCE_HIGH);
+        texts.setDescription(t("android.chTextsDesc"));
+        // A text can be a code or a password: only its sender on the lock screen.
+        texts.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         nm.createNotificationChannel(offers);
         nm.createNotificationChannel(active);
         nm.createNotificationChannel(received);
+        nm.createNotificationChannel(texts);
     }
 
     static boolean allowed(Context c) {
@@ -125,7 +131,8 @@ final class Notifier {
         long left = o.optLong("expiresAt") - System.currentTimeMillis();
         NotificationCompat.Builder b = base(c, CH_OFFERS)
             .setContentTitle(t("offer.wants", "name", o.optString("peerName"), "what", what(files)))
-            .setContentText(size(o.optLong("total")))
+            .setContentText(withNote(size(o.optLong("total")), o.optString("note")))
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(withNote(size(o.optLong("total")), o.optString("note"))))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -135,15 +142,46 @@ final class Notifier {
         notify(c, offerTag(id), b.build());
     }
 
+    /** A text from another device, with Copy. Its content stays off the lock screen. */
+    static void text(Context c, JSONObject x) {
+        if (!allowed(c)) return;
+        String id = x.optString("id");
+        String body = x.optString("body");
+        String title = t("text.fromTitle", "name", x.optString("peerName"));
+        Intent copy = new Intent(c, TextActionReceiver.class).putExtra("id", id).putExtra("body", body);
+        Notification hidden = base(c, CH_TEXTS).setContentTitle(title).build();
+        NotificationCompat.Builder b = base(c, CH_TEXTS)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(hidden)
+            .setAutoCancel(true)
+            .addAction(0, t("text.copy"), PendingIntent.getBroadcast(c, id.hashCode(), copy, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        notify(c, textTag(id), b.build());
+    }
+
+    static void cancelText(Context c, String id) {
+        NotificationManagerCompat.from(c).cancel(textTag(id), 0);
+    }
+
+    private static String textTag(String id) {
+        return "text:" + id;
+    }
+
     static void cancelOffer(Context c, String id) {
         NotificationManagerCompat.from(c).cancel(offerTag(id), 0);
     }
 
-    static void received(Context c, String name, String peer, Uri file) {
+    static void received(Context c, String name, String peer, String note, Uri file) {
         if (!allowed(c)) return;
+        String text = withNote(t("android.receivedFrom", "name", peer), note);
         NotificationCompat.Builder b = base(c, CH_RECEIVED)
             .setContentTitle(t("android.receivedTitle", "name", name))
-            .setContentText(t("android.receivedFrom", "name", peer))
+            .setContentText(text)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true);
         if (file != null) {
             Intent view = new Intent(Intent.ACTION_VIEW).setDataAndType(file, c.getContentResolver().getType(file))
@@ -160,6 +198,11 @@ final class Notifier {
         } catch (SecurityException ignored) {
             // Notifications were turned off between the check and here.
         }
+    }
+
+    /** A notification line with the transfer's note under it, if it has one. */
+    private static String withNote(String line, String note) {
+        return note == null || note.isEmpty() ? line : line + "\n" + note;
     }
 
     private static String offerTag(String id) {

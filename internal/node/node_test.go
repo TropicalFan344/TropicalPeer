@@ -37,12 +37,13 @@ type testNode struct {
 	asked     atomic.Int32
 	answer    atomic.Bool
 	online    chan struct{}
+	texts     chan protocol.Text
 }
 
 func startNode(t *testing.T, ctx context.Context, serverAddr, name string) *testNode {
 	t.Helper()
 	dir := t.TempDir()
-	tn := &testNode{downloads: filepath.Join(dir, "downloads"), online: make(chan struct{}, 1)}
+	tn := &testNode{downloads: filepath.Join(dir, "downloads"), online: make(chan struct{}, 1), texts: make(chan protocol.Text, 64)}
 	n, err := New(dir, Events{
 		OnServerStatus: func(online bool, err error) {
 			if online {
@@ -56,6 +57,7 @@ func startNode(t *testing.T, ctx context.Context, serverAddr, name string) *test
 			tn.asked.Add(1)
 			return tn.answer.Load()
 		},
+		OnText: func(p peers.Peer, x protocol.Text, relayed bool) { tn.texts <- x },
 	})
 	if err != nil {
 		t.Fatal(err)

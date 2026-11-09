@@ -24,6 +24,7 @@ type OfferDTO struct {
 	Total     int64     `json:"total"`
 	SaveDir   string    `json:"saveDir"`
 	ExpiresAt int64     `json:"expiresAt"` // unix ms
+	Note      string    `json:"note"`      // the sender's words with the files
 }
 
 // OfferClosed tells the frontend a prompt went away, as "offer:closed".
@@ -53,6 +54,7 @@ func (c *Core) onOffer(ctx context.Context, peer peers.Peer, offer protocol.Offe
 			Total:     offer.TotalSize(),
 			SaveDir:   c.saveDirFor(peer),
 			ExpiresAt: time.Now().Add(offerTimeout).UnixMilli(),
+			Note:      offer.Note,
 		},
 		decision: make(chan bool, 1),
 	}
@@ -140,6 +142,7 @@ func (c *Core) onAccepted(peer peers.Peer, offer protocol.Offer, saveDir string,
 			SaveDir:   saveDir,
 			Relayed:   relayed,
 			StartedAt: time.Now().UnixMilli(),
+			Note:      offer.Note,
 		},
 		cancel:   cancel,
 		pause:    pause,

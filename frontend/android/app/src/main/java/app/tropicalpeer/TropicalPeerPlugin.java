@@ -100,6 +100,7 @@ public class TropicalPeerPlugin extends Plugin {
         String action = intent.getAction();
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
         JSArray files = new JSArray();
+        String sharedText = null;
         try {
             List<Uri> uris = new ArrayList<>();
             if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
@@ -113,9 +114,13 @@ public class TropicalPeerPlugin extends Plugin {
                 if (Engine.mayRead(u)) files.put(describe(u));
                 else android.util.Log.w(Engine.TAG, "ignored a shared file this app may not send: " + u);
             }
-            // Shared text (a link, a note) with no file: send it as a small text file.
+            // Shared text (a link, a note) with no file goes as a text; one
+            // too long for that (protocol.MaxTextBytes) as a small text file.
             CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
-            if (uris.isEmpty() && text != null && text.length() > 0) files.put(textFile(text.toString()));
+            if (uris.isEmpty() && text != null && text.length() > 0) {
+                if (text.toString().getBytes(StandardCharsets.UTF_8).length <= MAX_TEXT_BYTES) sharedText = text.toString();
+                else files.put(textFile(text.toString()));
+            }
         } catch (Exception e) {
             android.util.Log.w(Engine.TAG, "couldn't read what was shared", e);
         }
@@ -123,8 +128,12 @@ public class TropicalPeerPlugin extends Plugin {
         getActivity().setIntent(new Intent(Intent.ACTION_MAIN));
         JSObject data = new JSObject();
         data.put("files", files);
+        if (sharedText != null) data.put("text", sharedText);
         notifyListeners("share", data, true);
     }
+
+    /** protocol.MaxTextBytes: longer shared text goes as a file. */
+    private static final int MAX_TEXT_BYTES = 32 << 10;
 
     private JSObject textFile(String text) throws Exception {
         String trimmed = text.trim();
@@ -508,6 +517,24 @@ public class TropicalPeerPlugin extends Plugin {
             getActivity().startActivity(Intent.createChooser(send, null));
             call.resolve();
         } catch (RuntimeException e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    /** Opens a web link from a text in the browser. The link came from another device: only http and https. */
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        Uri uri = Uri.parse(call.getString("url", ""));
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(java.util.Locale.ROOT);
+        if (!(scheme.equals("http") || scheme.equals("https")) || uri.getHost() == null || uri.getHost().isEmpty()) {
+            call.reject(Notifier.t("text.badLink"));
+            return;
+        }
+        Intent view = new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE);
+        try {
+            getActivity().startActivity(view);
+            call.resolve();
+        } catch (ActivityNotFoundException e) {
             call.reject(e.getMessage());
         }
     }

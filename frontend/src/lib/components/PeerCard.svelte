@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, FolderUp, Send, UserX } from '@lucide/svelte'
+  import { Ellipsis, Trash2, Hand, Zap, ShieldBan, SlidersHorizontal, FolderOpen, FolderUp, Send, UserX, MessageSquareText } from '@lucide/svelte'
+  import ComposeBar from './ComposeBar.svelte'
   import Bed from './Bed.svelte'
   import Dialog from './Dialog.svelte'
   import WaveBand from './WaveBand.svelte'
   import PeerSettingsDialog from './PeerSettingsDialog.svelte'
   import SendChooser from './SendChooser.svelte'
   import { api, errorText, isActive, type Peer } from '../api'
-  import { app, pickAndSend, toast } from '../state.svelte'
+  import { app, closeCompose, composeNote, openCompose, pickAndSend, toast } from '../state.svelte'
   import { drag } from '../drop.svelte'
   import { formatSize } from '../format'
   import { closeOnBack } from '../back'
@@ -85,7 +86,34 @@
   function send() {
     if (peer.removedUs) toast(t('transfer.removedYou', { name: peer.name }), 'info', 6000)
     else if (phone) chooserOpen = true
-    else pickAndSend(peer)
+    else pickAndSend(peer, 'files', composeNote(peer)) // words in the open bar go too
+  }
+  // A computer's card opens up to write (💬, right-click or a paste).
+  const composing = $derived(app.compose.peerId === peer.id)
+  const toggleCompose = () => (composing ? closeCompose() : openCompose(peer))
+
+  // Pasting onto a focused card opens its compose bar, filled in; nothing
+  // goes until the person sends it (a clipboard can hold a password).
+  function onpaste(e: ClipboardEvent) {
+    if (phone || (e.target as HTMLElement).closest('[data-no-drag]')) return
+    const text = e.clipboardData?.getData('text/plain') ?? ''
+    if (!text.trim()) return
+    e.preventDefault()
+    openCompose(peer, text)
+  }
+  function oncontextmenu(e: MouseEvent) {
+    if (phone || (e.target as HTMLElement).closest('[data-no-drag]')) return
+    e.preventDefault()
+    openCompose(peer)
+  }
+  // Phones write in the send chooser.
+  let chooserText = $state(false)
+  function writeOnPhone() {
+    if (peer.removedUs) toast(t('transfer.removedYou', { name: peer.name }), 'info', 6000)
+    else {
+      chooserText = true
+      chooserOpen = true
+    }
   }
   function openMenu() {
     if (phone) sheetOpen = true
@@ -95,6 +123,8 @@
 
 <article
   data-peer-id={peer.id}
+  {onpaste}
+  {oncontextmenu}
   class="group relative rounded-lg border bg-surface {menuOpen ? 'z-20' : ''} transition-[transform,scale,border-color,box-shadow] duration-300 ease-out-expo
     has-[>button:active]:scale-[0.985]
     {dropHere
@@ -106,13 +136,15 @@
   <!-- Whole-card click target: choose files to send -->
   <button class="absolute inset-0" aria-label={t('peer.sendTo', { name: peer.name })} onclick={send}></button>
 
-  <div class="pointer-events-none flex items-center gap-4 p-4 pr-12 {peer.policy === 'block' && !drag.active ? 'opacity-60' : ''}">
+  <div class="pointer-events-none flex items-center gap-4 p-4 pr-12 sm:pr-20 {peer.policy === 'block' && !drag.active ? 'opacity-60' : ''}">
     <Bed name={peer.name} id={peer.id} size={48} />
     <div class="min-w-0 flex-1">
       <div class="display truncate text-[17px] leading-tight font-medium">{peer.name}</div>
       <div class="font-mono text-[11px] text-muted">{peer.id}</div>
       {#if dropHere}
-        <div class="mt-1.5 text-sm font-medium text-primary">{t('peer.dropTo', { name: peer.name })}</div>
+        <div class="mt-1.5 text-sm font-medium text-primary">
+          {composeNote(peer) ? t('text.dropWithNote', { name: peer.name }) : t('peer.dropTo', { name: peer.name })}
+        </div>
       {:else if sending.length}
         <div class="mt-1.5 text-sm text-ink">
           {sendingWaiting
@@ -142,7 +174,29 @@
     </div>
   {/if}
 
-  <div class="absolute top-3 right-3 z-10" data-no-drag use:closeMenuOnOutside>
+  {#if composing}
+    <ComposeBar {peer} />
+  {/if}
+
+  <div class="group/corner absolute top-3 right-3 z-10" data-no-drag use:closeMenuOnOutside>
+    {#if !phone}
+      <!-- Left of the ⋯ while the card is hovered (or the menu open). With the
+           bar open it stays when the pointer leaves, gliding into the ⋯'s
+           place as that fades, and back out when the pointer returns. -->
+      <button
+        class="absolute top-0 right-full mr-0.5 rounded-md p-1.5 text-muted opacity-0 transition-[opacity,translate] duration-200 ease-out-expo
+          group-hover:opacity-100 hover:bg-surface-2 hover:text-ink focus-visible:opacity-100 pointer-coarse:opacity-100
+          {composing && !menuOpen
+          ? 'translate-x-[calc(100%+0.125rem)] text-primary opacity-100 group-hover:translate-x-0 group-has-[:focus-visible]/corner:translate-x-0 pointer-coarse:translate-x-0'
+          : ''}"
+        aria-label={t('text.compose', { name: peer.name })}
+        title={t('text.compose', { name: peer.name })}
+        aria-expanded={composing}
+        onclick={toggleCompose}
+      >
+        <MessageSquareText size={18} />
+      </button>
+    {/if}
     <!-- Hidden until hover with a mouse; always there on touch, which can't hover. -->
     <button
       class="rounded-md p-1.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-2
@@ -177,6 +231,15 @@
           }}
         >
           <FolderUp size={15} strokeWidth={1.75} /> {t('peer.menuSendFolder')}
+        </button>
+        <button
+          class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-surface-2 pointer-coarse:py-3"
+          onclick={() => {
+            menuOpen = false
+            openCompose(peer)
+          }}
+        >
+          <MessageSquareText size={15} strokeWidth={1.75} /> {t('text.menuSend')}
         </button>
         <button
           class="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm hover:bg-surface-2 pointer-coarse:py-3"
@@ -227,6 +290,15 @@
         class="flex min-h-13 items-center gap-4 rounded-md px-3 text-left active:bg-surface-2"
         onclick={() => {
           sheetOpen = false
+          writeOnPhone()
+        }}
+      >
+        <MessageSquareText size={20} strokeWidth={1.75} class="text-muted" /> {t('text.sheetSend')}
+      </button>
+      <button
+        class="flex min-h-13 items-center gap-4 rounded-md px-3 text-left active:bg-surface-2"
+        onclick={() => {
+          sheetOpen = false
           settingsOpen = true
         }}
       >
@@ -247,7 +319,14 @@
 {/if}
 
 {#if chooserOpen}
-  <SendChooser {peer} onclose={() => (chooserOpen = false)} />
+  <SendChooser
+    {peer}
+    focusText={chooserText}
+    onclose={() => {
+      chooserOpen = false
+      chooserText = false
+    }}
+  />
 {/if}
 
 {#if settingsOpen}

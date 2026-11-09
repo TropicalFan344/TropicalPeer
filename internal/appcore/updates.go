@@ -271,11 +271,12 @@ func (c *Core) updateError(err error) string {
 	return c.T("update.failed")
 }
 
-// busy reports whether restarting now would interrupt something.
+// busy reports whether restarting now would interrupt something, or lose
+// a text nobody has seen yet.
 func (c *Core) busy() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if len(c.offers) > 0 {
+	if len(c.offers) > 0 || c.unreadTextsLocked() {
 		return true
 	}
 	for _, st := range c.transfers {

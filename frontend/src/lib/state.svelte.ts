@@ -14,6 +14,7 @@ import {
   type TransferProgress,
   type Update,
   type Link,
+  type TextMsg,
   isAndroid,
 } from './api'
 import { onShare } from './backend'
@@ -54,11 +55,29 @@ export const app = $state({
   // A link being set up: who may download is asked first. Empty = the
   // files are chosen after that question (New link); null = no dialog.
   linkDraft: null as PickedFile[] | null,
+  texts: [] as TextMsg[], // sent and received this session, newest first
+  // Text shared from another app (Android): TextDialog asks which device.
+  sharedText: null as string | null,
+  // The open compose bar on a computer's peer card (one at a time): its
+  // words go as a text, or with files chosen or dropped onto that card.
+  compose: { peerId: '', body: '' },
 })
 
 export async function initState() {
-  onShare((files) => {
-    app.shared = files
+  onShare(
+    (files) => {
+      app.shared = files
+    },
+    (text) => {
+      app.sharedText = text
+    },
+  )
+  on('text:new', (x) => {
+    if (!app.texts.some((y) => y.id === x.id)) app.texts.unshift(x)
+  })
+  on('text:update', (x) => {
+    const i = app.texts.findIndex((y) => y.id === x.id)
+    if (i >= 0) app.texts[i] = x
   })
   on('server:status', (s) => {
     app.server = s
@@ -87,6 +106,7 @@ export async function initState() {
   on('transfer:progress', applyProgress)
   on('transfers:cleared', () => {
     app.transfers = app.transfers.filter(isActive)
+    app.texts = app.texts.filter((x) => x.unread)
   })
   on('offer:new', (o) => {
     app.offers.push(o)
@@ -97,7 +117,7 @@ export async function initState() {
   on('update:changed', applyUpdate)
   api.getUpdate().then(applyUpdate)
 
-  const [device, server, network, peers, transfers, offers, links, linksAvailable] = await Promise.all([
+  const [device, server, network, peers, transfers, offers, links, linksAvailable, texts] = await Promise.all([
     api.getDevice(),
     api.getServerStatus(),
     api.getNetwork(),
@@ -106,7 +126,9 @@ export async function initState() {
     api.listOffers(),
     api.listLinks(),
     api.linksAvailable(),
+    api.listTexts(),
   ])
+  app.texts = texts
   app.links = links
   app.linksAvailable = linksAvailable
   app.device = device
@@ -119,7 +141,10 @@ export async function initState() {
   // A phone may answer an offer from its notification while the app is in
   // the background: pick up what is still waiting when it comes back.
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) api.listOffers().then((o) => (app.offers = o))
+    if (document.hidden) return
+    api.listOffers().then((o) => (app.offers = o))
+    // Or copy a text from its notification.
+    api.listTexts().then((x) => (app.texts = x))
   })
 }
 
@@ -161,6 +186,9 @@ function upsertTransfer(x: Transfer) {
   if (i >= 0) app.transfers[i] = x
   else app.transfers.unshift(x)
 
+  // The files go, the note doesn't: say so while there's time to send it as a text.
+  if (x.noteLost && !prev?.noteLost) toast(t('transfer.noteLost', { name: x.peerName }), 'info', 10000)
+
   // Announce how a transfer ended, once.
   // The other side cancelled while it was paused: nothing was running, so
   // the check below wouldn't notice.
@@ -176,7 +204,7 @@ function upsertTransfer(x: Transfer) {
         const first = x.saved[0]
         const one = x.saved.length === 1
         toast(
-          t('transfer.toastReceived', { what, name }),
+          x.note ? t('transfer.toastReceivedNote', { what, name, note: preview(x.note) }) : t('transfer.toastReceived', { what, name }),
           'success',
           8000,
           first
@@ -273,29 +301,98 @@ export async function createLink(files: PickedFile[], unlimited: boolean) {
   }
 }
 
-/** Starts sending; reports problems as toasts. */
-export async function sendTo(peer: Peer, files: PickedFile[]) {
-  if (files.length === 0) return
+/** Starts sending, with note if there is one; reports problems as toasts.
+ *  true once it started. */
+export async function sendTo(peer: Peer, files: PickedFile[], note = ''): Promise<boolean> {
+  if (files.length === 0) return false
   try {
-    await api.sendFiles(peer.id, files)
+    await api.sendFiles(peer.id, files, note)
+    if (note && app.compose.peerId === peer.id) closeCompose()
+    return true
   } catch (e) {
     toast(errorText(e), 'error', 6000)
+    return false
   }
 }
 
 /** What to choose before sending: files, a folder, or photos and videos (Android). */
 export type PickKind = 'files' | 'folder' | 'media'
 
-/** Opens the picker for kind, then sends what was chosen. */
-export async function pickAndSend(peer: Peer, kind: PickKind = 'files') {
+/** Opens the picker for kind, then sends what was chosen, with note.
+ *  true once something is on its way. */
+export async function pickAndSend(peer: Peer, kind: PickKind = 'files', note = ''): Promise<boolean> {
   let files: PickedFile[]
   try {
     files = await (kind === 'folder' ? api.pickFolder() : kind === 'media' ? api.pickMedia() : api.pickFiles())
   } catch (e) {
     toast(t('common.filePickerFailed', { error: errorText(e) }), 'error', 6000)
+    return false
+  }
+  return files.length ? sendTo(peer, files, note) : false
+}
+
+// ---- Texts ----
+
+/** Opens the compose bar on peer's card (a computer), body filled in. */
+export function openCompose(peer: Peer, body = '') {
+  if (peer.removedUs) {
+    toast(t('transfer.removedYou', { name: peer.name }), 'info', 6000)
     return
   }
-  if (files.length) await sendTo(peer, files)
+  if (app.compose.peerId !== peer.id) app.compose = { peerId: peer.id, body }
+  else if (body) app.compose.body = body
+}
+
+export function closeCompose() {
+  app.compose = { peerId: '', body: '' }
+}
+
+/** The compose bar's words for peer, if its bar is open: they go with files dropped on its card. */
+export const composeNote = (peer: Peer) => (app.compose.peerId === peer.id ? app.compose.body.trim() && app.compose.body : '')
+
+/** A note on one line, cut short, for a toast. */
+const preview = (s: string) => {
+  const line = s.split(/\s+/).filter(Boolean).join(' ')
+  return line.length > 80 ? line.slice(0, 80) + '…' : line
+}
+
+/** Sends a text; resolves to the error's wording, or '' once it was shown there. */
+export async function sendText(peer: Peer, body: string): Promise<string> {
+  try {
+    const x = await api.sendText(peer.id, body)
+    if (!app.texts.some((y) => y.id === x.id)) app.texts.unshift(x)
+    toast(t('text.sent', { name: peer.name }))
+    return ''
+  } catch (e) {
+    return errorText(e)
+  }
+}
+
+/** Marks a received text seen: it leaves the strip at the top. */
+export function markTextRead(x: TextMsg) {
+  if (!x.unread) return
+  const y = app.texts.find((z) => z.id === x.id)
+  if (y) y.unread = false
+  api.markTextRead(x.id)
+}
+
+/** Copies a text to the clipboard, and counts it as seen. */
+export async function copyText(x: TextMsg) {
+  try {
+    await navigator.clipboard.writeText(x.body)
+    toast(t('common.copied'))
+    markTextRead(x)
+  } catch (e) {
+    toast(errorText(e), 'error')
+  }
+}
+
+export async function openUrl(url: string) {
+  try {
+    await api.openUrl(url)
+  } catch (e) {
+    toast(errorText(e), 'error')
+  }
 }
 
 /** Restarts networking without quitting (applies the listening port). */

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ArrowUpRight, ArrowDownLeft, X, RotateCcw, FolderOpen, FolderSearch, FileSearch, Route, Zap, Pause, Play } from '@lucide/svelte'
+  import { ArrowUpRight, ArrowDownLeft, X, RotateCcw, FolderOpen, FolderSearch, FileSearch, Route, Zap, Pause, Play, Copy } from '@lucide/svelte'
+  import TextBody from './TextBody.svelte'
   import Bed from './Bed.svelte'
   import WaveBand from './WaveBand.svelte'
   import { api, errorText, isActive, isAndroid, type Transfer } from '../api'
@@ -62,6 +63,15 @@
     t.status === 'failed' || t.status === 'declined' ? 'text-bad' : t.status === 'done' ? 'text-ok' : 'text-muted',
   )
 
+  async function copyNote() {
+    try {
+      await navigator.clipboard.writeText(t.note)
+      toast(tr('common.copied'))
+    } catch (e) {
+      toast(errorText(e), 'error')
+    }
+  }
+
   async function retry() {
     try {
       await api.retryTransfer(t.id)
@@ -95,6 +105,17 @@
       {/if}
       <span class="truncate font-medium" title={t.files.map((f) => f.name).join('\n')}>{title}</span>
     </div>
+    {#if t.note}
+      <div class="mt-1 flex items-start gap-1.5 border-l-2 border-line pl-2.5 text-sm text-ink select-text">
+        <div class="min-w-0 flex-1"><TextBody body={t.note} lines={2} /></div>
+        <button class="shrink-0 rounded p-1 text-muted hover:bg-surface-2 hover:text-ink" title={tr('transfer.copyNote')} aria-label={tr('transfer.copyNote')} onclick={copyNote}>
+          <Copy size={14} />
+        </button>
+      </div>
+      {#if t.noteLost}
+        <div class="mt-1 text-sm text-warn">{tr('transfer.noteLostShort')}</div>
+      {/if}
+    {/if}
 
     {#if active || paused}
       <div class="mt-2">

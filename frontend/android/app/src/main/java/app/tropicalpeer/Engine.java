@@ -325,6 +325,22 @@ final class Engine {
                         }
                     }
                     break;
+                case "text:new":
+                    try {
+                        JSONObject x = new JSONObject(json);
+                        if (!foreground && "receive".equals(x.optString("direction"))) Notifier.text(app, x);
+                    } catch (Exception ignored) {
+                        // Not a text we can show.
+                    }
+                    break;
+                case "text:update":
+                    try {
+                        JSONObject x = new JSONObject(json);
+                        if (!x.optBoolean("unread")) Notifier.cancelText(app, x.optString("id"));
+                    } catch (Exception ignored) {
+                        // Nothing to take back.
+                    }
+                    break;
                 case "offer:closed":
                     try {
                         Notifier.cancelOffer(app, new JSONObject(json).optString("id"));
@@ -465,6 +481,7 @@ final class Engine {
             JSONArray saved = t.optJSONArray("saved");
             if (saved == null) return;
             String peer = t.optString("peerName");
+            String note = t.optString("note");
             boolean announce = !foreground;
             List<String> paths = new ArrayList<>();
             for (int i = 0; i < saved.length(); i++) paths.add(saved.getString(i));
@@ -476,8 +493,8 @@ final class Engine {
                 }
                 // One notification per transfer: a folder can hold hundreds of files.
                 if (announce && !paths.isEmpty()) {
-                    if (paths.size() == 1) Notifier.received(app, new File(paths.get(0)).getName(), peer, first);
-                    else Notifier.received(app, Notifier.t("common.files", "count", paths.size()), peer, null);
+                    if (paths.size() == 1) Notifier.received(app, new File(paths.get(0)).getName(), peer, note, first);
+                    else Notifier.received(app, Notifier.t("common.files", "count", paths.size()), peer, note, null);
                 }
             });
         } catch (Exception e) {

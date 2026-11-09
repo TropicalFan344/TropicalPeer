@@ -3,6 +3,8 @@
   import { slide } from 'svelte/transition'
   import { Folder } from '@lucide/svelte'
   import Bed from './Bed.svelte'
+  import TextCard from './TextCard.svelte'
+  import TextBody from './TextBody.svelte'
   import { app, respondOffer } from '../state.svelte'
   import { formatSize } from '../format'
   import { isAndroid } from '../api'
@@ -20,9 +22,12 @@
   // Phone toasts sit at the top of the screen, just under any offers, so they
   // never cover Accept and Decline (see Toasts.svelte).
   let stripHeight = $state(0)
+  // Texts nobody has seen yet wait here too, under the offers (which expire).
+  const unread = $derived(app.texts.filter((x) => x.unread && x.direction === 'receive').reverse())
+  const stripShown = $derived(app.offers.length > 0 || unread.length > 0)
   $effect(() => {
     const root = document.documentElement.style
-    root.setProperty('--offer-h', `${app.offers.length ? stripHeight : 0}px`)
+    root.setProperty('--offer-h', `${stripShown ? stripHeight : 0}px`)
     return () => root.setProperty('--offer-h', '0px')
   })
 
@@ -33,7 +38,7 @@
   }
 </script>
 
-{#if app.offers.length}
+{#if stripShown}
   <!-- Sticky: an offer must be seen wherever the page is scrolled to, since it expires. -->
   <div class="sticky top-0 z-20 flex flex-col gap-px bg-offer-ink/25" aria-live="polite" bind:offsetHeight={stripHeight}>
     {#each app.offers as offer (offer.id)}
@@ -64,6 +69,12 @@
             {/if}
             <span class="text-offer-muted tabular-nums sm:hidden">{t('offer.declinesIn', { time: remaining(offer.expiresAt) })}</span>
           </div>
+          {#if offer.note}
+            <!-- The sender's words: they help decide. -->
+            <div class="mt-2 border-l-2 border-offer-muted/60 pl-3 text-[15px] select-text">
+              <TextBody body={offer.note} lines={4} tone="text-offer-ink" />
+            </div>
+          {/if}
         </div>
         <span class="text-sm whitespace-nowrap text-offer-muted tabular-nums max-sm:hidden">
           {t('offer.declinesIn', { time: remaining(offer.expiresAt) })}
@@ -86,5 +97,17 @@
         </div>
       </section>
     {/each}
+    <!-- The newest three; every text is on the Transfers page. -->
+    {#each unread.slice(-3) as text (text.id)}
+      <TextCard {text} />
+    {/each}
+    {#if unread.length > 3}
+      <button
+        class="bg-primary-soft px-10 py-2 text-left text-sm font-medium text-primary underline-offset-2 hover:underline max-sm:px-4"
+        onclick={() => (app.page = 'transfers')}
+      >
+        {t('text.moreUnread', { count: unread.length - 3 })}
+      </button>
+    {/if}
   </div>
 {/if}

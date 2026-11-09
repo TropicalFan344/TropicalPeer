@@ -46,6 +46,7 @@
         </service>
 
         <receiver android:name=".OfferActionReceiver" android:exported="false" />
+        <receiver android:name=".TextActionReceiver" android:exported="false" />
         <receiver android:name=".InstallResultReceiver" android:exported="false" />
 
         <provider

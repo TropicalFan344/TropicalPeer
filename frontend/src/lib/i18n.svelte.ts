@@ -105,6 +105,11 @@ function category(lang: string, n: number) {
 
 export type Params = Record<string, string | number>
 
+/** A time of day, such as 3:05 PM or 15:05, written the current language's way. */
+export function timeOfDay(ms: number): string {
+  return new Date(ms).toLocaleTimeString(i18n.lang, { hour: 'numeric', minute: '2-digit' })
+}
+
 /** The current language's text for key, with {placeholders} filled from params. */
 export function t(key: string, params: Params = {}): string {
   let lang = i18n.lang

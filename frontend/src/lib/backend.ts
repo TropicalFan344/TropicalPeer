@@ -22,6 +22,7 @@ interface TropicalPeerPlugin {
   pickMedia(): Promise<{ files: { uri: string; name: string; size: number }[] }>
   showFile(o: { path: string }): Promise<void>
   shareText(o: { text: string; title: string }): Promise<void>
+  openUrl(o: { url: string }): Promise<void>
   openFolder(): Promise<void>
   getReady(): Promise<ReadyState>
   setReady(o: { on: boolean }): Promise<ReadyState>
@@ -30,7 +31,7 @@ interface TropicalPeerPlugin {
   chooseDownloadFolder(): Promise<DownloadFolder>
   resetDownloadFolder(): Promise<DownloadFolder>
   addListener(event: 'event', fn: (e: { name: string; json: string }) => void): Promise<unknown>
-  addListener(event: 'share', fn: (e: { files: SharedFile[] }) => void): Promise<unknown>
+  addListener(event: 'share', fn: (e: { files: SharedFile[]; text?: string }) => void): Promise<unknown>
 }
 
 type SharedFile = { uri: string; name: string; size: number }
@@ -81,10 +82,11 @@ export function subscribe(event: string, fn: (data: unknown) => void): () => voi
   return () => set.delete(fn)
 }
 
-/** Files shared to TropicalPeer from another app's share menu (Android). */
-export function onShare(fn: (files: PickedFile[]) => void) {
-  native?.addListener('share', ({ files }) => {
+/** Files, or a text, shared to TropicalPeer from another app's share menu (Android). */
+export function onShare(fn: (files: PickedFile[]) => void, onText: (text: string) => void) {
+  native?.addListener('share', ({ files, text }) => {
     if (files.length) fn(files)
+    else if (text) onText(text)
   })
 }
 
@@ -177,6 +179,17 @@ export async function openFolder(dir: string): Promise<void> {
   if (!native) return Go.OpenFolder(dir)
   try {
     await native.openFolder()
+  } catch (e) {
+    throw message(e)
+  }
+}
+
+/** Opens a web link from a text in the system browser. Only http and https
+ *  links open; both sides check (Go on desktop, Java on Android). */
+export async function openUrl(url: string): Promise<void> {
+  try {
+    if (!native) await Go.OpenURL(url)
+    else await native.openUrl({ url })
   } catch (e) {
     throw message(e)
   }

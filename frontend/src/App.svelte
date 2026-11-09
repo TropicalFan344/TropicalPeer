@@ -7,6 +7,7 @@
   import Toasts from './lib/components/Toasts.svelte'
   import ShareSheet from './lib/components/ShareSheet.svelte'
   import NewLinkDialog from './lib/components/NewLinkDialog.svelte'
+  import TextDialog from './lib/components/TextDialog.svelte'
   import OfferStrip from './lib/components/OfferStrip.svelte'
   import PeersPage from './lib/pages/PeersPage.svelte'
   import SettingsPage from './lib/pages/SettingsPage.svelte'
@@ -84,4 +85,7 @@
 
 <ShareSheet />
 <NewLinkDialog />
+{#if app.sharedText !== null}
+  <TextDialog />
+{/if}
 <Toasts />

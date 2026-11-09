@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"TropicalPeer/internal/appcore"
 	"TropicalPeer/internal/desktop"
 )
@@ -19,7 +21,7 @@ import (
 
 // note is one system notification.
 type note struct {
-	id      string // "offer:<offer id>" or "received:<transfer id>"
+	id      string // "offer:<offer id>", "received:<transfer id>" or "text:<text id>"
 	title   string
 	body    string
 	actions []noteAction
@@ -48,7 +50,7 @@ func (a *App) notifyEvent(name string, data any) {
 		a.showNote(note{
 			id:    "offer:" + o.ID,
 			title: a.core.T("offer.wants", "name", o.PeerName, "what", a.filesWhat(o.Files)),
-			body:  formatSize(o.Total),
+			body:  withNote(formatSize(o.Total), o.Note),
 			actions: []noteAction{
 				{"decline", a.core.T("offer.decline")},
 				{"accept", a.core.T("offer.accept")},
@@ -58,6 +60,17 @@ func (a *App) notifyEvent(name string, data any) {
 		if c, ok := data.(appcore.OfferClosed); ok {
 			a.removeNote("offer:" + c.ID)
 		}
+	case "text:new":
+		x, ok := data.(appcore.TextDTO)
+		if !ok || x.Direction != "receive" || desktop.AppInFront() {
+			return
+		}
+		a.showNote(note{
+			id:      "text:" + x.ID,
+			title:   a.core.T("text.fromTitle", "name", x.PeerName),
+			body:    appcore.TextPreview(x.Body),
+			actions: []noteAction{{"copy", a.core.T("text.copy")}},
+		})
 	case "transfer:update":
 		t, ok := data.(appcore.TransferDTO)
 		if !ok || t.Direction != "receive" || t.Status != appcore.StatusDone || len(t.Saved) == 0 {
@@ -84,7 +97,7 @@ func (a *App) notifyEvent(name string, data any) {
 		a.showNote(note{
 			id:    "received:" + t.ID,
 			title: a.core.T("android.receivedTitle", "name", what),
-			body:  a.core.T("android.receivedFrom", "name", t.PeerName),
+			body:  withNote(a.core.T("android.receivedFrom", "name", t.PeerName), t.Note),
 		})
 	}
 }
@@ -107,6 +120,13 @@ func (a *App) onNote(id, action string) {
 	case kind == "offer" && (action == "accept" || action == "decline"):
 		// Fails only if the offer already expired or was answered.
 		_ = a.core.RespondOffer(key, action == "accept")
+	case kind == "text" && action == "copy":
+		for _, x := range a.core.ListTexts() {
+			if x.ID == key {
+				runtime.ClipboardSetText(a.ctx, x.Body)
+				a.core.MarkTextRead(key)
+			}
+		}
 	case kind == "received":
 		a.notes.mu.Lock()
 		r, ok := a.notes.received[key]
@@ -122,6 +142,14 @@ func (a *App) onNote(id, action string) {
 	default:
 		a.showWindow()
 	}
+}
+
+// withNote adds the start of a transfer's note under a notification's line.
+func withNote(line, note string) string {
+	if note == "" {
+		return line
+	}
+	return line + "\n" + appcore.TextPreview(note)
 }
 
 // filesWhat names what an offer holds: the file, or how many.

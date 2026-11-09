@@ -77,11 +77,17 @@ var methods = map[string]handler{
 		if err != nil {
 			return nil, err
 		}
+		note := ""
+		if len(a) > 2 {
+			if note, err = arg[string](a, 2); err != nil {
+				return nil, err
+			}
+		}
 		sources, err := documentSources(list)
 		if err != nil {
 			return nil, err
 		}
-		return c.SendSources(peerID, sources)
+		return c.SendSourcesNote(peerID, sources, note)
 	},
 	"CreateLinkDocuments": func(c *appcore.Core, a []json.RawMessage) (any, error) {
 		list, err := arg[[]document](a, 0)
@@ -98,6 +104,19 @@ var methods = map[string]handler{
 		}
 		return c.CreateLinkSources(sources, unlimited)
 	},
+	"SendText": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		peerID, err := arg[string](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		body, err := arg[string](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		return c.SendText(peerID, body)
+	},
+	"ListTexts":      noArgs(func(c *appcore.Core) any { return c.ListTexts() }),
+	"MarkTextRead":   oneString(func(c *appcore.Core, id string) (any, error) { c.MarkTextRead(id); return nil, nil }),
 	"LinksAvailable": noArgs(func(c *appcore.Core) any { return c.LinksAvailable() }),
 	"ListLinks":      noArgs(func(c *appcore.Core) any { return c.ListLinks() }),
 	"StopLink":       oneString(func(c *appcore.Core, id string) (any, error) { c.StopLink(id); return nil, nil }),

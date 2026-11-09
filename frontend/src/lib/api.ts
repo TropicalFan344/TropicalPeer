@@ -92,6 +92,8 @@ export interface Transfer {
   saved: string[] // receive: full paths of saved files
   startedAt: number
   endedAt: number
+  note: string // a few words that go with the files
+  noteLost: boolean // send: the other device is too old to show the note
 }
 
 /** What changes while bytes flow; the rest of the row arrives as 'transfer:update'. */
@@ -108,7 +110,28 @@ export interface Offer {
   total: number
   saveDir: string
   expiresAt: number
+  note: string // the sender's words with the files
 }
+
+/** A short text between paired devices (internal/appcore/texts.go). */
+export interface TextMsg {
+  id: string
+  peerId: string
+  peerName: string
+  direction: 'send' | 'receive'
+  body: string
+  at: number // unix ms
+  unread: boolean // received, not yet copied or closed
+  relayed: boolean
+}
+
+/** Longest text body, in UTF-8 bytes (protocol.MaxTextBytes). */
+export const maxTextBytes = 32 << 10
+/** Longest note that goes with files (protocol.MaxNoteBytes). */
+export const maxNoteBytes = 4 << 10
+
+/** A text's size as sent: UTF-8 bytes. */
+export const textBytes = (s: string) => new TextEncoder().encode(s).length
 
 /** One browser that opened a link (internal/appcore/links.go). */
 export interface Visitor {
@@ -173,8 +196,9 @@ export const api = {
   pickFiles: backend.pickFiles,
   pickFolder: backend.pickFolder,
   pickMedia: backend.pickMedia,
-  sendFiles: (peerId: string, files: PickedFile[]) =>
-    call<Transfer>(isAndroid ? 'SendDocuments' : 'SendFiles', peerId, files),
+  /** note (may be empty) is shown with the offer on the other device. */
+  sendFiles: (peerId: string, files: PickedFile[], note = '') =>
+    call<Transfer>(isAndroid ? 'SendDocuments' : 'SendFiles', peerId, files, note),
   cancelTransfer: (id: string) => call<void>('CancelTransfer', id),
   retryTransfer: (id: string) => call<Transfer>('RetryTransfer', id),
   pauseTransfer: (id: string) => call<void>('PauseTransfer', id),
@@ -183,6 +207,12 @@ export const api = {
   clearFinishedTransfers: () => call<void>('ClearFinishedTransfers'),
   listOffers: () => call<Offer[]>('ListOffers'),
   respondOffer: (id: string, accept: boolean) => call<void>('RespondOffer', id, accept),
+  /** Resolves once the text was shown on the other device. */
+  sendText: (peerId: string, body: string) => call<TextMsg>('SendText', peerId, body),
+  listTexts: () => call<TextMsg[]>('ListTexts'),
+  markTextRead: (id: string) => call<void>('MarkTextRead', id),
+  /** Opens an http(s) link in the system browser; anything else is refused. */
+  openUrl: backend.openUrl,
   showFile: backend.showFile,
   /** Android: hands text (a link) to another app through the share menu. */
   shareText: backend.shareText,
@@ -219,6 +249,8 @@ interface EventMap {
   'update:changed': Update
   'link:update': Link
   'link:removed': string
+  'text:new': TextMsg
+  'text:update': TextMsg
 }
 
 export function on<K extends keyof EventMap>(event: K, fn: (data: EventMap[K]) => void): () => void {

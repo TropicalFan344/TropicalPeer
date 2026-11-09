@@ -56,6 +56,11 @@ type TransferDTO struct {
 	Saved        []string  `json:"saved"`     // receive: full paths of saved files
 	StartedAt    int64     `json:"startedAt"` // unix ms
 	EndedAt      int64     `json:"endedAt"`   // unix ms, 0 while active
+	// Note: a few words that go with the files (the offer's note).
+	Note string `json:"note"`
+	// NoteLost: send: the other device took the files but is too old to
+	// show the note.
+	NoteLost bool `json:"noteLost"`
 }
 
 // TransferProgress is pushed as "transfer:progress" while bytes flow: the
@@ -102,22 +107,39 @@ var resumeWaits = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Sec
 // immediately. Changes arrive as "transfer:update" events, progress as
 // "transfer:progress".
 func (c *Core) SendFiles(peerID string, paths []string) (TransferDTO, error) {
+	return c.SendFilesNote(peerID, paths, "")
+}
+
+// SendFilesNote is SendFiles with a note shown along with the offer.
+func (c *Core) SendFilesNote(peerID string, paths []string, note string) (TransferDTO, error) {
 	if _, err := c.n().Peers.Get(peerID); err != nil {
 		return TransferDTO{}, c.errT("transfer.peerGone")
+	}
+	if _, err := c.cleanNote(note); err != nil {
+		return TransferDTO{}, err
 	}
 	sources, err := c.describeFiles(paths)
 	if err != nil {
 		return TransferDTO{}, err
 	}
-	return c.SendSources(peerID, sources)
+	return c.SendSourcesNote(peerID, sources, note)
 }
 
 // SendSources is SendFiles for files that aren't paths on disk, such as
 // Android documents.
 func (c *Core) SendSources(peerID string, sources []transfer.Source) (TransferDTO, error) {
+	return c.SendSourcesNote(peerID, sources, "")
+}
+
+// SendSourcesNote is SendSources with a note shown along with the offer.
+func (c *Core) SendSourcesNote(peerID string, sources []transfer.Source, note string) (TransferDTO, error) {
 	peer, err := c.n().Peers.Get(peerID)
 	if err != nil {
 		return TransferDTO{}, c.errT("transfer.peerGone")
+	}
+	note, err = c.cleanNote(note)
+	if err != nil {
+		return TransferDTO{}, err
 	}
 	if len(sources) == 0 {
 		return TransferDTO{}, c.errT("transfer.chooseFile")
@@ -139,6 +161,7 @@ func (c *Core) SendSources(peerID string, sources []transfer.Source) (TransferDT
 			Status:    StatusConnecting,
 			Files:     files,
 			StartedAt: time.Now().UnixMilli(),
+			Note:      note,
 		},
 		files: sources,
 	}
@@ -235,6 +258,12 @@ func (c *Core) sendOnce(ctx context.Context, st *transferState, peer peers.Peer,
 				}
 				d.Relayed = relayed
 			})
+		},
+		Note: st.dto.Note,
+		OnAccepted: func(noteShown bool) {
+			if st.dto.Note != "" && !noteShown {
+				c.updateTransfer(st, func(d *TransferDTO) { d.NoteLost = true })
+			}
 		},
 	})
 }
@@ -490,9 +519,9 @@ func (c *Core) RetryTransfer(id string) (TransferDTO, error) {
 	}
 	if st.dto.Status == StatusDone {
 		// Sending finished files again is a new transfer.
-		peerID, files := st.dto.PeerID, st.files
+		peerID, files, note := st.dto.PeerID, st.files, st.dto.Note
 		c.mu.Unlock()
-		return c.SendSources(peerID, files)
+		return c.SendSourcesNote(peerID, files, note)
 	}
 	peerID := st.dto.PeerID
 	c.mu.Unlock()
@@ -523,7 +552,7 @@ func (c *Core) ListTransfers() []TransferDTO {
 }
 
 // ClearFinishedTransfers forgets transfers that are no longer active
-// (paused ones stay: they aren't finished).
+// (paused ones stay: they aren't finished), and texts that have been read.
 func (c *Core) ClearFinishedTransfers() {
 	c.mu.Lock()
 	for id, st := range c.transfers {
@@ -531,6 +560,7 @@ func (c *Core) ClearFinishedTransfers() {
 			delete(c.transfers, id)
 		}
 	}
+	c.clearReadTextsLocked()
 	c.mu.Unlock()
 	c.emit("transfers:cleared")
 }

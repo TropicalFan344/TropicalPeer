@@ -21,6 +21,8 @@ import (
 //
 //   - TROPICALPEER_DEV_SEND="<peerID>|<path>[|<path>...]" starts a send once
 //     the node is ready (no native file picker needed).
+//   - TROPICALPEER_DEV_SEND_TEXT="<peerID>|<text>" sends a text once the node
+//     is ready (no dialog needed); the outcome goes to the log.
 //   - TROPICALPEER_DEV_ROUTER="strict" | "restricted" reports that router
 //     type on the Network page (with port forwarding unavailable).
 //   - TROPICALPEER_DEV_LOG=<file> writes the log there (a GUI app has no console).
@@ -61,6 +63,13 @@ func (c *Core) runDevHooks() {
 	}
 	if os.Getenv("TROPICALPEER_DEV_DEMO_TRANSFERS") == "1" {
 		c.addDemoTransfers()
+	}
+	if spec := os.Getenv("TROPICALPEER_DEV_SEND_TEXT"); spec != "" {
+		peerID, body, _ := strings.Cut(spec, "|")
+		go func() {
+			d, err := c.SendText(peerID, body)
+			log.Printf("devhooks: send text: relayed %v, err %v", d.Relayed, err)
+		}()
 	}
 	spec := os.Getenv("TROPICALPEER_DEV_SEND")
 	if spec == "" {

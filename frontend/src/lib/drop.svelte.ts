@@ -6,7 +6,7 @@
 // paths, though, so the drop itself comes from Wails (OnFileDrop), which
 // reports the drop position and the absolute paths.
 import { OnFileDrop } from '../../wailsjs/runtime/runtime'
-import { app, sendTo, shareLink, toast } from './state.svelte'
+import { app, composeNote, sendTo, shareLink, toast } from './state.svelte'
 import { t } from './i18n.svelte'
 
 export const drag = $state({
@@ -52,6 +52,7 @@ export function initDrop() {
       toast(t(app.peers.length ? 'peers.dropOnPeer' : 'peers.pairFirstToDrop'), 'info')
       return
     }
-    sendTo(peer, paths)
+    // Words in the card's open compose bar go with the files.
+    sendTo(peer, paths, composeNote(peer))
   }, false)
 }
