@@ -518,6 +518,7 @@
   },
   "update": {
     "title": "업데이트",
+    "hint": "새 버전이 나오면 TropicalPeer를 업데이트합니다.",
     "auto": "자동으로 업데이트",
     "check": "지금 확인",
     "checking": "업데이트를 확인하는 중…",

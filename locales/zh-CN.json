@@ -518,6 +518,7 @@
   },
   "update": {
     "title": "更新",
+    "hint": "有新版本时自动获取 TropicalPeer。",
     "auto": "自动更新",
     "check": "立即检查",
     "checking": "正在检查更新…",

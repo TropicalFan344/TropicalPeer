@@ -1,7 +1,11 @@
 package locales
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -88,6 +92,68 @@ func TestLanguagesComplete(t *testing.T) {
 				t.Errorf("%s: %q isn't in en.json", lang, key)
 			}
 		}
+	}
+}
+
+// keyLiteral matches a quoted string shaped like a key ('update.hint',
+// "pair.expired"); TestKeysUsedExist keeps the ones in a known group that
+// aren't file names ("settings.json").
+var keyLiteral = regexp.MustCompile(`['"]([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)['"]`)
+
+var fileExt = regexp.MustCompile(`\.(json|js|ts|css|html|svg|png|txt|exe|apk)$`)
+
+// Every key the frontend and the Go code name must be in en.json: a missing
+// one shows up in the app as the raw key ("update.hint"). Keys built at run
+// time (`peerSettings.${opt}Title`) aren't checked.
+func TestKeysUsedExist(t *testing.T) {
+	loadOnce.Do(load)
+	ref := catalogs[Fallback]
+	groups := map[string]bool{}
+	for key := range ref {
+		g, _, _ := strings.Cut(key, ".")
+		groups[g] = true
+	}
+	checked := 0
+	scan := func(root string, exts ...string) {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				switch d.Name() {
+				case "node_modules", "locales", "wailsjs", ".git":
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !slices.Contains(exts, filepath.Ext(path)) || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, m := range keyLiteral.FindAllStringSubmatch(string(data), -1) {
+				key := m[1]
+				g, _, _ := strings.Cut(key, ".")
+				if !groups[g] || fileExt.MatchString(key) {
+					continue
+				}
+				checked++
+				if _, ok := ref[key]; !ok {
+					t.Errorf("%s uses %q, which isn't in en.json", filepath.ToSlash(path), key)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	scan("../frontend/src", ".svelte", ".ts")
+	scan("..", ".go")
+	if checked < 300 {
+		t.Fatalf("found only %d key uses; is the scan looking in the right places?", checked)
 	}
 }
 

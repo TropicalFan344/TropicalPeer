@@ -518,6 +518,7 @@
   },
   "update": {
     "title": "Updates",
+    "hint": "Get new versions of TropicalPeer as they come out.",
     "auto": "Update automatically",
     "check": "Check now",
     "checking": "Checking for updates…",
