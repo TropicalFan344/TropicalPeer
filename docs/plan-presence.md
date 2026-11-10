@@ -14,8 +14,8 @@
 | 3 | 引擎（node）：註冊後送清單、配對或移除後重送、記錄「上次看到」 | 完成，有測試 |
 | 4 | appcore：`PeerDTO.presence`、`lastSeen`、`peers:changed` | 完成 |
 | 5 | 介面：卡片綠點、離線文字、點下去先提醒、分享選單、10 種語言 | 完成；Windows 上用 `wails dev` + 本機伺服器 + `tpcli` 實測上線、下線、提醒 |
-| 6 | 實際網路：PC、Mac VM、手機三台一起測；新舊版混用 | 部分：POCO X7 Pro dev 版（2026-11-11，經 `adb reverse` 連本機伺服器）配對、雙方綠點、App 關掉後 PC 顯示離線、「Stay ready to receive」開著鎖屏 2 分鐘仍在線、繁中字串；跨網路、Mac、新舊版混用未做 |
-| 7 | 部署：公開伺服器換新版 | 未做（要使用者決定時間） |
+| 6 | 實際網路：PC、Mac VM、手機三台一起測；新舊版混用 | 大致完成（2026-11-11，公開伺服器 share.tropicalpeer.win:7777）：手機在另一台路由器（CHT Wi-Fi 105747-1），PC dev 版、手機 dev 版、Mac VM 上的 tpcli 互相配對；三方都看到彼此在線；PC→手機 20 MB 直連（不走中繼）、PC→Mac 直連，SHA-256 相符；手機→PC、手機→Mac 文字送到；手機 App 和 Mac 關掉後 PC 30 秒內顯示離線。新舊版混用、Mac 的正式 App 未測 |
+| 7 | 部署：公開伺服器換新版 | 完成（2026-11-11，PC 上的 releaseserver，舊版留成 .exe.old） |
 
 ## 決定（2026-11-11）
 
