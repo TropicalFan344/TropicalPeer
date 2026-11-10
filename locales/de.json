@@ -8,6 +8,7 @@
     "close": "Schließen",
     "closeDialog": "Dialog schließen",
     "dismiss": "Ausblenden",
+    "skipToContent": "Zum Inhalt springen",
     "copied": "Kopiert",
     "folderPickerFailed": "Die Ordnerauswahl ließ sich nicht öffnen: {error}",
     "filePickerFailed": "Die Dateiauswahl ließ sich nicht öffnen: {error}",

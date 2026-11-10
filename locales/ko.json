@@ -8,6 +8,7 @@
     "close": "닫기",
     "closeDialog": "대화상자 닫기",
     "dismiss": "닫기",
+    "skipToContent": "본문으로 건너뛰기",
     "copied": "복사됨",
     "folderPickerFailed": "폴더 선택기를 열 수 없습니다: {error}",
     "filePickerFailed": "파일 선택기를 열 수 없습니다: {error}",

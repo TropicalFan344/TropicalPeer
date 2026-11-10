@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dur, easeOutExpo } from '../motion'
   import { fly } from 'svelte/transition'
   import { CircleCheck, CircleAlert, Info, X } from '@lucide/svelte'
   import { toasts, dismissToast } from '../state.svelte'
@@ -24,7 +25,7 @@
     <div
       role={t.kind === 'error' ? 'alert' : undefined}
       class="pointer-events-auto flex items-start gap-3 rounded-lg border border-line bg-surface p-3.5 shadow-float"
-      transition:fly={{ y: phone ? -12 : 12, duration: 220, easing: (x) => 1 - Math.pow(2, -10 * x) }}
+      transition:fly={{ y: phone ? -12 : 12, duration: dur(220), easing: easeOutExpo }}
     >
       <Icon size={18} class="mt-px shrink-0 {tones[t.kind]}" />
       <div class="min-w-0 flex-1 text-sm">

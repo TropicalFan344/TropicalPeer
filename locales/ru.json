@@ -8,6 +8,7 @@
     "close": "Закрыть",
     "closeDialog": "Закрыть окно",
     "dismiss": "Скрыть",
+    "skipToContent": "Перейти к содержимому",
     "copied": "Скопировано",
     "folderPickerFailed": "Не удалось открыть выбор папки: {error}",
     "filePickerFailed": "Не удалось открыть выбор файлов: {error}",

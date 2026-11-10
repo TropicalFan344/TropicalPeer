@@ -267,7 +267,7 @@
     <!-- Hidden until hover with a mouse; always there on touch, which can't hover. -->
     <button
       class="rounded-md p-1.5 text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-2
-        hover:text-ink focus-visible:opacity-100 pointer-coarse:-m-1 pointer-coarse:p-2.5 pointer-coarse:opacity-100
+        hover:text-ink focus-visible:opacity-100 pointer-coarse:-m-2 pointer-coarse:p-[13px] pointer-coarse:opacity-100
         {menuOpen ? 'opacity-100' : ''}"
       bind:this={menuButton}
       aria-label={t('peer.moreOptions', { name: peer.name })}

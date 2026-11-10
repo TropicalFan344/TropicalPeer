@@ -10,16 +10,40 @@ type Message = string | Record<string, string> // plain, or plural forms by CLDR
 
 const PLURAL = new Set(['zero', 'one', 'two', 'few', 'many', 'other'])
 
-const files = import.meta.glob<Tree>('../../../locales/*.json', { eager: true, import: 'default' })
+// English is built in (it's every other language's fallback); the rest load
+// when they're used, so the bundle doesn't carry ten languages to show one.
+// Each file's own name ("Deutsch") is all Settings needs up front.
+const codeOf = (path: string) => path.split('/').pop()!.replace(/\.json$/, '')
+const english = import.meta.glob<Tree>('../../../locales/en.json', { eager: true, import: 'default' })
+const later = import.meta.glob<Tree>(['../../../locales/*.json', '!../../../locales/en.json'], { query: '?strings', import: 'default' })
+const ownNames = import.meta.glob<string>('../../../locales/*.json', { eager: true, import: 'language' })
 
 const catalogs: Record<string, Record<string, Message>> = {}
 const names: Record<string, string> = {}
-for (const [path, tree] of Object.entries(files)) {
-  const code = path.split('/').pop()!.replace(/\.json$/, '')
-  const flat: Record<string, Message> = {}
-  flatten('', tree, flat)
-  catalogs[code] = flat
-  names[code] = (flat.language as string) ?? code
+const codes: string[] = []
+for (const [path, name] of Object.entries(ownNames)) {
+  const code = codeOf(path)
+  codes.push(code)
+  names[code] = name ?? code
+}
+for (const [path, tree] of Object.entries(english)) catalogs[codeOf(path)] = flat(tree)
+
+function flat(tree: Tree): Record<string, Message> {
+  const out: Record<string, Message> = {}
+  flatten('', tree, out)
+  return out
+}
+
+/** Loads a language's strings (once). English is always there. */
+export async function loadLanguage(code: string): Promise<void> {
+  if (catalogs[code]) return
+  const path = Object.keys(later).find((p) => codeOf(p) === code)
+  if (!path) return
+  try {
+    catalogs[code] = flat(await later[path]!())
+  } catch {
+    // Unreadable: t() falls back to English.
+  }
 }
 
 function flatten(prefix: string, tree: Tree, out: Record<string, Message>) {
@@ -33,7 +57,7 @@ function flatten(prefix: string, tree: Tree, out: Record<string, Message>) {
 }
 
 /** Available languages, English first, then by their own names. */
-export const languages = Object.keys(catalogs)
+export const languages = [...codes]
   .sort((a, b) => (a === 'en' ? -1 : b === 'en' ? 1 : names[a]!.localeCompare(names[b]!)))
   .map((code) => ({ code, name: names[code]! }))
 
@@ -44,16 +68,16 @@ function systemLanguage(): string {
   const prefs = typeof navigator !== 'undefined' ? navigator.languages : []
   for (const raw of prefs) {
     const tag = raw.toLowerCase()
-    const exact = Object.keys(catalogs).find((c) => c.toLowerCase() === tag)
+    const exact = codes.find((c) => c.toLowerCase() === tag)
     if (exact) return exact
     const [base, ...rest] = tag.split('-')
     if (base === 'zh') {
       // Traditional for Taiwan, Hong Kong, Macau and explicit Hant; else Simplified.
       const trad = rest.some((p) => p === 'hant' || p === 'tw' || p === 'hk' || p === 'mo')
       const pick = trad ? 'zh-TW' : 'zh-CN'
-      if (catalogs[pick]) return pick
+      if (codes.includes(pick)) return pick
     }
-    const sameBase = Object.keys(catalogs).find((c) => c.toLowerCase().split('-')[0] === base)
+    const sameBase = codes.find((c) => c.toLowerCase().split('-')[0] === base)
     if (sameBase) return sameBase
   }
   return 'en'
@@ -62,7 +86,7 @@ function systemLanguage(): string {
 function stored(): string {
   try {
     const v = localStorage.getItem(KEY)
-    if (v && catalogs[v]) return v
+    if (v && codes.includes(v)) return v
   } catch {
     // Storage unavailable: follow the system.
   }
@@ -77,10 +101,13 @@ export const i18n = $state({
 })
 i18n.lang = i18n.choice === 'system' ? systemLanguage() : i18n.choice
 
-/** Changes the language right away and remembers the choice on this device. */
-export function setLanguage(choice: string) {
+/** Changes the language (once its strings have loaded) and remembers the choice on this device. */
+export async function setLanguage(choice: string) {
   i18n.choice = choice
-  i18n.lang = choice === 'system' ? systemLanguage() : choice
+  const lang = choice === 'system' ? systemLanguage() : choice
+  await loadLanguage(lang)
+  if (i18n.choice !== choice) return // chosen again meanwhile
+  i18n.lang = lang
   try {
     if (choice === 'system') localStorage.removeItem(KEY)
     else localStorage.setItem(KEY, choice)

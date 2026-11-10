@@ -8,6 +8,7 @@
     "close": "關閉",
     "closeDialog": "關閉對話框",
     "dismiss": "關閉通知",
+    "skipToContent": "跳到主要內容",
     "copied": "已複製",
     "folderPickerFailed": "無法開啟資料夾選擇器：{error}",
     "filePickerFailed": "無法開啟檔案選擇器：{error}",

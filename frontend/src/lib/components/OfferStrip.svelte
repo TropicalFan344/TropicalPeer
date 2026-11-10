@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dur } from '../motion'
   import { onDestroy } from 'svelte'
   import { slide } from 'svelte/transition'
   import { Folder } from '@lucide/svelte'
@@ -49,7 +50,7 @@
       <section
         class="flex items-center gap-5 bg-offer px-10 py-4 text-offer-ink max-sm:flex-wrap max-sm:gap-x-3.5 max-sm:gap-y-3 max-sm:px-4"
         aria-label={t('offer.label', { name: offer.peerName })}
-        transition:slide={{ duration: 220 }}
+        transition:slide={{ duration: dur(220) }}
       >
         <Bed name={offer.peerName} id={offer.peerId} size={44} edge="var(--offer-muted)" />
         <div class="min-w-0 flex-1">

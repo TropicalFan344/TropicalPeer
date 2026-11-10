@@ -262,7 +262,7 @@
       <SettingLabel title={t('settings.appearance')} hint={t('settings.appliesNow')} />
       <div
         bind:this={segGroup}
-        class="relative inline-flex w-fit rounded-md border border-line bg-surface p-0.5"
+        class="relative inline-flex w-fit rounded-md border border-line-strong bg-surface p-0.5"
         role="radiogroup"
         aria-label={t('settings.appearance')}
       >
@@ -274,7 +274,7 @@
         {#each themes as th, i (th.value)}
           <label
             bind:this={segEls[i]}
-            class="relative cursor-pointer rounded px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 pointer-coarse:py-2.5
+            class="relative cursor-pointer rounded px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 pointer-coarse:py-3
               has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary
               {theme.value === th.value ? 'text-primary-ink' : 'text-muted hover:text-ink'}"
           >
@@ -309,7 +309,7 @@
           detail={t('settings.readyDetail')}
         />
         <div class="flex flex-col gap-2">
-          <label class="flex cursor-pointer items-start gap-3">
+          <label class="flex cursor-pointer items-start gap-3 pointer-coarse:min-h-11 pointer-coarse:items-center">
             <input
               type="checkbox"
               class="check mt-0.5 shrink-0"
@@ -334,7 +334,7 @@
             <p class="max-w-[44ch] text-sm text-muted">{t('settings.readyNotifNote')}</p>
             <button
               type="button"
-              class="w-fit text-sm font-medium text-primary hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5"
+              class="w-fit text-sm font-medium text-primary hover:underline pointer-coarse:-my-1.5 pointer-coarse:py-3"
               onclick={allowNotifications}
             >
               {t('settings.allowNotif')}
@@ -406,7 +406,7 @@
         detail={t('settings.forwardingDetail')}
       />
       <div class="flex flex-col gap-2">
-        <label class="flex cursor-pointer items-start gap-3">
+        <label class="flex cursor-pointer items-start gap-3 pointer-coarse:min-h-11 pointer-coarse:items-center">
           <input
             type="checkbox"
             class="check mt-0.5 shrink-0"
@@ -430,7 +430,7 @@
         </label>
         <button
           type="button"
-          class="w-fit text-sm font-medium text-primary hover:underline pointer-coarse:-my-1 pointer-coarse:py-2.5"
+          class="w-fit text-sm font-medium text-primary hover:underline pointer-coarse:-my-1.5 pointer-coarse:py-3"
           onclick={() => (app.page = 'network')}
         >
           {t('settings.seeReachable')}
@@ -488,7 +488,7 @@
           <p class="text-sm {up.state === 'failed' ? 'text-bad' : up.state === 'ready' ? 'text-ok' : 'text-muted'}">
             {updateStatus(up)}
           </p>
-          <label class="flex cursor-pointer items-start gap-3">
+          <label class="flex cursor-pointer items-start gap-3 pointer-coarse:min-h-11 pointer-coarse:items-center">
             <input
               type="checkbox"
               class="check mt-0.5 shrink-0"

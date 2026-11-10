@@ -10,6 +10,9 @@
   --surface: #fbfcf9;
   --surface-2: #e3e8df;
   --line: #d3dacf;
+  /* Edges that show where a control is (fields, the theme tray): 3:1 on
+     surface and ground (WCAG 1.4.11). Hairline dividers stay --line. */
+  --line-strong: #7a8a80;
   --ink: #17211c;
   --muted: #536259;
 
@@ -31,7 +34,7 @@
   --sea: #2357c4;
   --sea-soft: #dbe5f7;
   --heliconia: #c2412a;
-  --heliconia-soft: #f6dfd7;
+  --heliconia-soft: #f8e6e0; /* bad text on it stays above 4.5:1 */
   /* The incoming-offer field: full heliconia, the one loud surface in the app. */
   --offer: #a8331d;
   --offer-ink: #ffffff;
@@ -70,6 +73,7 @@
     --surface: #172520;
     --surface-2: #1f3029;
     --line: #2b4137;
+    --line-strong: #668073;
     --ink: #e2ebe5;
     --muted: #95a99f;
 
@@ -105,6 +109,7 @@
   --surface: #172520;
   --surface-2: #1f3029;
   --line: #2b4137;
+  --line-strong: #668073;
   --ink: #e2ebe5;
   --muted: #95a99f;
 
@@ -140,6 +145,7 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-rail: var(--rail);
@@ -215,7 +221,7 @@ body {
     min-height: 44px;
   }
   .btn-quiet {
-    min-height: 40px;
+    min-height: 44px;
   }
   /* 16px keeps typing legible and stops browsers zooming into fields. */
   .field {
@@ -259,8 +265,10 @@ h2,
 .rail :focus-visible {
   outline-color: var(--rail-ok);
 }
-/* A dialog takes focus itself only so Tab starts inside it; no ring for that. */
-[role='dialog']:focus-visible {
+/* A dialog (or the page, after the skip link) takes focus only so Tab
+   starts inside it; no ring for that. */
+[role='dialog']:focus-visible,
+#content:focus-visible {
   outline: none;
 }
 
@@ -272,7 +280,7 @@ h2,
 
 @layer components {
   .field {
-    @apply rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition-colors
+    @apply rounded-md border border-line-strong bg-surface px-3 py-2 text-ink outline-none transition-colors
       placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/25;
     user-select: text;
   }

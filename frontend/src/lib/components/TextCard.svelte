@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dur } from '../motion'
   // A received text nobody has seen yet, at the top of every page (inside
   // the offer strip). Calmer than an offer: it waits, and nothing expires.
   import { slide } from 'svelte/transition'
@@ -17,7 +18,7 @@
 <section
   class="flex items-start gap-5 bg-primary-soft px-10 py-4 text-ink max-sm:flex-wrap max-sm:gap-x-3.5 max-sm:gap-y-3 max-sm:px-4"
   aria-label={t('text.fromLabel', { name: text.peerName })}
-  transition:slide={{ duration: 220 }}
+  transition:slide={{ duration: dur(220) }}
 >
   <Bed name={text.peerName} id={text.peerId} size={44} />
   <div class="min-w-0 flex-1">

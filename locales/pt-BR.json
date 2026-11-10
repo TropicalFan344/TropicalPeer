@@ -8,6 +8,7 @@
     "close": "Fechar",
     "closeDialog": "Fechar a caixa de diálogo",
     "dismiss": "Dispensar",
+    "skipToContent": "Pular para o conteúdo",
     "copied": "Copiado",
     "folderPickerFailed": "Não foi possível abrir o seletor de pastas: {error}",
     "filePickerFailed": "Não foi possível abrir o seletor de arquivos: {error}",

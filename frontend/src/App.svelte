@@ -45,11 +45,21 @@
 
 <!-- Desktop: the jungle rail on the left. Phone: the same garden turned on
      its side, content above and the tab bar along the bottom. -->
+<!-- The keyboard's way past the rail, straight to the page. -->
+<a
+  href="#content"
+  class="sr-only rounded-md bg-surface text-sm font-medium text-ink shadow-float focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:px-4 focus:py-2.5"
+  onclick={(e) => {
+    e.preventDefault()
+    document.getElementById('content')?.focus()
+  }}>{t('common.skipToContent')}</a
+>
+
 <div class="flex h-full max-sm:flex-col">
   <div class="contents max-sm:hidden"><Sidebar /></div>
   <!-- Under the phone's status bar: ground, so scrolled content never runs beneath the clock. -->
   <div class="h-[var(--sat)] shrink-0 bg-ground sm:hidden"></div>
-  <main class="flex min-h-0 min-w-0 flex-1 flex-col max-sm:pr-[var(--sar)] max-sm:pl-[var(--sal)]">
+  <main id="content" tabindex="-1" class="flex min-h-0 min-w-0 flex-1 flex-col max-sm:pr-[var(--sar)] max-sm:pl-[var(--sal)]">
     {#if app.fatalError}
       <div class="flex items-center gap-3 border-b border-line bg-heliconia-soft px-10 py-3 text-sm max-sm:px-4">
         <CircleAlert size={18} class="shrink-0 text-bad" />

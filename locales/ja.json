@@ -8,6 +8,7 @@
     "close": "閉じる",
     "closeDialog": "ダイアログを閉じる",
     "dismiss": "閉じる",
+    "skipToContent": "本文へスキップ",
     "copied": "コピーしました",
     "folderPickerFailed": "フォルダーを選択できませんでした：{error}",
     "filePickerFailed": "ファイルを選択できませんでした：{error}",

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dur } from '../motion'
   // A settings row's label column: the title, one short line saying what the
   // setting is for, and, behind an ⓘ toggle, the longer explanation for those
   // who want it. A toggle rather than a tooltip, because touch can't hover.
@@ -24,7 +25,7 @@
     {#if detail}
       <button
         type="button"
-        class="-my-1 rounded-full p-1 transition-colors hover:bg-surface-2 hover:text-ink pointer-coarse:-my-2.5 pointer-coarse:p-2.5
+        class="-my-1 rounded-full p-[5px] transition-colors hover:bg-surface-2 hover:text-ink pointer-coarse:-my-[15px] pointer-coarse:-mr-[10px] pointer-coarse:p-[15px]
           {open ? 'text-primary' : 'text-muted'}"
         aria-expanded={open}
         aria-controls={id}
@@ -37,7 +38,7 @@
   </div>
   <p class="mt-1 max-w-[40ch] text-sm text-muted">{hint}</p>
   {#if open}
-    <p {id} class="mt-2 max-w-[44ch] text-sm text-ink/80" transition:slide={{ duration: 180 }}>{detail}</p>
+    <p {id} class="mt-2 max-w-[44ch] text-sm text-ink/80" transition:slide={{ duration: dur(180) }}>{detail}</p>
   {/if}
   {@render children?.()}
 </div>

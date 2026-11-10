@@ -8,6 +8,7 @@
     "close": "Close",
     "closeDialog": "Close dialog",
     "dismiss": "Dismiss",
+    "skipToContent": "Skip to content",
     "copied": "Copied",
     "folderPickerFailed": "Couldn't open the folder picker: {error}",
     "filePickerFailed": "Couldn't open the file picker: {error}",

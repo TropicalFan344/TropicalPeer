@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dur } from '../motion'
   import { onMount } from 'svelte'
   import { slide } from 'svelte/transition'
   import { FolderOpen, LoaderCircle, Trash2 } from '@lucide/svelte'
@@ -95,7 +96,7 @@
               </span>
             </label>
             {#if opt === 'auto' && selected}
-              <div class="flex flex-wrap items-center gap-2 pr-4 pb-3 pl-11 text-sm" transition:slide={{ duration: 150 }}>
+              <div class="flex flex-wrap items-center gap-2 pr-4 pb-3 pl-11 text-sm" transition:slide={{ duration: dur(150) }}>
                 <label class="flex cursor-pointer items-center gap-2">
                   <input type="checkbox" class="check" bind:checked={limitOn} />
                   {t('peerSettings.onlyUpTo')}

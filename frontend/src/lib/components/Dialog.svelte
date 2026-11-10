@@ -9,6 +9,7 @@
   import { fade, fly, scale } from 'svelte/transition'
   import { X } from '@lucide/svelte'
   import { closeOnBack } from '../back'
+  import { dur, easeOutExpo } from '../motion'
   import { t } from '../i18n.svelte'
 
   let {
@@ -71,7 +72,7 @@
   // the thumb; on desktop it scales in at the centre.
   const phone = typeof matchMedia !== 'undefined' && matchMedia('(max-width: 639.98px)').matches
   const enter = (node: Element) =>
-    phone ? fly(node, { y: 48, duration: 240, easing: (x) => 1 - Math.pow(2, -10 * x) }) : scale(node, { start: 0.96, duration: 160 })
+    phone ? fly(node, { y: 48, duration: dur(240), easing: easeOutExpo }) : scale(node, { start: 0.96, duration: dur(160) })
 </script>
 
 <svelte:window {onkeydown} />
@@ -99,7 +100,7 @@
     <header class="flex shrink-0 items-center justify-between px-6 pt-5 max-sm:px-5 max-sm:pt-3">
       <h2 class="text-lg font-medium">{title}</h2>
       <button
-        class="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-ink max-sm:-mr-2 max-sm:p-2.5"
+        class="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-ink max-sm:-mr-3 max-sm:p-[13px]"
         aria-label={t('common.close')}
         onclick={onclose}
       >

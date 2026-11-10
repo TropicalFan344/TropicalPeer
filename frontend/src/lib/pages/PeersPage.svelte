@@ -90,7 +90,7 @@
     </section>
   {:else}
     <section
-      class="relative grid grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] gap-3"
+      class="relative grid grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))] gap-3"
       aria-label={t('peers.list')}
       use:sortable={{
         ids: () => shown.map((p) => p.id),

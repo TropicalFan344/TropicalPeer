@@ -8,6 +8,7 @@
     "close": "Fermer",
     "closeDialog": "Fermer la boîte de dialogue",
     "dismiss": "Ignorer",
+    "skipToContent": "Aller au contenu",
     "copied": "Copié",
     "folderPickerFailed": "Impossible d'ouvrir le sélecteur de dossier : {error}",
     "filePickerFailed": "Impossible d'ouvrir le sélecteur de fichiers : {error}",
