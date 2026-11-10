@@ -22,6 +22,7 @@ func (n *Node) RemovePeer(id string) error {
 	if err != nil {
 		return err
 	}
+	defer n.rewatch()
 	if err := n.Peers.Remove(id); err != nil {
 		return err
 	}

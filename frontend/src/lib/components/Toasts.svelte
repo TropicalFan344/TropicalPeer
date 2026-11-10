@@ -20,7 +20,9 @@
 >
   {#each toasts as t (t.id)}
     {@const Icon = icons[t.kind]}
+    <!-- Errors interrupt a screen reader; the rest wait their turn. -->
     <div
+      role={t.kind === 'error' ? 'alert' : undefined}
       class="pointer-events-auto flex items-start gap-3 rounded-lg border border-line bg-surface p-3.5 shadow-float"
       transition:fly={{ y: phone ? -12 : 12, duration: 220, easing: (x) => 1 - Math.pow(2, -10 * x) }}
     >

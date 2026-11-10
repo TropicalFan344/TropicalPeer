@@ -25,6 +25,8 @@
   // Texts nobody has seen yet wait here too, under the offers (which expire).
   const unread = $derived(app.texts.filter((x) => x.unread && x.direction === 'receive').reverse())
   const stripShown = $derived(app.offers.length > 0 || unread.length > 0)
+  // An offer expires, a text waits: while one is showing, texts fold to one.
+  const textsShown = $derived(app.offers.length ? 1 : 3)
   $effect(() => {
     const root = document.documentElement.style
     root.setProperty('--offer-h', `${stripShown ? stripHeight : 0}px`)
@@ -97,16 +99,16 @@
         </div>
       </section>
     {/each}
-    <!-- The newest three; every text is on the Transfers page. -->
-    {#each unread.slice(-3) as text (text.id)}
+    <!-- The newest three (one beside an offer); every text is on the Transfers page. -->
+    {#each unread.slice(-textsShown) as text (text.id)}
       <TextCard {text} />
     {/each}
-    {#if unread.length > 3}
+    {#if unread.length > textsShown}
       <button
         class="bg-primary-soft px-10 py-2 text-left text-sm font-medium text-primary underline-offset-2 hover:underline max-sm:px-4"
         onclick={() => (app.page = 'transfers')}
       >
-        {t('text.moreUnread', { count: unread.length - 3 })}
+        {t('text.moreUnread', { count: unread.length - textsShown })}
       </button>
     {/if}
   </div>

@@ -471,7 +471,7 @@ func (c *Core) onRemovedUs(peer peers.Peer) {
 		c.emitTransfer(st)
 	}
 	c.emitPeersChanged()
-	c.emit("peer:removedUs", toPeerDTO(peer))
+	c.emit("peer:removedUs", c.peerDTO(peer))
 }
 
 // onResumeRequest answers a receiver asking us to continue a transfer we

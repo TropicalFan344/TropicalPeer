@@ -52,6 +52,10 @@ export interface Peer {
   addedAt: number
   /** The peer removed this device: sending fails until the two pair again. */
   removedUs: boolean
+  /** From the rendezvous server; '' when it can't be known (older server or app, or not connected). */
+  presence: 'online' | 'offline' | ''
+  /** When it was last seen online (unix ms; 0 = never). */
+  lastSeen: number
 }
 
 export type PeerUpdate = Pick<Peer, 'name' | 'policy' | 'maxAutoSize' | 'saveDir'>

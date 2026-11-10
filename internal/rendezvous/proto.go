@@ -38,7 +38,14 @@ const (
 	// get a yes). Until it says yes, the requester learns nothing about it.
 	TypeConnectAnswer = "connect_answer"
 	TypeNATInfo       = "nat_info" // device → server: what its router is like
-	TypeError         = "error"
+	// Presence between paired devices (CapPresence): a device lists the
+	// devices it is paired with (Watch, replacing any earlier list), and the
+	// server tells it which of them are online, then pushes each change.
+	// Two devices only ever learn about each other when both list the
+	// other; everyone else always reads as offline.
+	TypeWatch    = "watch"    // device → server: Watch
+	TypePresence = "presence" // server → device: ID is Online or not
+	TypeError    = "error"
 
 	// Share by link, on a connection of its own (see links.go):
 	TypeLinkHost     = "link_host"     // sender → server: route browsers that open Link to us (signed with the link's key)
@@ -73,6 +80,11 @@ type Msg struct {
 
 	// connect_answer
 	Accept bool `json:"accept,omitempty"`
+
+	// watch: the IDs of the devices we are paired with. presence: whether
+	// device ID is online (and lists us too).
+	Watch  []string `json:"watch,omitempty"`
+	Online bool     `json:"online,omitempty"`
 
 	// pair_*
 	Nameplate string `json:"nameplate,omitempty"`
@@ -118,6 +130,13 @@ const CapAnswer = "answer"
 // CapTURN: the device can take a TURN relay with a connect offer (ICE),
 // reserve an address there, and answer with it (TURNAddrs).
 const CapTURN = "turn"
+
+// CapPresence: the server tells paired devices when the other is online
+// (TypeWatch, TypePresence).
+const CapPresence = "presence"
+
+// MaxWatch caps how many devices one watch message may list.
+const MaxWatch = 1000
 
 // RegisterPayload is the byte string a device signs to prove it owns its ID.
 func RegisterPayload(id string, unixTime int64, port int, addrs []string) []byte {

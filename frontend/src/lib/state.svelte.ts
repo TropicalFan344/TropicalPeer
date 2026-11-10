@@ -216,7 +216,10 @@ function upsertTransfer(x: Transfer) {
         )
       } else if (x.status === 'failed') toast(x.error || t('transfer.toastReceiveFailed', { name }), 'error', 6000)
     } else {
-      if (x.status === 'done') toast(t('transfer.toastSent', { what, name }))
+      // The Transfers page already shows it done.
+      if (x.status === 'done') {
+        if (app.page !== 'transfers') toast(t('transfer.toastSent', { what, name }))
+      }
       else if (x.status === 'declined') toast(t('transfer.toastDeclined', { what, name }), 'info', 5000)
       else if (x.status === 'failed') toast(x.error || t('transfer.toastSendFailed', { name }), 'error', 6000)
     }
@@ -421,9 +424,17 @@ export interface Toast {
 export const toasts = $state<Toast[]>([])
 let nextToast = 1
 
+// Two at most: more than that covers the cards (and a whole phone screen).
+// The oldest one without a button goes first; one with a button may be the
+// only way to its action (Show file, Not now).
+const maxToasts = 2
+
 export function toast(text: string, kind: Toast['kind'] = 'success', ms = 3500, action?: Toast['action']) {
   const id = nextToast++
-  if (toasts.length >= 4) toasts.shift()
+  if (toasts.length >= maxToasts) {
+    const plain = toasts.findIndex((x) => !x.action)
+    toasts.splice(plain >= 0 ? plain : 0, 1)
+  }
   toasts.push({ id, kind, text, action })
   setTimeout(() => dismissToast(id), ms)
 }

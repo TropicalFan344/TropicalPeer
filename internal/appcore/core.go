@@ -137,6 +137,11 @@ type PeerDTO struct {
 	// RemovedUs: the peer removed this device; sending fails until the two
 	// pair again.
 	RemovedUs bool `json:"removedUs"`
+	// Presence: "online", "offline", or "" when it can't be known (the
+	// server or the peer's app doesn't report presence, or we're not
+	// connected). LastSeen: when it was last seen online (unix ms; 0 = never).
+	Presence string `json:"presence"`
+	LastSeen int64  `json:"lastSeen"`
 }
 
 // Invite describes a pairing code being shown to the user.
@@ -237,6 +242,7 @@ func (c *Core) startNode() error {
 		OnCancelNotice:  c.onCancelNotice,
 		OnRemovedUs:     c.onRemovedUs,
 		OnText:          c.onText,
+		OnPresence:      func(string) { c.emitPeersChanged() },
 	})
 	if err != nil {
 		return err
@@ -451,7 +457,7 @@ func (c *Core) ListPeers() []PeerDTO {
 	list := c.n().Peers.List()
 	out := make([]PeerDTO, 0, len(list))
 	for _, p := range list {
-		out = append(out, toPeerDTO(p))
+		out = append(out, c.peerDTO(p))
 	}
 	return out
 }
@@ -497,7 +503,7 @@ func (c *Core) UpdatePeer(id string, u PeerUpdate) (PeerDTO, error) {
 	if err != nil {
 		return PeerDTO{}, err
 	}
-	return toPeerDTO(p), nil
+	return c.peerDTO(p), nil
 }
 
 func (c *Core) RemovePeer(id string) error {
@@ -521,8 +527,8 @@ func (c *Core) emitPeersChanged() {
 	c.emit("peers:changed", c.ListPeers())
 }
 
-func toPeerDTO(p peers.Peer) PeerDTO {
-	return PeerDTO{
+func (c *Core) peerDTO(p peers.Peer) PeerDTO {
+	d := PeerDTO{
 		ID:          p.ID,
 		Name:        p.Name,
 		Policy:      p.Policy.String(),
@@ -530,7 +536,19 @@ func toPeerDTO(p peers.Peer) PeerDTO {
 		SaveDir:     p.SaveDir,
 		AddedAt:     p.AddedAt.UnixMilli(),
 		RemovedUs:   p.RemovedUs,
+		LastSeen:    p.LastSeen,
 	}
+	if n := c.n(); n != nil {
+		switch known, online := n.PeerPresence(p.ID); {
+		case online:
+			d.Presence = "online"
+		// Offline only for a peer seen online before: an older app that
+		// never reports presence reads as offline to the server too.
+		case known && p.LastSeen > 0 && !p.RemovedUs:
+			d.Presence = "offline"
+		}
+	}
+	return d
 }
 
 // ---- Pairing ----
@@ -565,7 +583,7 @@ func (c *Core) StartInvite() (Invite, error) {
 			c.emit("pair:failed", c.friendlyPairError(err))
 			return
 		}
-		c.emit("pair:done", toPeerDTO(p))
+		c.emit("pair:done", c.peerDTO(p))
 		c.emitPeersChanged()
 	}()
 
@@ -596,7 +614,7 @@ func (c *Core) JoinWithCode(code string) (PeerDTO, error) {
 		return PeerDTO{}, errors.New(c.friendlyPairError(err))
 	}
 	c.emitPeersChanged()
-	return toPeerDTO(p), nil
+	return c.peerDTO(p), nil
 }
 
 // ---- Error messages people can act on ----

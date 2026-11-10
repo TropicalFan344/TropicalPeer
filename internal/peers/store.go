@@ -41,6 +41,11 @@ type Peer struct {
 	// RemovedUs: the peer removed this device, so it refuses our
 	// connections until the two pair again.
 	RemovedUs bool `json:"removedUs,omitempty"`
+	// LastSeen is when this device last saw the peer online, through the
+	// rendezvous server's presence (unix milliseconds; 0 = never). Nonzero
+	// also means the peer's app reports presence at all, so its absence
+	// can be read as "offline" rather than "unknown".
+	LastSeen int64 `json:"lastSeen,omitempty"`
 }
 
 // Removed is a peer this device removed whose notice of it hasn't reached
@@ -170,7 +175,7 @@ func (s *Store) Add(p Peer) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, ok := s.peers[p.ID]; ok {
-		p.Name, p.Policy, p.MaxAutoSize, p.SaveDir, p.AddedAt, p.Order = old.Name, old.Policy, old.MaxAutoSize, old.SaveDir, old.AddedAt, old.Order
+		p.Name, p.Policy, p.MaxAutoSize, p.SaveDir, p.AddedAt, p.Order, p.LastSeen = old.Name, old.Policy, old.MaxAutoSize, old.SaveDir, old.AddedAt, old.Order, old.LastSeen
 	}
 	if p.AddedAt.IsZero() {
 		p.AddedAt = time.Now()

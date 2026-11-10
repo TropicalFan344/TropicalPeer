@@ -68,6 +68,10 @@ type Events struct {
 	// and arrives once even if the peer sent it again. Blocked peers' texts
 	// never get here. Without OnText, texts are refused.
 	OnText func(peer peers.Peer, text protocol.Text, relayed bool)
+	// OnPresence reports that a peer came online or went offline, or (with
+	// id "") that presence is unknown for every peer again because the
+	// server connection ended. See PeerPresence.
+	OnPresence func(id string)
 }
 
 type Node struct {
@@ -126,6 +130,9 @@ type Node struct {
 
 	runCtx         context.Context    // set while Run is active
 	presenceCancel context.CancelFunc // stops the current presence loop
+
+	presMu     sync.Mutex
+	peerOnline map[string]bool // paired peers' presence this registration; nil = unknown (presence.go)
 }
 
 // Connections only live while a transfer (or its accept prompt) does, so
@@ -316,12 +323,14 @@ func (n *Node) presenceLoop(ctx context.Context) {
 			n.linksURL.Store(p.LinksURL)
 			go n.probeLoop(p)
 			go n.reportNetwork(ctx, p)
+			n.watchPeers(p)
 			if ctx.Err() == nil {
 				n.emitStatus(true, nil)
 			}
 			<-p.Done()
 			err = p.Err()
 			n.presence.CompareAndSwap(p, (*rendezvous.Presence)(nil))
+			n.forgetPresence(ctx, p)
 			n.emitNetwork()
 		}
 		if ctx.Err() != nil {
@@ -523,6 +532,7 @@ func (n *Node) addPeer(res *pairing.Result) (peers.Peer, error) {
 	if err := n.Peers.Add(peers.Peer{ID: res.ID, Name: res.Name, PublicKey: res.PublicKey, Policy: peers.PolicyAsk}); err != nil {
 		return peers.Peer{}, err
 	}
+	n.rewatch()
 	return n.Peers.Get(res.ID)
 }
 

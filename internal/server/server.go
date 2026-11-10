@@ -52,6 +52,8 @@ type presence struct {
 
 	answers bool // answers connect offers (rendezvous.CapAnswer)
 	turn    bool // takes a TURN relay with a connect offer (rendezvous.CapTURN)
+
+	watch map[string]bool // the devices it says it is paired with (watch.go), under Server.mu
 }
 
 func (p *presence) send(m rendezvous.Msg) error {
@@ -85,6 +87,11 @@ type Server struct {
 	// one more relayed path next to Relay. Set before serving.
 	AppTURN TURNProvider
 
+	// OfflineGrace is how long a device that dropped off still reads as
+	// online to its paired devices (watch.go). Set before serving.
+	OfflineGrace time.Duration
+
+	pushMu     sync.Mutex // orders presence pushes (watch.go)
 	mu         sync.Mutex
 	online     map[string]*presence
 	nameplates map[string]*pending
@@ -120,14 +127,15 @@ const maxAppTURNPerHour = 30
 
 func New(logger *log.Logger) *Server {
 	return &Server{
-		Logger:     logger,
-		Relay:      true,
-		RelayRate:  32 << 20,
-		online:     map[string]*presence{},
-		nameplates: map[string]*pending{},
-		sessions:   map[uint64]*relaySession{},
-		waiting:    map[string]*waitingAnswer{},
-		appTURN:    map[string]appTURNSession{},
+		Logger:       logger,
+		Relay:        true,
+		RelayRate:    32 << 20,
+		OfflineGrace: defaultOfflineGrace,
+		online:       map[string]*presence{},
+		nameplates:   map[string]*pending{},
+		sessions:     map[uint64]*relaySession{},
+		waiting:      map[string]*waitingAnswer{},
+		appTURN:      map[string]appTURNSession{},
 	}
 }
 
@@ -234,14 +242,16 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 		}
 		s.mu.Unlock()
 		s.Logger.Printf("offline %s", m.ID)
+		s.leftLater(p)
 	}()
 
 	s.mu.Lock()
 	altPort, relay := s.altPort, s.Relay
 	s.mu.Unlock()
-	reg := rendezvous.Msg{Type: rendezvous.TypeRegistered, Observed: observedIP, AltPort: altPort, Relay: relay}
+	reg := rendezvous.Msg{Type: rendezvous.TypeRegistered, Observed: observedIP, AltPort: altPort, Relay: relay,
+		Caps: []string{rendezvous.CapPresence}}
 	if s.Links != nil {
-		reg.Caps, reg.WebURL = []string{rendezvous.CapLinks}, s.Links.WebURL
+		reg.Caps, reg.WebURL = append(reg.Caps, rendezvous.CapLinks), s.Links.WebURL
 	}
 	if err := p.send(reg); err != nil {
 		return nil
@@ -256,6 +266,8 @@ func (s *Server) handleRegister(nc net.Conn, conn *rendezvous.Conn, m rendezvous
 		switch req.Type {
 		case rendezvous.TypeConnect:
 			s.handleConnect(p, req)
+		case rendezvous.TypeWatch:
+			s.handleWatch(p, req.Watch)
 		case rendezvous.TypeNATInfo:
 			s.mu.Lock()
 			p.nat = req.NAT

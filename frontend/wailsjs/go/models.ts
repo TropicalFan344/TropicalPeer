@@ -208,6 +208,8 @@ export namespace appcore {
 	    saveDir: string;
 	    addedAt: number;
 	    removedUs: boolean;
+	    presence: string;
+	    lastSeen: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PeerDTO(source);
@@ -222,6 +224,8 @@ export namespace appcore {
 	        this.saveDir = source["saveDir"];
 	        this.addedAt = source["addedAt"];
 	        this.removedUs = source["removedUs"];
+	        this.presence = source["presence"];
+	        this.lastSeen = source["lastSeen"];
 	    }
 	}
 	export class PeerUpdate {

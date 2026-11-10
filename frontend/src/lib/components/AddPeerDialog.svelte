@@ -5,8 +5,8 @@
   import Dialog from './Dialog.svelte'
   import Bed from './Bed.svelte'
   import WaveBand from './WaveBand.svelte'
-  import { api, on, errorText, type Invite, type Peer } from '../api'
-  import { toast } from '../state.svelte'
+  import { api, on, errorText, isAndroid, type Invite, type Peer } from '../api'
+  import { pickAndSend } from '../state.svelte'
   import { t } from '../i18n.svelte'
 
   let { onclose }: { onclose: () => void } = $props()
@@ -75,9 +75,16 @@
     }
   }
 
+  // The dialog says it; a toast saying it again only piles up.
   function onPaired(p: Peer) {
     paired = p
-    toast(t('pair.pairedWith', { name: p.name }))
+  }
+
+  // The first send is what pairing was for: lead straight into it.
+  function sendFirst() {
+    const p = paired
+    onclose()
+    if (p) pickAndSend(p, isAndroid ? 'media' : 'files')
   }
 
   // ---- Tab switching & lifecycle ----
@@ -148,7 +155,10 @@
         <div class="font-mono text-xs text-muted">{paired.id}</div>
       </div>
       <p class="max-w-xs text-sm text-muted">{t('pair.askNote', { name: paired.name })}</p>
-      <button class="btn-primary mt-2 w-full" onclick={onclose}>{t('common.done')}</button>
+      <div class="mt-2 flex w-full flex-col gap-2">
+        <button class="btn-primary w-full" onclick={sendFirst}>{t('peer.sendTo', { name: paired.name })}</button>
+        <button class="btn-quiet w-full" onclick={onclose}>{t('common.done')}</button>
+      </div>
     </div>
   {:else if tab === null}
     <!-- First: which side are we? -->

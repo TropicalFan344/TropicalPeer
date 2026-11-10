@@ -30,13 +30,16 @@ type Presence struct {
 	// LinksURL is where the server serves share-by-link pages ("" when it
 	// doesn't support links).
 	LinksURL string
+	// Watches: the server reports paired devices' presence (CapPresence).
+	Watches bool
 
 	wmu sync.Mutex // serializes writes
 
-	mu      sync.Mutex
-	waiters map[string]chan Msg
-	err     error
-	done    chan struct{}
+	mu         sync.Mutex
+	waiters    map[string]chan Msg
+	onPresence func(id string, online bool)
+	err        error
+	done       chan struct{}
 }
 
 // StartPresence registers this device. port is the local QUIC port;
@@ -72,8 +75,11 @@ func (c *Client) StartPresence(ctx context.Context, port int, lanAddrs []string,
 
 	p := &Presence{nc: nc, conn: conn, AltPort: reg.AltPort, Relay: reg.Relay, waiters: map[string]chan Msg{}, done: make(chan struct{})}
 	for _, c := range reg.Caps {
-		if c == CapLinks {
+		switch c {
+		case CapLinks:
 			p.LinksURL = reg.WebURL
+		case CapPresence:
+			p.Watches = true
 		}
 	}
 	go func() {
@@ -114,6 +120,13 @@ func (p *Presence) readLoop(onOffer func(*Presence, Msg)) {
 			if onOffer != nil {
 				go onOffer(p, m)
 			}
+		case TypePresence:
+			p.mu.Lock()
+			fn := p.onPresence
+			p.mu.Unlock()
+			if fn != nil && m.ID != "" {
+				fn(m.ID, m.Online) // in order, on this goroutine
+			}
 		}
 	}
 }
@@ -147,6 +160,20 @@ func (p *Presence) SendNAT(profile NATProfile) error {
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
 	return p.conn.Send(Msg{Type: TypeNATInfo, NAT: &profile})
+}
+
+// Watch tells the server which devices we are paired with (the whole list,
+// replacing the last one), and has fn hear whenever one of them comes online
+// or goes offline. The server answers for each listed device right away.
+// Only works when Watches is true; fn must not block.
+func (p *Presence) Watch(ids []string, fn func(id string, online bool)) error {
+	if len(ids) > MaxWatch {
+		ids = ids[:MaxWatch]
+	}
+	p.mu.Lock()
+	p.onPresence = fn
+	p.mu.Unlock()
+	return p.send(Msg{Type: TypeWatch, Watch: ids})
 }
 
 // Done is closed when the registration ends; Err then says why.

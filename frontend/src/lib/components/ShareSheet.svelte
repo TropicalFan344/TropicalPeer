@@ -6,15 +6,21 @@
   import Bed from './Bed.svelte'
   import AddPeerDialog from './AddPeerDialog.svelte'
   import { app, sendTo, shareLink } from '../state.svelte'
-  import { formatSize } from '../format'
+  import { formatAgo, formatSize } from '../format'
   import type { Peer, PickedFile } from '../api'
-  import { t, what as describe } from '../i18n.svelte'
+  import { i18n, t, what as describe } from '../i18n.svelte'
 
   const files = $derived(app.shared.filter((f): f is Exclude<PickedFile, string> => typeof f !== 'string'))
   const what = $derived(describe(files))
   const total = $derived(files.every((f) => f.size >= 0) ? files.reduce((n, f) => n + f.size, 0) : -1)
 
   let pairing = $state(false)
+
+  // Said before choosing: a send to an offline device would only fail.
+  const offlineText = (p: Peer) => {
+    const when = p.lastSeen ? formatAgo(p.lastSeen, i18n.lang) : ''
+    return when ? t('peer.offlineSeen', { when }) : t('peer.offline')
+  }
 
   function close() {
     app.shared = []
@@ -52,7 +58,11 @@
               <Bed name={peer.name} id={peer.id} size={40} />
               <span class="min-w-0 flex-1">
                 <span class="display block truncate text-[17px] leading-tight font-medium">{peer.name}</span>
-                <span class="block font-mono text-[11px] text-muted">{peer.id}</span>
+                {#if peer.presence === 'offline' && !peer.removedUs}
+                  <span class="block truncate text-sm text-muted">{offlineText(peer)}</span>
+                {:else}
+                  <span class="block font-mono text-[11px] text-muted">{peer.id}</span>
+                {/if}
               </span>
             </button>
           </li>
