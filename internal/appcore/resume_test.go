@@ -252,7 +252,7 @@ func startNodeIn(t *testing.T, ctx context.Context, dir, serverAddr, name string
 	if err := n.UpdateSettings(node.Settings{ServerAddr: serverAddr, Port: 0, DownloadDir: downloads}); err != nil {
 		t.Fatal(err)
 	}
-	go n.Run(ctx)
+	runNode(t, ctx, n)
 	select {
 	case <-online:
 	case <-time.After(10 * time.Second):

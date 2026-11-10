@@ -159,13 +159,30 @@ func startNode(t *testing.T, ctx context.Context, serverAddr, name string, ev no
 	if err := n.UpdateSettings(node.Settings{ServerAddr: serverAddr, Port: 0, DownloadDir: downloads}); err != nil {
 		t.Fatal(err)
 	}
-	go n.Run(ctx)
+	runNode(t, ctx, n)
 	select {
 	case <-online:
 	case <-time.After(10 * time.Second):
 		t.Fatalf("%s never came online", name)
 	}
 	return n, downloads
+}
+
+// runNode starts n until ctx ends, and keeps the test's cleanup (which
+// deletes n's folder) waiting until Run has returned and stopped writing there.
+func runNode(t *testing.T, ctx context.Context, n *node.Node) {
+	done := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Error("the node didn't stop")
+		}
+	})
+	go func() {
+		defer close(done)
+		n.Run(ctx)
+	}()
 }
 
 func pairNodes(t *testing.T, ctx context.Context, a, b *node.Node) {

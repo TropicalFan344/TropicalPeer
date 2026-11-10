@@ -50,7 +50,7 @@ func relayedCore(t *testing.T, ctx context.Context, sim *netsim.Network, tcpAddr
 	n.SetName(name)
 	n.UpdateSettings(node.Settings{ServerAddr: tcpAddr, Port: 0, DownloadDir: filepath.Join(dir, "downloads")})
 	c.node = n
-	go n.Run(ctx)
+	runNode(t, ctx, n)
 	<-online
 	for deadline := time.Now().Add(10 * time.Second); !n.Network().NAT.Known; time.Sleep(20 * time.Millisecond) {
 		if time.Now().After(deadline) {
