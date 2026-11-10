@@ -3,6 +3,7 @@
   import { flip } from 'svelte/animate'
   import { fade, scale } from 'svelte/transition'
   import PeerCard from '../components/PeerCard.svelte'
+  import Bed from '../components/Bed.svelte'
   import AddPeerDialog from '../components/AddPeerDialog.svelte'
   import { app, toast } from '../state.svelte'
   import { drag } from '../drop.svelte'
@@ -47,30 +48,45 @@
   <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
     <div>
       <h1 class="page-title">{t('peers.title')}</h1>
-      <p class="mt-1 text-muted">
-        {#if drag.active && app.peers.length}
-          {t('peers.dropHint')}
-        {:else if isAndroid}
-          {t('peers.subtitleTouch')}
-        {:else}
-          {t(isMac ? 'peers.subtitleMac' : 'peers.subtitle')}
-        {/if}
-      </p>
+      <!-- With nothing paired the empty state below does the explaining. -->
+      {#if app.peers.length}
+        <p class="mt-1 text-muted">
+          {#if drag.active}
+            {t('peers.dropHint')}
+          {:else if isAndroid}
+            {t('peers.subtitleTouch')}
+          {:else}
+            {t(isMac ? 'peers.subtitleMac' : 'peers.subtitle')}
+          {/if}
+        </p>
+      {/if}
     </div>
-    <button class="btn-primary whitespace-nowrap" onclick={() => (adding = true)}>
-      <Plus size={18} /> {t('peers.add')}
-    </button>
+    {#if app.peers.length}
+      <button class="btn-primary whitespace-nowrap" onclick={() => (adding = true)}>
+        <Plus size={18} /> {t('peers.add')}
+      </button>
+    {/if}
   </header>
 
   {#if app.peers.length === 0}
-    <section class="flex flex-col items-start gap-4 border-t border-line pt-8">
-      <h2 class="text-xl font-medium">{t('peers.emptyTitle')}</h2>
-      <p class="max-w-[60ch] text-muted">
-        {emptyBefore}<span class="font-mono whitespace-nowrap text-ink">7-orchid-tiger</span>{emptyAfter}
-      </p>
-      <button class="btn-primary" onclick={() => (adding = true)}>
-        <Plus size={18} /> {t('peers.add')}
-      </button>
+    <section class="flex items-start gap-8 border-t border-line pt-8 max-sm:flex-col max-sm:gap-6">
+      <!-- This device's own bed, and an unplanted one waiting for the other. -->
+      <div class="flex shrink-0 items-center gap-2 pt-1" aria-hidden="true">
+        {#if app.device?.id}
+          <Bed name={app.device.name} id={app.device.id} size={52} />
+        {/if}
+        <span class="w-8 border-t-2 border-dotted border-muted/50"></span>
+        <Bed name="" id={app.device?.id ? app.device.id + '~' : 'other'} size={52} ghost />
+      </div>
+      <div class="flex flex-col items-start gap-4">
+        <h2 class="text-xl font-medium">{t('peers.emptyTitle')}</h2>
+        <p class="max-w-[60ch] text-muted">
+          {emptyBefore}<span class="font-mono whitespace-nowrap text-ink">7-orchid-tiger</span>{emptyAfter}
+        </p>
+        <button class="btn-primary" onclick={() => (adding = true)}>
+          <Plus size={18} /> {t('peers.add')}
+        </button>
+      </div>
     </section>
   {:else}
     <section

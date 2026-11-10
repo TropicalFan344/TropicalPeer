@@ -1,5 +1,11 @@
+<script lang="ts" module>
+  // Open dialogs, newest last. Only the top one answers Escape and keeps
+  // keyboard focus, so a confirm opened from a dialog closes on its own.
+  const open: symbol[] = []
+</script>
+
 <script lang="ts">
-  import type { Snippet } from 'svelte'
+  import { onMount, tick, type Snippet } from 'svelte'
   import { fade, fly, scale } from 'svelte/transition'
   import { X } from '@lucide/svelte'
   import { closeOnBack } from '../back'
@@ -12,8 +18,50 @@
     width = 'max-w-md',
   }: { title: string; onclose: () => void; children: Snippet; width?: string } = $props()
 
+  const me = Symbol()
+  let panel: HTMLElement | undefined = $state()
+  // Where focus goes back to when the dialog closes: the button that opened it.
+  const opener = document.activeElement as HTMLElement | null
+
+  onMount(() => {
+    open.push(me)
+    // A field inside may have taken focus already; otherwise the panel takes
+    // it, so a screen reader announces the dialog and Tab starts inside it.
+    tick().then(() => {
+      if (panel && !panel.contains(document.activeElement)) panel.focus()
+    })
+    return () => {
+      open.splice(open.indexOf(me), 1)
+      if (opener?.isConnected) opener.focus()
+    }
+  })
+
+  const focusable = () =>
+    [...(panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter(
+      (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null,
+    )
+
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onclose()
+    if (open.at(-1) !== me) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onclose()
+    } else if (e.key === 'Tab' && panel) {
+      // Tab stays inside the dialog: past the last control it wraps to the first.
+      const els = focusable()
+      if (!els.length) return e.preventDefault()
+      const first = els[0]!
+      const last = els[els.length - 1]!
+      const at = document.activeElement
+      const inside = panel.contains(at)
+      if (e.shiftKey && (!inside || at === first || at === panel)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (!inside || at === last)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
   }
 
   // Android's back button closes the sheet before anything else.
@@ -37,10 +85,12 @@
     transition:fade={{ duration: 150 }}
   ></button>
   <div
-    class="relative flex max-h-[calc(100vh-3rem)] w-full {width} flex-col rounded-lg border border-line bg-surface shadow-float
+    class="relative flex max-h-[calc(100vh-3rem)] w-full {width} flex-col rounded-lg border border-line bg-surface shadow-float outline-none
       max-sm:max-h-[calc(100dvh-var(--sat)-1.5rem)] max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0"
+    bind:this={panel}
     role="dialog"
     aria-modal="true"
+    tabindex="-1"
     aria-label={title}
     transition:enter
   >

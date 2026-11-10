@@ -4,7 +4,14 @@
   // outlines are hand-drawn, after the curving beds of Burle Marx's gardens.
   // edge: an outline colour, for beds laid on a coloured field (the offer
   // strip), where a heliconia bed would otherwise vanish into heliconia.
-  let { name, id, size = 48, edge = '' }: { name: string; id: string; size?: number; edge?: string } = $props()
+  // ghost: an unplanted bed, only its dashed outline: a device not paired yet.
+  let {
+    name,
+    id,
+    size = 48,
+    edge = '',
+    ghost = false,
+  }: { name: string; id: string; size?: number; edge?: string; ghost?: boolean } = $props()
 
   const beds = [
     'M9 15C15 4 31 1 42 6C52 10 55 23 51 32C48 40 39 38 34 45C28 52 14 54 7 46C1 39 3 25 9 15Z',
@@ -32,6 +39,9 @@
 </script>
 
 <svg width={size} height={size} viewBox="0 0 56 56" class="shrink-0 overflow-visible" aria-hidden="true">
+  {#if ghost}
+    <path d={beds[hash % beds.length]} fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4" stroke-linecap="round" />
+  {:else}
   <path
     d={beds[hash % beds.length]}
     style="fill:{colours[(hash >>> 3) % colours.length]}{edge ? `;stroke:${edge};stroke-width:2.5;paint-order:stroke` : ''}"
@@ -48,4 +58,5 @@
   >
     {initials}
   </text>
+  {/if}
 </svg>

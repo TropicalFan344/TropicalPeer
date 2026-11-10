@@ -29,13 +29,15 @@
 
   // Appearance: the primary fill slides to the chosen option. Options differ
   // in width (and by language), so the fill measures the one it moves to.
+  // The fill spans the group and is clipped to that option, so the slide
+  // animates clip-path instead of layout and keeps its true corner radius.
   let segGroup = $state<HTMLElement>()
   const segEls: HTMLElement[] = $state([])
-  let seg = $state({ x: 0, w: 0 })
+  let seg = $state({ x: 0, r: 0 })
   let segGlide = $state(false) // no slide on first paint, only on a change
   function measureSeg() {
     const el = segEls[themes.findIndex((th) => th.value === theme.value)]
-    if (el) seg = { x: el.offsetLeft, w: el.offsetWidth }
+    if (el && segGroup) seg = { x: el.offsetLeft - 2, r: segGroup.clientWidth - 2 - el.offsetLeft - el.offsetWidth }
   }
   $effect(() => {
     void theme.value
@@ -265,9 +267,8 @@
         aria-label={t('settings.appearance')}
       >
         <span
-          class="seg-fill absolute top-0.5 bottom-0.5 left-0 rounded bg-primary {segGlide ? 'seg-glide' : ''}"
-          style:transform="translateX({seg.x}px)"
-          style:width="{seg.w}px"
+          class="seg-fill absolute inset-0.5 bg-primary {segGlide ? 'seg-glide' : ''}"
+          style:clip-path="inset(0 {seg.r}px 0 {seg.x}px round 4px)"
           aria-hidden="true"
         ></span>
         {#each themes as th, i (th.value)}
@@ -564,9 +565,7 @@
 
 <style>
   .seg-glide {
-    transition:
-      transform 300ms var(--ease-out-expo),
-      width 300ms var(--ease-out-expo);
+    transition: clip-path 300ms var(--ease-out-expo);
   }
   @media (prefers-reduced-motion: reduce) {
     .seg-glide {

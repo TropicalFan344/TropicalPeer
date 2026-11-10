@@ -101,7 +101,7 @@ func TestT(t *testing.T) {
 	if got := T("en", "common.files", map[string]any{"count": 3}); got != "3 files" {
 		t.Errorf("plural other: %q", got)
 	}
-	if got := T("xx", "nav.peers", nil); got != "Peers" {
+	if got := T("xx", "nav.peers", nil); got != "Devices" {
 		t.Errorf("unknown language should fall back to English: %q", got)
 	}
 	if got := T("en", "no.such.key", nil); got != "no.such.key" {

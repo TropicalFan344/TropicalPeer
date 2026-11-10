@@ -55,6 +55,7 @@ Open decisions:
 ## Brand Commitments
 
 - Name: **TropicalPeer**.
+- Shipped UI copy calls paired devices "devices" (the Devices page, Add device, Device settings), never "peers"; "peer" stays an internal and code term.
 - Voice in shipped UI copy: plain, friendly, specific; errors say what happened and what to do next (e.g. "Moon Laptop is offline. Make sure TropicalPeer is open on it.").
 - Languages: English, 繁體中文, 简体中文, 日本語, 한국어, Español, Français, Deutsch, Português (Brasil) and Русский, following the system language unless chosen in Settings. All text lives in `locales/*.json` (see locales/README.md); new UI text gets a key there, never a literal in code.
 

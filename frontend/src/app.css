@@ -255,6 +255,14 @@ h2,
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+/* Jungle-leaf barely shows on the jungle rail; the rail's own green does. */
+.rail :focus-visible {
+  outline-color: var(--rail-ok);
+}
+/* A dialog takes focus itself only so Tab starts inside it; no ring for that. */
+[role='dialog']:focus-visible {
+  outline: none;
+}
 
 /* Scrollbars carry the palette too. */
 * {

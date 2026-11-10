@@ -16,7 +16,8 @@
       <h1 class="page-title">{t('links.title')}</h1>
       <p class="mt-1 max-w-[60ch] text-muted">{t('links.subtitle')}</p>
     </div>
-    {#if app.linksAvailable}
+    <!-- The empty block below carries its own New link button. -->
+    {#if app.linksAvailable && app.links.length}
       <button class="btn-primary whitespace-nowrap" onclick={pickAndShareLink}><Link2 size={16} /> {t('links.new')}</button>
     {/if}
   </header>
