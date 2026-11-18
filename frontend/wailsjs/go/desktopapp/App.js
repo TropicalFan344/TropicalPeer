@@ -26,8 +26,12 @@ export function ClearFinishedTransfers() {
   return window['go']['desktopapp']['App']['ClearFinishedTransfers']();
 }
 
-export function CreateLink(arg1, arg2) {
-  return window['go']['desktopapp']['App']['CreateLink'](arg1, arg2);
+export function CreateAskLink(arg1, arg2) {
+  return window['go']['desktopapp']['App']['CreateAskLink'](arg1, arg2);
+}
+
+export function CreateLink(arg1, arg2, arg3) {
+  return window['go']['desktopapp']['App']['CreateLink'](arg1, arg2, arg3);
 }
 
 export function GetDevice() {
@@ -160,6 +164,10 @@ export function SetDeviceName(arg1) {
 
 export function SetLanguage(arg1) {
   return window['go']['desktopapp']['App']['SetLanguage'](arg1);
+}
+
+export function SetLinkReplies(arg1, arg2) {
+  return window['go']['desktopapp']['App']['SetLinkReplies'](arg1, arg2);
 }
 
 export function SetLinkUnlimited(arg1, arg2) {

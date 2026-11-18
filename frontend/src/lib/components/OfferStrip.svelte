@@ -6,7 +6,8 @@
   import Bed from './Bed.svelte'
   import TextCard from './TextCard.svelte'
   import TextBody from './TextBody.svelte'
-  import { app, respondOffer } from '../state.svelte'
+  import OfferFiles from './OfferFiles.svelte'
+  import { app, deviceOffers, linkOffers, respondOffer } from '../state.svelte'
   import { formatSize } from '../format'
   import { isAndroid } from '../api'
   import { t, what } from '../i18n.svelte'
@@ -34,6 +35,11 @@
     return () => root.setProperty('--offer-h', '0px')
   })
 
+  // Devices' offers expire, so each shows. People on links can wait: one at a
+  // time here, and the rest answer on their link's card.
+  const shownOffers = $derived([...deviceOffers(), ...linkOffers().slice(0, 1)])
+  const moreOnLinks = $derived(Math.max(0, linkOffers().length - 1))
+
   function shortDir(dir: string) {
     const sep = dir.includes('\\') ? '\\' : '/' // as the system writes it
     const parts = dir.split(/[\\/]/).filter(Boolean)
@@ -44,7 +50,7 @@
 {#if stripShown}
   <!-- Sticky: an offer must be seen wherever the page is scrolled to, since it expires. -->
   <div class="sticky top-0 z-20 flex flex-col gap-px bg-offer-ink/25" aria-live="polite" bind:offsetHeight={stripHeight}>
-    {#each app.offers as offer (offer.id)}
+    {#each shownOffers as offer (offer.id)}
       {@const shown = offer.files.slice(0, 3)}
       <!-- Phone: the sentence on top, answers as two full-width buttons under it, in thumb reach. -->
       <section
@@ -55,11 +61,20 @@
         <Bed name={offer.peerName} id={offer.peerId} size={44} edge="var(--offer-muted)" />
         <div class="min-w-0 flex-1">
           <h2 class="text-[17px] leading-snug font-medium">
-            {t('offer.wants', { name: offer.peerName, what: what(offer.files) })}
+            {t(offer.fromLink ? 'offer.wantsLink' : 'offer.wants', { name: offer.peerName, what: what(offer.files) })}
           </h2>
+          {#if offer.fromLink}
+            <!-- The name is generated: nothing says who this really is. -->
+            <p class="mt-0.5 text-sm text-offer-ink">{t('offer.linkWarning', { name: offer.peerName })}</p>
+            {#if offer.visitorNote}
+              <!-- Their own words, never made into links. -->
+              <p class="mt-1 text-sm text-offer-ink select-text [overflow-wrap:anywhere]">{t('offer.theySay', { note: offer.visitorNote })}</p>
+            {/if}
+            <div class="mt-1.5"><OfferFiles files={offer.files} muted="text-offer-muted" /></div>
+          {/if}
           <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-offer-muted">
             <span class="font-medium text-offer-ink">{formatSize(offer.total)}</span>
-            {#if offer.files.length > 1}
+            {#if offer.files.length > 1 && !offer.fromLink}
               <span class="truncate">
                 {shown.map((f) => f.name).join(', ')}{offer.files.length > 3 ? `, ${t('offer.more', { count: offer.files.length - 3 })}` : ''}
               </span>
@@ -70,7 +85,9 @@
                 <Folder size={13} /> {shortDir(offer.saveDir)}
               </span>
             {/if}
-            <span class="text-offer-muted tabular-nums sm:hidden">{t('offer.declinesIn', { time: remaining(offer.expiresAt) })}</span>
+            {#if offer.expiresAt}
+              <span class="text-offer-muted tabular-nums sm:hidden" aria-hidden="true">{t('offer.declinesIn', { time: remaining(offer.expiresAt) })}</span>
+            {/if}
           </div>
           {#if offer.note}
             <!-- The sender's words: they help decide. -->
@@ -79,9 +96,12 @@
             </div>
           {/if}
         </div>
-        <span class="text-sm whitespace-nowrap text-offer-muted tabular-nums max-sm:hidden">
-          {t('offer.declinesIn', { time: remaining(offer.expiresAt) })}
-        </span>
+        {#if offer.expiresAt}
+          <!-- Hidden from screen readers: the strip is a live region, and this ticks. -->
+          <span class="text-sm whitespace-nowrap text-offer-muted tabular-nums max-sm:hidden" aria-hidden="true">
+            {t('offer.declinesIn', { time: remaining(offer.expiresAt) })}
+          </span>
+        {/if}
         <div class="flex gap-2 max-sm:w-full max-sm:gap-3">
           <button
             class="rounded-md border border-offer-ink/60 px-4 py-2 font-medium whitespace-nowrap text-offer-ink transition-colors
@@ -100,6 +120,14 @@
         </div>
       </section>
     {/each}
+    {#if moreOnLinks}
+      <button
+        class="bg-offer px-10 py-2 text-left text-sm font-medium text-offer-ink underline-offset-2 hover:underline max-sm:px-4"
+        onclick={() => (app.page = 'links')}
+      >
+        {t('offer.moreOnLinks', { count: moreOnLinks })}
+      </button>
+    {/if}
     <!-- The newest three (one beside an offer); every text is on the Transfers page. -->
     {#each unread.slice(-textsShown) as text (text.id)}
       <TextCard {text} />

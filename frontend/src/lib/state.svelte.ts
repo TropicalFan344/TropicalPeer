@@ -240,7 +240,20 @@ export const activeTransfers = () => app.transfers.filter(isActive)
 
 // ---- Links ----
 
-export const visitorActive = (v: { status: string }) => v.status === 'connecting' || v.status === 'waiting' || v.status === 'sending'
+export const visitorActive = (v: { status: string }) =>
+  v.status === 'connecting' ||
+  v.status === 'waiting' ||
+  v.status === 'sending' ||
+  v.status === 'downloaded' ||
+  v.status === 'asking' ||
+  v.status === 'replying'
+
+/** Has the shared files; with replies on, the page may still be open. */
+export const visitorGotFiles = (v: { status: string; gotFiles?: boolean }) => !!v.gotFiles || v.status === 'done' || v.status === 'downloaded'
+
+/** Offers waiting for an answer from paired devices, and from people on links. */
+export const deviceOffers = () => app.offers.filter((o) => !o.fromLink)
+export const linkOffers = () => app.offers.filter((o) => o.fromLink)
 
 /** People downloading from links right now. */
 export const activeVisitors = () => app.links.reduce((n, l) => n + l.visitors.filter((v) => v.status === 'sending').length, 0)
@@ -248,6 +261,9 @@ export const activeVisitors = () => app.links.reduce((n, l) => n + l.visitors.fi
 // Links stopped here: an update still on its way for one must not bring
 // its card back.
 const removedLinks = new Set<string>()
+// Who was already announced as having the files: replying moves a visitor
+// away from "downloaded" and back.
+const announcedVisitors = new Set<string>()
 
 function forgetLink(id: string) {
   removedLinks.add(id)
@@ -269,7 +285,8 @@ function upsertLink(l: Link) {
   // Say when someone finishes, once.
   for (const v of l.visitors) {
     const was = prev?.visitors.find((x) => x.session === v.session)
-    if (v.status === 'done' && was && was.status !== 'done') {
+    if (!l.ask && visitorGotFiles(v) && was && !visitorGotFiles(was) && !announcedVisitors.has(v.session)) {
+      announcedVisitors.add(v.session)
       toast(t('links.toastDone', { name: v.name, what: describe(l.files) }))
     }
   }
@@ -286,7 +303,7 @@ export function shareLink(files: PickedFile[]) {
 }
 
 /** Makes a link; with no files, opens the file picker first. */
-export async function createLink(files: PickedFile[], unlimited: boolean) {
+export async function createLink(files: PickedFile[], unlimited: boolean, replies: boolean) {
   if (!files.length) {
     try {
       files = await api.pickFiles()
@@ -297,8 +314,17 @@ export async function createLink(files: PickedFile[], unlimited: boolean) {
     if (!files.length) return
   }
   try {
-    const l = await api.createLink(files, unlimited)
+    const l = await api.createLink(files, unlimited, replies)
     upsertLink(l)
+  } catch (e) {
+    toast(errorText(e), 'error', 6000)
+  }
+}
+
+/** Makes a link that asks for files; purpose (may be empty) says what for. */
+export async function createAskLink(purpose: string, unlimited: boolean) {
+  try {
+    upsertLink(await api.createAskLink(purpose, unlimited))
   } catch (e) {
     toast(errorText(e), 'error', 6000)
   }

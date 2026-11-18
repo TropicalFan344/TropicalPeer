@@ -19,5 +19,9 @@ export function formatAgo(ms: number, lang: string, now = Date.now()): string {
   return new Intl.RelativeTimeFormat(lang, { style: 'short', numeric: 'auto' }).format(-n, unit)
 }
 
+/** Whether opening a file of this name can run something on the device. */
+export const runsCode = (name: string) =>
+  /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|jar|lnk|reg|dll|sh|command|app|pkg|dmg|apk|xapk|deb|rpm)$/i.test(name.trim())
+
 export const MB = 1024 * 1024
 export const GB = 1024 * MB

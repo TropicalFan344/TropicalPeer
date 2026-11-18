@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Users, ArrowLeftRight, Link2, Settings, Copy, Check, ChevronRight } from '@lucide/svelte'
-  import { app, activeTransfers, activeVisitors, type Page } from '../state.svelte'
+  import { app, activeTransfers, activeVisitors, deviceOffers, linkOffers, type Page } from '../state.svelte'
   import Bed from './Bed.svelte'
   import { t } from '../i18n.svelte'
   import { scale } from 'svelte/transition'
@@ -61,14 +61,18 @@
             {active}
           </span>
         {/if}
-        {#if item.page === 'links' && downloading}
+        {#if item.page === 'links' && linkOffers().length}
+          <span class="ml-auto min-w-5 rounded-full bg-rail-alert px-1.5 text-center text-xs font-semibold text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>
+            {linkOffers().length}
+          </span>
+        {:else if item.page === 'links' && downloading}
           <span class="ml-auto min-w-5 rounded-full bg-rail-ink px-1.5 text-center text-xs font-semibold text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>
             {downloading}
           </span>
         {/if}
-        {#if item.page === 'peers' && app.offers.length}
+        {#if item.page === 'peers' && deviceOffers().length}
           <span class="ml-auto min-w-5 rounded-full bg-rail-alert px-1.5 text-center text-xs font-semibold text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>
-            {app.offers.length}
+            {deviceOffers().length}
           </span>
         {/if}
       </button>

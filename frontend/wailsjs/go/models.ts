@@ -56,6 +56,11 @@ export namespace appcore {
 	    error: string;
 	    seenAt: number;
 	    relayed: boolean;
+	    gotFiles: boolean;
+	    replyDone: number;
+	    replyTotal: number;
+	    sentFiles: number;
+	    sentBytes: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new VisitorDTO(source);
@@ -72,6 +77,11 @@ export namespace appcore {
 	        this.error = source["error"];
 	        this.seenAt = source["seenAt"];
 	        this.relayed = source["relayed"];
+	        this.gotFiles = source["gotFiles"];
+	        this.replyDone = source["replyDone"];
+	        this.replyTotal = source["replyTotal"];
+	        this.sentFiles = source["sentFiles"];
+	        this.sentBytes = source["sentBytes"];
 	    }
 	}
 	export class LinkDTO {
@@ -81,6 +91,9 @@ export namespace appcore {
 	    files: FileDTO[];
 	    total: number;
 	    unlimited: boolean;
+	    replies: boolean;
+	    ask: boolean;
+	    purpose: string;
 	    ended: string;
 	    offline: boolean;
 	    createdAt: number;
@@ -98,6 +111,9 @@ export namespace appcore {
 	        this.files = this.convertValues(source["files"], FileDTO);
 	        this.total = source["total"];
 	        this.unlimited = source["unlimited"];
+	        this.replies = source["replies"];
+	        this.ask = source["ask"];
+	        this.purpose = source["purpose"];
 	        this.ended = source["ended"];
 	        this.offline = source["offline"];
 	        this.createdAt = source["createdAt"];
@@ -165,6 +181,8 @@ export namespace appcore {
 	    saveDir: string;
 	    expiresAt: number;
 	    note: string;
+	    fromLink: boolean;
+	    visitorNote: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new OfferDTO(source);
@@ -180,6 +198,8 @@ export namespace appcore {
 	        this.saveDir = source["saveDir"];
 	        this.expiresAt = source["expiresAt"];
 	        this.note = source["note"];
+	        this.fromLink = source["fromLink"];
+	        this.visitorNote = source["visitorNote"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -330,6 +350,7 @@ export namespace appcore {
 	    endedAt: number;
 	    note: string;
 	    noteLost: boolean;
+	    fromLink: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new TransferDTO(source);
@@ -358,6 +379,7 @@ export namespace appcore {
 	        this.endedAt = source["endedAt"];
 	        this.note = source["note"];
 	        this.noteLost = source["noteLost"];
+	        this.fromLink = source["fromLink"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

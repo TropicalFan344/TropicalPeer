@@ -23,8 +23,12 @@ type OfferDTO struct {
 	Files     []FileDTO `json:"files"`
 	Total     int64     `json:"total"`
 	SaveDir   string    `json:"saveDir"`
-	ExpiresAt int64     `json:"expiresAt"` // unix ms
+	ExpiresAt int64     `json:"expiresAt"` // unix ms; 0 = waits as long as the other side does
 	Note      string    `json:"note"`      // the sender's words with the files
+	FromLink  bool      `json:"fromLink"`  // someone who opened a share link, not a paired device
+	// VisitorNote: who someone on a link says they are. Plain words that
+	// prove nothing, kept apart from a paired device's Note.
+	VisitorNote string `json:"visitorNote"`
 }
 
 // OfferClosed tells the frontend a prompt went away, as "offer:closed".
@@ -45,19 +49,29 @@ func incomingKey(peerID, transferID string) string { return peerID + "/" + trans
 // onOffer runs on the node's goroutine and blocks until the user answers,
 // the sender gives up, or the prompt expires.
 func (c *Core) onOffer(ctx context.Context, peer peers.Peer, offer protocol.Offer) bool {
-	po := &pendingOffer{
-		dto: OfferDTO{
-			ID:        transfer.NewTransferID(),
-			PeerID:    peer.ID,
-			PeerName:  peer.Name,
-			Files:     toFileDTOs(offer.Files),
-			Total:     offer.TotalSize(),
-			SaveDir:   c.saveDirFor(peer),
-			ExpiresAt: time.Now().Add(offerTimeout).UnixMilli(),
-			Note:      offer.Note,
-		},
-		decision: make(chan bool, 1),
+	accept, _ := c.askOffer(ctx, OfferDTO{
+		ID:       transfer.NewTransferID(),
+		PeerID:   peer.ID,
+		PeerName: peer.Name,
+		Files:    toFileDTOs(offer.Files),
+		Total:    offer.TotalSize(),
+		SaveDir:  c.saveDirFor(peer),
+		Note:     offer.Note,
+	}, offerTimeout)
+	return accept
+}
+
+// askOffer shows an offer and waits for the answer, for at most wait
+// (0 = until ctx ends). expired says nobody answered in time.
+func (c *Core) askOffer(ctx context.Context, dto OfferDTO, wait time.Duration) (accept, expired bool) {
+	var timeout <-chan time.Time
+	if wait > 0 {
+		dto.ExpiresAt = time.Now().Add(wait).UnixMilli()
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		timeout = timer.C
 	}
+	po := &pendingOffer{dto: dto, decision: make(chan bool, 1)}
 	c.mu.Lock()
 	c.offers[po.dto.ID] = po
 	c.mu.Unlock()
@@ -72,13 +86,19 @@ func (c *Core) onOffer(ctx context.Context, peer peers.Peer, offer protocol.Offe
 	select {
 	case accept := <-po.decision:
 		c.emit("offer:closed", OfferClosed{ID: po.dto.ID})
-		return accept
+		return accept, false
 	case <-ctx.Done():
-		c.emit("offer:closed", OfferClosed{ID: po.dto.ID, Reason: c.T("offer.peerCancelled", "name", peer.Name)})
-	case <-time.After(offerTimeout):
-		c.emit("offer:closed", OfferClosed{ID: po.dto.ID, Reason: c.T("offer.timedOut", "name", peer.Name)})
+		// Someone on a link may have cancelled, or just closed the page.
+		gone := "offer.peerCancelled"
+		if dto.FromLink {
+			gone = "offer.linkLeft"
+		}
+		c.emit("offer:closed", OfferClosed{ID: po.dto.ID, Reason: c.T(gone, "name", dto.PeerName)})
+	case <-timeout:
+		c.emit("offer:closed", OfferClosed{ID: po.dto.ID, Reason: c.T("offer.timedOut", "name", dto.PeerName)})
+		return false, true
 	}
-	return false
+	return false, false
 }
 
 // RespondOffer accepts or declines an incoming offer.
@@ -241,5 +261,12 @@ func (c *Core) onPathChanged(peer peers.Peer, transferID string, relayed bool) {
 }
 
 func sortOffers(o []OfferDTO) {
-	sort.Slice(o, func(i, j int) bool { return o[i].ExpiresAt < o[j].ExpiresAt })
+	// Those that run out first; the ones that can wait go last.
+	at := func(x OfferDTO) int64 {
+		if x.ExpiresAt == 0 {
+			return 1<<63 - 1
+		}
+		return x.ExpiresAt
+	}
+	sort.Slice(o, func(i, j int) bool { return at(o[i]) < at(o[j]) })
 }

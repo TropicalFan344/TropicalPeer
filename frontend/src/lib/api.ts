@@ -98,6 +98,7 @@ export interface Transfer {
   endedAt: number
   note: string // a few words that go with the files
   noteLost: boolean // send: the other device is too old to show the note
+  fromLink: boolean // receive: sent back through a share link; can't be paused
 }
 
 /** What changes while bytes flow; the rest of the row arrives as 'transfer:update'. */
@@ -115,6 +116,8 @@ export interface Offer {
   saveDir: string
   expiresAt: number
   note: string // the sender's words with the files
+  fromLink: boolean // someone who opened a share link, not a paired device
+  visitorNote: string // who they say they are; proves nothing
 }
 
 /** A short text between paired devices (internal/appcore/texts.go). */
@@ -141,16 +144,21 @@ export const textBytes = (s: string) => new TextEncoder().encode(s).length
 export interface Visitor {
   session: string
   name: string // generated, e.g. "Orchid Tiger"
-  status: 'connecting' | 'waiting' | 'sending' | 'done' | 'cancelled' | 'failed' | 'refused'
+  status: 'connecting' | 'waiting' | 'sending' | 'downloaded' | 'asking' | 'replying' | 'done' | 'cancelled' | 'failed' | 'refused'
   done: number
   total: number
   speed: number
   error: string
   seenAt: number
   relayed: boolean // connected through the server's relay
+  gotFiles: boolean // downloaded the shared files, whatever it does now
+  replyDone: number // the batch it is sending here
+  replyTotal: number
+  sentFiles: number // its files saved here so far
+  sentBytes: number
 }
 
-/** Files anyone with the link can download in a browser. */
+/** Files anyone with the link can download in a browser, or a request for files. */
 export interface Link {
   id: string
   url: string
@@ -158,6 +166,9 @@ export interface Link {
   files: { name: string; size: number }[]
   total: number
   unlimited: boolean
+  replies: boolean // people who open it may offer files back
+  ask: boolean // it only asks for files: nothing to download
+  purpose: string // what it asks for, in the owner's words
   ended: string // why it stopped working; '' while it works
   offline: boolean // lost the server for now; trying to get back
   createdAt: number
@@ -229,10 +240,12 @@ export const api = {
   postponeUpdate: () => call<void>('PostponeUpdate'),
   linksAvailable: () => call<boolean>('LinksAvailable'),
   listLinks: () => call<Link[]>('ListLinks'),
-  createLink: (files: PickedFile[], unlimited: boolean) =>
-    call<Link>(isAndroid ? 'CreateLinkDocuments' : 'CreateLink', files, unlimited),
+  createLink: (files: PickedFile[], unlimited: boolean, replies: boolean) =>
+    call<Link>(isAndroid ? 'CreateLinkDocuments' : 'CreateLink', files, unlimited, replies),
+  createAskLink: (purpose: string, unlimited: boolean) => call<Link>('CreateAskLink', purpose, unlimited),
   stopLink: (id: string) => call<void>('StopLink', id),
   setLinkUnlimited: (id: string, on: boolean) => call<void>('SetLinkUnlimited', id, on),
+  setLinkReplies: (id: string, on: boolean) => call<void>('SetLinkReplies', id, on),
   cancelLinkVisitor: (id: string, session: string) => call<void>('CancelLinkVisitor', id, session),
 }
 

@@ -98,11 +98,15 @@ var methods = map[string]handler{
 		if err != nil {
 			return nil, err
 		}
+		replies, err := arg[bool](a, 2)
+		if err != nil {
+			return nil, err
+		}
 		sources, err := documentSources(list)
 		if err != nil {
 			return nil, err
 		}
-		return c.CreateLinkSources(sources, unlimited)
+		return c.CreateLinkSources(sources, unlimited, replies)
 	},
 	"SendText": func(c *appcore.Core, a []json.RawMessage) (any, error) {
 		peerID, err := arg[string](a, 0)
@@ -130,6 +134,29 @@ var methods = map[string]handler{
 			return nil, err
 		}
 		c.SetLinkUnlimited(id, on)
+		return nil, nil
+	},
+	"CreateAskLink": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		purpose, err := arg[string](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		unlimited, err := arg[bool](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		return c.CreateAskLink(purpose, unlimited)
+	},
+	"SetLinkReplies": func(c *appcore.Core, a []json.RawMessage) (any, error) {
+		id, err := arg[string](a, 0)
+		if err != nil {
+			return nil, err
+		}
+		on, err := arg[bool](a, 1)
+		if err != nil {
+			return nil, err
+		}
+		c.SetLinkReplies(id, on)
 		return nil, nil
 	},
 	"CancelLinkVisitor": func(c *appcore.Core, a []json.RawMessage) (any, error) {

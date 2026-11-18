@@ -129,15 +129,21 @@ final class Notifier {
         Intent decline = new Intent(c, OfferActionReceiver.class).putExtra("id", id).putExtra("accept", false);
         int code = id.hashCode();
         long left = o.optLong("expiresAt") - System.currentTimeMillis();
+        // Someone on a link: nobody can vouch for them, so accepting takes a
+        // look at the whole list in the app. Tapping the notification opens it.
+        boolean fromLink = o.optBoolean("fromLink");
+        String text = fromLink ? t("offer.reviewInApp") : withNote(size(o.optLong("total")), o.optString("note"));
         NotificationCompat.Builder b = base(c, CH_OFFERS)
-            .setContentTitle(t("offer.wants", "name", o.optString("peerName"), "what", what(files)))
-            .setContentText(withNote(size(o.optLong("total")), o.optString("note")))
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(withNote(size(o.optLong("total")), o.optString("note"))))
+            .setContentTitle(t(fromLink ? "offer.wantsLink" : "offer.wants", "name", o.optString("peerName"), "what", what(files)))
+            .setContentText(text)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .addAction(0, t("offer.decline"), PendingIntent.getBroadcast(c, code * 2, decline, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
-            .addAction(0, t("offer.accept"), PendingIntent.getBroadcast(c, code * 2 + 1, accept, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+            .addAction(0, t("offer.decline"), PendingIntent.getBroadcast(c, code * 2, decline, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        if (!fromLink) {
+            b.addAction(0, t("offer.accept"), PendingIntent.getBroadcast(c, code * 2 + 1, accept, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        }
         if (left > 0) b.setTimeoutAfter(left); // the offer declines itself then
         notify(c, offerTag(id), b.build());
     }

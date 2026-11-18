@@ -56,7 +56,7 @@ func TestStopLinkRightAway(t *testing.T) {
 	}
 
 	for range 5 {
-		l, err := c.CreateLinkSources([]transfer.Source{slowSource("a.txt", []byte("hello"))}, false)
+		l, err := c.CreateLinkSources([]transfer.Source{slowSource("a.txt", []byte("hello"))}, false, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,7 +101,7 @@ func TestCreateLinkUnreadable(t *testing.T) {
 		}
 	}
 	locked := transfer.Source{Name: "secret.pdf", Size: 3, Open: func() (io.ReadCloser, error) { return nil, os.ErrPermission }}
-	_, err = c.CreateLinkSources([]transfer.Source{slowSource("ok.txt", []byte("ok")), locked}, false)
+	_, err = c.CreateLinkSources([]transfer.Source{slowSource("ok.txt", []byte("ok")), locked}, false, false)
 	if want := c.T("links.cantRead", "name", "secret.pdf"); err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %q", err, want)
 	}

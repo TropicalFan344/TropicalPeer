@@ -71,6 +71,10 @@ const (
 	Cancelled  Status = "cancelled"
 	Failed     Status = "failed"
 	Refused    Status = "refused" // came after the first person on a FirstOnly link
+	// With replies on, the page stays connected after a download.
+	Downloaded Status = "downloaded" // has the files; the page is still open
+	Asking     Status = "asking"     // offered files; waiting for the owner's answer
+	Replying   Status = "replying"   // sending the accepted files
 )
 
 // Visitor is one browser that opened the link.
@@ -83,6 +87,12 @@ type Visitor struct {
 	Error   string
 	Err     error // the error behind Error, when there is one
 	Relayed bool  // connected through the TURN relay rather than directly
+
+	Downloaded bool  // has the shared files, whatever it is doing now
+	ReplyDone  int64 // the batch being sent to us
+	ReplyTotal int64
+	SentFiles  int // files of theirs saved here so far
+	SentBytes  int64
 }
 
 // UnreadableError: a shared file couldn't be read when someone asked for it
@@ -105,6 +115,14 @@ type Options struct {
 	// PortMapping has the router forward the link's port (UPnP / NAT-PMP),
 	// so browsers behind any router can connect directly (see direct.go).
 	PortMapping bool
+	// Replies lets people who opened the link send files back, while
+	// AllowReplies (or SetReplies) has it on. See reply.go.
+	Replies      *ReplyHooks
+	AllowReplies bool
+	// Collect makes a link that only asks for files: nothing to download,
+	// and Replies are always on. Purpose says what for, on the page.
+	Collect bool
+	Purpose string
 }
 
 // How long a link keeps trying to get back to the server before it ends.
@@ -128,6 +146,9 @@ type Share struct {
 
 	router atomic.Pointer[portmap.Router] // forwards visitors' ports, if it can (see direct.go)
 
+	replies atomic.Bool  // people may send files back
+	asking  atomic.Int32 // batches waiting for the owner's answer
+
 	hostMu sync.Mutex
 	host   *rendezvous.LinkHost
 
@@ -144,7 +165,10 @@ type Share struct {
 
 // Start opens a link for files on the rendezvous server c talks to.
 func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, opts Options) (*Share, error) {
-	if len(files) == 0 {
+	if opts.Collect && opts.Replies == nil {
+		return nil, errors.New("a link that asks for files needs somewhere to put them")
+	}
+	if len(files) == 0 && !opts.Collect {
 		return nil, errors.New("no files to share")
 	}
 	if opts.Limit == "" {
@@ -184,6 +208,7 @@ func Start(ctx context.Context, c *rendezvous.Client, files []transfer.Source, o
 	for _, f := range files {
 		s.total += f.Size
 	}
+	s.SetReplies(opts.AllowReplies)
 	s.keep = keepLocalIP()
 	if opts.PortMapping {
 		go s.findRouter()
@@ -464,6 +489,11 @@ type visitor struct {
 	pending  []webrtc.ICECandidateInit // candidates that came before the offer (or while holding)
 	haveSDP  bool
 	holding  bool // keeping the browser's candidates back for mappedHeadStart
+
+	ch atomic.Pointer[channel] // set once the page is through the key checks
+
+	declined   int // batches of theirs the owner turned down
+	unanswered int // batches of theirs whose prompt ran out
 }
 
 // relayed reports whether the connection runs through a TURN relay: either
@@ -497,18 +527,33 @@ func (v *visitor) update() {
 
 func (v *visitor) setStatus(st Status) {
 	v.mu.Lock()
+	if v.ended() {
+		v.mu.Unlock()
+		return
+	}
 	v.info.Status = st
 	v.mu.Unlock()
 	v.update()
 }
 
+// ended reports whether the visitor has its final status. Callers hold v.mu.
+func (v *visitor) ended() bool {
+	switch v.info.Status {
+	case Done, Cancelled, Failed, Refused:
+		return true
+	}
+	return false
+}
+
 // finish ends the visitor with a final status (the first one wins).
 func (v *visitor) finish(st Status, msg string) {
 	v.mu.Lock()
-	switch v.info.Status {
-	case Done, Cancelled, Failed, Refused:
+	if v.ended() {
 		v.mu.Unlock()
 		return
+	}
+	if v.info.Downloaded || (v.s.opts.Collect && v.info.SentFiles > 0) {
+		st, msg = Done, "" // it did what the link is for, however the page ended
 	}
 	v.info.Status, v.info.Error = st, msg
 	v.mu.Unlock()
@@ -524,6 +569,67 @@ func (v *visitor) finish(st Status, msg string) {
 	v.cancel()
 	v.update()
 	v.s.opts.Log("link: %s %s %s", v.info.Name, st, msg)
+}
+
+// markDownloaded records a finished download on a page that stays open: for
+// a FirstOnly link it counts as finished now.
+func (v *visitor) markDownloaded() {
+	if v.s.opts.Collect {
+		return // nothing to download here
+	}
+	v.mu.Lock()
+	v.info.Downloaded = true
+	if !v.ended() {
+		v.info.Status = Downloaded
+	}
+	v.mu.Unlock()
+	v.s.mu.Lock()
+	if v.s.holder == v.info.Session {
+		v.s.used = true
+	}
+	v.s.mu.Unlock()
+	v.update()
+}
+
+// leaveReplying goes back to what the visitor was doing before, unless it
+// ended meanwhile.
+func (v *visitor) leaveReplying(was Status) {
+	v.mu.Lock()
+	v.info.ReplyDone, v.info.ReplyTotal = 0, 0
+	if v.info.Status != Asking && v.info.Status != Replying {
+		v.mu.Unlock()
+		return
+	}
+	v.info.Status = was
+	v.mu.Unlock()
+	v.update()
+}
+
+// startReceiving: the owner accepted a batch of total bytes.
+func (v *visitor) startReceiving(total int64) {
+	v.mu.Lock()
+	v.info.ReplyDone, v.info.ReplyTotal = 0, total
+	if !v.ended() {
+		v.info.Status = Replying
+	}
+	v.mu.Unlock()
+	v.update()
+}
+
+func (v *visitor) replyProgress(done int64) {
+	v.mu.Lock()
+	v.info.ReplyDone = done
+	v.mu.Unlock()
+	v.update()
+}
+
+// fileDelivered counts one of their files saved here.
+func (v *visitor) fileDelivered(size int64) {
+	v.mu.Lock()
+	v.info.SentFiles++
+	v.info.SentBytes += size
+	v.mu.Unlock()
+	v.update()
 }
 
 // signalMsg is what the page and we exchange through the server.
@@ -689,7 +795,7 @@ func (v *visitor) run() {
 
 // pageMsg is a control message on the DataChannel.
 type pageMsg struct {
-	Type   string     `json:"type"` // auth, hello, get, end, cancel, error
+	Type   string     `json:"type"` // auth, hello, get, end, cancel, error; replies: see reply.go
 	MAC    string     `json:"mac,omitempty"`
 	Pub    string     `json:"pub,omitempty"` // auth from us: the link's public key
 	Sig    string     `json:"sig,omitempty"` // auth from us: its signature
@@ -700,6 +806,16 @@ type pageMsg struct {
 	Index  int        `json:"index"`
 	SHA256 string     `json:"sha256,omitempty"`
 	Error  string     `json:"error,omitempty"`
+	Reply  bool       `json:"reply,omitempty"` // hello, replies: the page may offer files back
+	OK     bool       `json:"ok,omitempty"`    // replyAnswer: send them
+
+	Ask     bool   `json:"ask,omitempty"`     // hello: this link only asks for files
+	Purpose string `json:"purpose,omitempty"` // hello: what for, in the owner's words
+	Note    string `json:"note,omitempty"`    // offer: who they say they are
+	Seconds int    `json:"seconds,omitempty"` // replyAsking: how long the owner has (0 = no limit)
+
+	binary bool   // file data rather than a control message
+	data   []byte // the file data
 }
 
 type fileInfo struct {
@@ -753,7 +869,11 @@ func (v *visitor) serve(ch *channel) error {
 		}
 	}
 
-	hello := pageMsg{Type: "hello", Name: v.info.Name, From: v.s.opts.SenderName, Total: v.s.total}
+	v.ch.Store(ch)
+	hello := pageMsg{
+		Type: "hello", Name: v.info.Name, From: v.s.opts.SenderName, Total: v.s.total, Reply: v.s.replies.Load(),
+		Ask: v.s.opts.Collect, Purpose: v.s.opts.Purpose,
+	}
 	for _, f := range v.s.files {
 		hello.Files = append(hello.Files, fileInfo{Name: f.Name, Size: f.Size})
 	}
@@ -763,18 +883,24 @@ func (v *visitor) serve(ch *channel) error {
 	v.setStatus(Waiting)
 
 	sent := map[int]bool{}
+	left := func() error {
+		if len(sent) == len(v.s.files) && !v.s.opts.Collect {
+			v.finish(Done, "")
+			return nil
+		}
+		v.finish(Cancelled, "the receiver closed the page")
+		return nil
+	}
 	for {
 		m, err := ch.recv(v.ctx, 0)
 		if err != nil {
 			if errors.Is(err, errClosed) {
-				if len(sent) == len(v.s.files) {
-					v.finish(Done, "")
-					return nil
-				}
-				v.finish(Cancelled, "the receiver closed the page")
-				return nil
+				return left()
 			}
 			return err
+		}
+		if m.binary {
+			return errUnasked
 		}
 		switch m.Type {
 		case "get":
@@ -791,6 +917,15 @@ func (v *visitor) serve(ch *channel) error {
 				return err
 			}
 			sent[m.Index] = true
+		case "offer":
+			if err := v.reply(ch, m); err != nil {
+				if errors.Is(err, errClosed) {
+					return left()
+				}
+				return err
+			}
+		case "downloaded":
+			v.markDownloaded()
 		case "done":
 			v.finish(Done, "")
 			time.Sleep(500 * time.Millisecond)

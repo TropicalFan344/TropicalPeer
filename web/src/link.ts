@@ -10,7 +10,8 @@ import { ed25519 } from '@noble/curves/ed25519'
 import { sha256 } from '@noble/hashes/sha2'
 
 export type FileInfo = { name: string; size: number }
-export type Hello = { name: string; from: string; files: FileInfo[]; total: number }
+// ask: the link only asks for files, for purpose; reply: files may be offered.
+export type Hello = { name: string; from: string; files: FileInfo[]; total: number; reply?: boolean; ask?: boolean; purpose?: string }
 // error is a code: 'cancel' (the sender cancelled), 'lost', 'cancelled'
 // (here), or the browser's own message when saving failed (savingFailed).
 export type GetResult = { sha256?: string; error?: string; savingFailed?: boolean }
@@ -19,9 +20,31 @@ type Handlers = {
   onHello: (h: Hello) => void
   // gone, used, busy, auth, cancel, lost or unreachable
   onError: (code: string) => void
+  // The link's owner turned sending files on or off.
+  onReplies: (on: boolean) => void
 }
 
 const authContext = 'tropicalpeer-link-v2'
+
+// Sending files back (see internal/linkshare/reply.go).
+export const maxReplyFiles = 100
+const maxOfferBytes = 60_000 // an offer must fit one message
+const replyChunk = 64 * 1024
+const replyRead = 4 << 20
+const replyHighWater = 4 << 20
+const replyLowWater = 1 << 20
+
+/** Whether these files fit in one offer. */
+export function offerFits(files: File[]) {
+  const list = files.map((f) => ({ name: f.name, size: f.size }))
+  return files.length <= maxReplyFiles && new TextEncoder().encode(JSON.stringify(list)).length <= maxOfferBytes
+}
+
+type ReplyEvent =
+  | { type: 'asking'; seconds: number }
+  | { type: 'answer'; ok: boolean; error?: string }
+  | { type: 'saved'; index: number }
+  | { type: 'stop'; code: string }
 
 function b64urlDecode(s: string): Uint8Array {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)
@@ -99,11 +122,15 @@ export async function connect(link: string, secret: string, h: Handlers) {
     | { onChunk: (b: Uint8Array) => Promise<void>; writes: Promise<void>; resolve: (r: GetResult) => void; broken: boolean }
     | undefined
 
+  // The batch being sent back: what the sender's app says about it.
+  let replying: { push: (e: ReplyEvent) => void } | undefined
+
   const failOnce = (code: string) => {
     if (finished) return
     finished = true
     current?.resolve({ error: code === 'cancel' || code === 'unreadable' ? code : 'lost' })
     current = undefined
+    replying?.push({ type: 'stop', code: 'lost' })
     h.onError(code)
     pc?.close()
     ws.close()
@@ -213,7 +240,7 @@ export async function connect(link: string, secret: string, h: Handlers) {
     }
     switch (m.type) {
       case 'hello':
-        h.onHello(m as Hello)
+        h.onHello({ ...m, files: m.files ?? [], total: m.total ?? 0 } as Hello)
         break
       case 'end': {
         const c = current
@@ -224,12 +251,136 @@ export async function connect(link: string, secret: string, h: Handlers) {
         })
         break
       }
+      case 'replies':
+        h.onReplies(!!m.reply)
+        break
+      case 'replyAsking':
+        replying?.push({ type: 'asking', seconds: m.seconds ?? 0 })
+        break
+      case 'replyAnswer':
+        replying?.push({ type: 'answer', ok: !!m.ok, error: m.error })
+        break
+      case 'saved':
+        replying?.push({ type: 'saved', index: m.index ?? 0 })
+        break
+      case 'replyStop':
+        replying?.push({ type: 'stop', code: m.error })
+        break
       case 'cancel':
         failOnce('cancel')
         break
       case 'error':
         failOnce(m.error)
         break
+    }
+  }
+
+  let cancelReply: (() => void) | undefined
+
+  // Sends files, one after the other. code is '' once they are all saved over
+  // there, or why not: a code from the sender's app, or 'cancelled',
+  // 'unreadable' or 'lost'. saved says how many arrived either way.
+  async function sendFiles(
+    files: File[],
+    note: string,
+    on: { asking: (seconds: number) => void; accepted: () => void; file: (index: number) => void; progress: (sent: number) => void },
+  ): Promise<{ code: string; saved: number }> {
+    const events: ReplyEvent[] = []
+    let wake = () => {}
+    let stopped = '' // why to stop, as soon as possible
+    let saved = 0
+    const stop = (code: string) => {
+      stopped ||= code
+      wake()
+    }
+    replying = {
+      push(e) {
+        if (e.type === 'stop') stopped ||= e.code
+        events.push(e)
+        wake()
+      },
+    }
+    cancelReply = () => stop('cancelled')
+    const channel = dc!
+    const nextEvent = async (): Promise<ReplyEvent | undefined> => {
+      while (!events.length && !stopped) await new Promise<void>((r) => (wake = r))
+      return stopped ? undefined : events.shift()
+    }
+    // Whatever stopped the batch, the app is told we've stopped sending.
+    const ended = () => {
+      if (stopped !== 'lost') {
+        try {
+          channel.send(JSON.stringify({ type: 'replyCancel' }))
+        } catch {}
+      }
+      return { code: stopped, saved }
+    }
+    try {
+      channel.send(JSON.stringify({ type: 'offer', note, files: files.map((f) => ({ name: f.name, size: f.size })) }))
+      for (;;) {
+        const e = await nextEvent()
+        if (!e) return ended()
+        if (e.type === 'asking') {
+          on.asking(e.seconds)
+          continue
+        }
+        if (e.type !== 'answer' || !e.ok) return { code: (e.type === 'answer' && e.error) || 'declined', saved }
+        break
+      }
+      on.accepted()
+
+      channel.bufferedAmountLowThreshold = replyLowWater
+      let sent = 0
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        on.file(i)
+        channel.send(JSON.stringify({ type: 'put', index: i }))
+        const hash = sha256.create()
+        for (let at = 0; at < file.size; ) {
+          let block: Uint8Array
+          try {
+            block = new Uint8Array(await file.slice(at, at + replyRead).arrayBuffer())
+          } catch {
+            stopped ||= 'unreadable'
+            return ended()
+          }
+          if (!block.length) {
+            stopped ||= 'unreadable' // the file got shorter
+            return ended()
+          }
+          for (let k = 0; k < block.length; k += replyChunk) {
+            const chunk = block.subarray(k, k + replyChunk)
+            hash.update(chunk)
+            while (channel.bufferedAmount > replyHighWater && !stopped) {
+              await new Promise<void>((r) => {
+                wake = r
+                channel.onbufferedamountlow = () => r()
+              })
+            }
+            if (stopped) return ended()
+            channel.send(chunk)
+            sent += chunk.length
+            on.progress(Math.max(0, sent - channel.bufferedAmount))
+          }
+          at += block.length
+        }
+        const sum = Array.from(hash.digest(), (b) => b.toString(16).padStart(2, '0')).join('')
+        channel.send(JSON.stringify({ type: 'fin', index: i, sha256: sum }))
+        const e = await nextEvent()
+        if (!e) return ended()
+        if (e.type !== 'saved' || e.index !== i) {
+          stopped ||= 'damaged'
+          return ended()
+        }
+        saved++
+      }
+      return { code: '', saved }
+    } catch {
+      stopped ||= 'lost'
+      return { code: stopped, saved }
+    } finally {
+      replying = undefined
+      cancelReply = undefined
     }
   }
 
@@ -252,6 +403,16 @@ export async function connect(link: string, secret: string, h: Handlers) {
       current?.resolve({ error: 'cancelled' })
       current = undefined
       stopSender()
+    },
+    sendFiles,
+    cancelSend() {
+      cancelReply?.()
+    },
+    // A finished download on a page that can still send files back.
+    downloaded() {
+      try {
+        dc?.send(JSON.stringify({ type: 'downloaded' }))
+      } catch {}
     },
     finish() {
       finished = true

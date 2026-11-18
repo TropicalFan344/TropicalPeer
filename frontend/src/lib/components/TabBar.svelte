@@ -2,7 +2,7 @@
   // The phone's navigation: the jungle rail laid along the bottom edge, its
   // shoreline curve now on top. Same four places as the desktop rail.
   import { Users, ArrowLeftRight, Link2, Settings } from '@lucide/svelte'
-  import { app, activeTransfers, activeVisitors, type Page } from '../state.svelte'
+  import { app, activeTransfers, activeVisitors, deviceOffers, linkOffers, type Page } from '../state.svelte'
   import { t } from '../i18n.svelte'
   import { scale } from 'svelte/transition'
   import { dur, easeOutExpo } from '../motion'
@@ -44,10 +44,12 @@
           <item.icon size={22} strokeWidth={1.75} />
           {#if item.page === 'transfers' && active}
             <span class="badge bg-rail-ink text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{active}</span>
+          {:else if item.page === 'links' && linkOffers().length}
+            <span class="badge bg-rail-alert text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{linkOffers().length}</span>
           {:else if item.page === 'links' && downloading}
             <span class="badge bg-rail-ink text-rail" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{downloading}</span>
-          {:else if item.page === 'peers' && app.offers.length}
-            <span class="badge bg-rail-alert text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{app.offers.length}</span>
+          {:else if item.page === 'peers' && deviceOffers().length}
+            <span class="badge bg-rail-alert text-rail-alert-ink" in:scale={{ start: 0.6, duration: dur(180), easing: easeOutExpo }}>{deviceOffers().length}</span>
           {:else if item.page === 'settings' && serverDot}
             <span class="absolute top-1 right-4 size-2 rounded-full ring-2 ring-rail {serverDot}" aria-hidden="true"></span>
             <span class="sr-only">{t(app.server.error ? 'server.unreachableSr' : 'server.connectingSr')}</span>

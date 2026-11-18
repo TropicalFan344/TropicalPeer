@@ -174,9 +174,13 @@ func (a *App) LinksAvailable() bool                 { return a.core.LinksAvailab
 func (a *App) ListLinks() []appcore.LinkDTO         { return a.core.ListLinks() }
 func (a *App) StopLink(id string)                   { a.core.StopLink(id) }
 func (a *App) SetLinkUnlimited(id string, on bool)  { a.core.SetLinkUnlimited(id, on) }
+func (a *App) SetLinkReplies(id string, on bool)    { a.core.SetLinkReplies(id, on) }
 func (a *App) CancelLinkVisitor(id, session string) { a.core.CancelLinkVisitor(id, session) }
-func (a *App) CreateLink(paths []string, unlimited bool) (appcore.LinkDTO, error) {
-	return a.core.CreateLink(paths, unlimited)
+func (a *App) CreateLink(paths []string, unlimited, replies bool) (appcore.LinkDTO, error) {
+	return a.core.CreateLink(paths, unlimited, replies)
+}
+func (a *App) CreateAskLink(purpose string, unlimited bool) (appcore.LinkDTO, error) {
+	return a.core.CreateAskLink(purpose, unlimited)
 }
 func (a *App) ClearFinishedTransfers()                   { a.core.ClearFinishedTransfers() }
 func (a *App) ListOffers() []appcore.OfferDTO            { return a.core.ListOffers() }

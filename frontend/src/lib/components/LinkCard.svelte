@@ -3,26 +3,28 @@
   // them: what is this, is anyone using it, how do I hand it over. The QR is
   // the handover for someone in the room, so it stays beside the card on a
   // computer and opens on demand on a phone, where Share is the usual way.
-  import { Copy, Check, X, User, Users, Share2, QrCode as QrIcon, Unlock, Route } from '@lucide/svelte'
+  import { Copy, Check, X, User, Users, Share2, QrCode as QrIcon, Unlock, Route, FolderOpen } from '@lucide/svelte'
   import { slide } from 'svelte/transition'
   import QrCode from './QrCode.svelte'
   import Bed from './Bed.svelte'
   import WaveBand from './WaveBand.svelte'
   import Dialog from './Dialog.svelte'
+  import OfferFiles from './OfferFiles.svelte'
   import { api, errorText, isAndroid, type Link, type Visitor } from '../api'
-  import { stopLink, toast, visitorActive } from '../state.svelte'
+  import { app, openFolder, respondOffer, stopLink, toast, visitorActive, visitorGotFiles } from '../state.svelte'
   import { formatSize } from '../format'
   import { t, what } from '../i18n.svelte'
   import { dur, easeOutExpo } from '../motion'
 
   let { link }: { link: Link } = $props()
 
-  const title = $derived(what(link.files))
+  const title = $derived(link.ask ? link.purpose || t('links.askTitle') : what(link.files))
   const names = $derived(link.files.map((f) => f.name).join(', '))
 
   // A one-person link is spent once its person has the files, and held while
   // someone has it open.
-  const doneBy = $derived(link.visitors.find((v) => v.status === 'done'))
+  const finishedWith = (v: Visitor) => (link.ask ? v.status === 'done' && v.sentFiles > 0 : visitorGotFiles(v))
+  const doneBy = $derived(link.visitors.find(finishedWith))
   const used = $derived(!link.unlimited && !!doneBy)
   const holder = $derived(link.unlimited ? undefined : link.visitors.find(visitorActive))
   const live = $derived(!link.ended && !used)
@@ -31,19 +33,20 @@
   const line = $derived.by((): { text: string; tone: string } => {
     if (link.ended) return { text: link.ended, tone: 'text-bad' }
     if (link.offline) return { text: t('links.reconnecting'), tone: 'text-warn' }
-    if (used) return { text: t('links.usedBy', { name: doneBy!.name }), tone: 'text-muted' }
+    if (used) return { text: t(link.ask ? 'links.usedByAsk' : 'links.usedBy', { name: doneBy!.name }), tone: 'text-muted' }
     if (holder) return { text: t('links.heldBy', { name: holder.name }), tone: 'text-muted' }
-    if (!link.unlimited || !link.visitors.length) return { text: t('links.waitingForSomeone'), tone: 'text-muted' }
+    const waitingText = t(link.ask ? 'links.waitingForFiles' : 'links.waitingForSomeone')
+    if (!link.unlimited || !link.visitors.length) return { text: waitingText, tone: 'text-muted' }
     const parts = [
-      [count((v) => v.status === 'done'), 'links.countDone'],
+      [link.ask ? count((v) => v.sentFiles > 0) : count(visitorGotFiles), link.ask ? 'links.countSent' : 'links.countDone'],
       [count((v) => v.status === 'sending'), 'links.countSending'],
-      [count((v) => v.status === 'waiting' || v.status === 'connecting'), 'links.countOpen'],
+      [count((v) => v.status === 'waiting' || v.status === 'connecting' || v.status === 'asking' || v.status === 'replying'), 'links.countOpen'],
     ] as const
     const text = parts
       .filter(([n]) => n > 0)
       .map(([n, key]) => t(key, { count: n }))
       .join(' · ')
-    return { text: text || t('links.waitingForSomeone'), tone: 'text-muted' }
+    return { text: text || waitingText, tone: 'text-muted' }
   })
 
   let copied = $state(false)
@@ -66,8 +69,32 @@
 
   // Stopping cuts off anyone mid-download, so that case asks first.
   let confirmStop = $state(false)
+  const replying = $derived(link.visitors.some((v) => v.status === 'replying'))
+
+  // Turning this on reaches everyone who already has the link, so it asks.
+  let confirmReplies = $state(false)
+  function toggleReplies(e: Event) {
+    const box = e.currentTarget as HTMLInputElement
+    if (box.checked) {
+      box.checked = false
+      confirmReplies = true
+    } else {
+      api.setLinkReplies(link.id, false)
+    }
+  }
+
+  // What someone on this link is waiting to have answered, if anything.
+  const offerFrom = (v: Visitor) => app.offers.find((o) => o.peerId === 'link:' + v.session)
+
+  async function showSent() {
+    try {
+      openFolder((await api.getSettings()).downloadDir)
+    } catch (e) {
+      toast(errorText(e), 'error')
+    }
+  }
   function stop() {
-    if (!link.ended && link.visitors.some((v) => v.status === 'sending')) confirmStop = true
+    if (!link.ended && (replying || link.visitors.some((v) => v.status === 'sending'))) confirmStop = true
     else stopLink(link.id)
   }
 
@@ -76,7 +103,9 @@
       case 'connecting':
         return t('links.visitorConnecting')
       case 'waiting':
-        return t('links.visitorWaiting')
+        return t(link.ask ? 'links.visitorWaitingAsk' : 'links.visitorWaiting')
+      case 'asking':
+        return t('links.visitorAsking')
       case 'sending':
         return [
           t('transfer.progress', { done: formatSize(v.done), total: formatSize(v.total) }),
@@ -84,8 +113,13 @@
         ]
           .filter(Boolean)
           .join(' · ')
+      case 'replying':
+        return [t('links.visitorReplying'), t('transfer.progress', { done: formatSize(v.replyDone), total: formatSize(v.replyTotal) })].join(' · ')
+      case 'downloaded':
       case 'done':
-        return t('links.visitorDone', { size: formatSize(v.total) })
+        return link.ask
+          ? t('links.visitorSent', { count: v.sentFiles, size: formatSize(v.sentBytes) })
+          : t('links.visitorDone', { size: formatSize(v.total) })
       case 'refused':
         return t('links.visitorRefused')
       case 'cancelled':
@@ -97,7 +131,7 @@
 
   // Someone closing a tab is not a fault, so only a finished download is
   // coloured; everything else stays muted.
-  const tone = (v: Visitor) => (v.status === 'done' ? 'text-ok' : 'text-muted')
+  const tone = (v: Visitor) => (finishedWith(v) ? 'text-ok' : 'text-muted')
 
   // A busy "anyone" link collects visitors; past the people still here, the
   // last few finished ones are enough unless asked for.
@@ -125,7 +159,11 @@
         <div class="min-w-0 flex-1">
           <h3 class="display truncate text-[17px] leading-tight font-medium">{title}</h3>
           <p class="mt-0.5 truncate text-sm text-muted" title={link.files.length > 1 ? names : undefined}>
-            {formatSize(link.total)}{link.files.length > 1 ? ` · ${names}` : ''}
+            {#if link.ask}
+              {t('links.askSubtitle')}
+            {:else}
+              {formatSize(link.total)}{link.files.length > 1 ? ` · ${names}` : ''}
+            {/if}
           </p>
         </div>
         <button class="btn-quiet -mt-1 -mr-1.5 shrink-0" onclick={stop}>
@@ -170,6 +208,13 @@
           </button>
         </div>
       {/if}
+
+      {#if !link.ended && !link.ask}
+        <label class="mt-3 flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
+          <input type="checkbox" class="check" checked={link.replies} onchange={toggleReplies} />
+          {t('links.allowReplies')}
+        </label>
+      {/if}
     </div>
   </div>
 
@@ -184,7 +229,8 @@
   {#if link.visitors.length}
     <ul class="divide-y divide-line border-t border-line">
       {#each shown as v (v.session)}
-        <li class="flex items-center gap-3.5 px-4 py-3" transition:slide={{ duration: dur(220), easing: easeOutExpo }}>
+        {@const offer = offerFrom(v)}
+        <li class="flex items-center gap-3.5 px-4 py-3 max-sm:flex-wrap" transition:slide={{ duration: dur(220), easing: easeOutExpo }}>
           <Bed name={v.name || '?'} id={v.session} size={32} />
           <div class="min-w-0 flex-1">
             <div class="truncate font-medium">{v.name || t('links.someone')}</div>
@@ -192,18 +238,36 @@
               <div class="mt-1.5">
                 <WaveBand value={v.total ? v.done / v.total : 0} flowing label={t('links.sendingTo', { name: v.name })} />
               </div>
+            {:else if v.status === 'replying'}
+              <div class="mt-1.5">
+                <WaveBand value={v.replyTotal ? v.replyDone / v.replyTotal : 0} flowing label={t('links.visitorReplying')} />
+              </div>
             {/if}
             <!-- Phone: the badge wraps rather than cutting the status short. -->
             <div class="mt-0.5 flex items-center gap-3 text-sm max-sm:flex-wrap max-sm:gap-y-0.5">
               <span class="truncate {tone(v)} max-sm:overflow-visible max-sm:whitespace-normal">{status(v)}</span>
-              {#if v.relayed && (v.status === 'waiting' || v.status === 'sending' || v.status === 'done')}
+              {#if v.relayed && (v.status === 'waiting' || v.status === 'sending' || finishedWith(v))}
                 <span class="flex shrink-0 items-center gap-1 text-muted" title={t('transfer.relayedTip')}>
                   <Route size={13} strokeWidth={1.75} /> {t('transfer.relayed')}
                 </span>
               {/if}
             </div>
+            {#if offer}
+              <!-- Answered here too: several people can be waiting at once. -->
+              {#if offer.visitorNote}
+                <p class="mt-1 text-sm select-text [overflow-wrap:anywhere]">{t('offer.theySay', { note: offer.visitorNote })}</p>
+              {/if}
+              <div class="mt-1.5"><OfferFiles files={offer.files} /></div>
+            {/if}
           </div>
-          {#if v.status === 'sending'}
+          {#if offer}
+            <div class="flex shrink-0 gap-2 max-sm:w-full">
+              <button class="btn-secondary max-sm:flex-1" onclick={() => respondOffer(offer, false)}>{t('offer.decline')}</button>
+              <button class="btn-primary max-sm:flex-1" onclick={() => respondOffer(offer, true)}>{t('offer.accept')}</button>
+            </div>
+          {:else if v.sentFiles > 0 && !visitorActive(v)}
+            <button class="btn-quiet shrink-0" onclick={showSent}><FolderOpen size={16} /> {t('transfer.openFolder')}</button>
+          {:else if v.status === 'sending'}
             <button class="btn-quiet shrink-0" aria-label={t('links.cancelFor', { name: v.name })} onclick={() => api.cancelLinkVisitor(link.id, v.session)}>
               <X size={16} /> {t('links.stopVisitor')}
             </button>
@@ -225,9 +289,27 @@
   {/if}
 </article>
 
+{#if confirmReplies}
+  <Dialog title={t('links.openRepliesTitle')} onclose={() => (confirmReplies = false)}>
+    <p class="text-muted">{t(link.unlimited ? 'links.openRepliesBodyAnyone' : 'links.openRepliesBodyOne')}</p>
+    <div class="mt-6 flex justify-end gap-3">
+      <button class="btn-secondary" onclick={() => (confirmReplies = false)}>{t('common.cancel')}</button>
+      <button
+        class="btn-primary"
+        onclick={() => {
+          confirmReplies = false
+          api.setLinkReplies(link.id, true)
+        }}
+      >
+        {t('links.openRepliesConfirm')}
+      </button>
+    </div>
+  </Dialog>
+{/if}
+
 {#if confirmStop}
   <Dialog title={t('links.stopConfirmTitle')} onclose={() => (confirmStop = false)}>
-    <p class="text-muted">{t('links.stopConfirmBody')}</p>
+    <p class="text-muted">{t(replying ? 'links.stopConfirmReplyBody' : 'links.stopConfirmBody')}</p>
     <div class="mt-6 flex justify-end gap-3">
       <button class="btn-secondary" onclick={() => (confirmStop = false)}>{t('common.cancel')}</button>
       <button

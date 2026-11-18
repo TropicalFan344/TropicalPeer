@@ -14,7 +14,7 @@ TropicalPeer is a peer-to-peer file drop for **Windows, macOS and Android**. Two
 - **Private by design.** Pairing uses a PAKE (CPace), so the server never learns the code. Transfers are encrypted over QUIC and checked with SHA-256.
 - **Self-hosted.** A small rendezvous server introduces devices to each other. Run your own on a VPS or at home.
 - **Pause, resume, and pick up where it stopped.** Either side can pause a transfer and either side can resume it. If the connection drops or either app quits, the sender reconnects by itself, and only the rest of the file is sent. Pressing Resume later, or sending the same file again after both apps restarted, continues it too.
-- **Share by link.** For someone without the app: make a link or a QR code, and they download the files in any browser, straight from your device over WebRTC, end-to-end encrypted. Let only the first person download, or anyone with the link, and see each one under a made-up name like "Orchid Tiger" with a Cancel button. Needs a server set up for it; see [Share by link](#share-by-link).
+- **Share by link.** For someone without the app: make a link or a QR code, and they download the files in any browser, straight from your device over WebRTC, end-to-end encrypted. Let only the first person download, or anyone with the link, and see each one under a made-up name like "Orchid Tiger" with a Cancel button. Turn on "Let them send files back" and they can send you files from the same page, or make an "Ask for files" link that only collects them; you're asked every time. Needs a server set up for it; see [Share by link](#share-by-link).
 - **Per-device control.** For each device you choose whether to ask first, accept automatically (optionally up to a size), or block it. You can also give it its own download folder.
 - **Send text, or a note with files.** Send a link, an address or a code straight to a paired device, or add a few words that show with the files on the other side. On a computer, click 💬 on a device (or right-click it, or paste onto it); on a phone, type under the photo, file and folder buttons. Texts go device to device like files and are kept only until the app closes. Devices that block you don't get them, and an older app on the other side is named rather than failing quietly.
 - **10 languages:** English, 繁體中文, 简体中文, 日本語, 한국어, Español, Français, Deutsch, Português (Brasil), Русский.
@@ -240,6 +240,8 @@ Two devices behind symmetric routers (each gives every destination its own port)
 - **Links:** browsers get Cloudflare's relay next to the server's. With `-turn-port 0` the server runs no TURN relay of its own, which frees TCP and UDP 3478 and the `-turn-relay` ports on your router.
 
 The key and token stay on the server: devices and browsers get credentials made for one transfer or one link visit, which the server revokes when it ends. Relayed traffic counts against your Cloudflare allowance.
+
+A link can also take files: a share link if its owner turns that on, and an "Ask for files" link always. The app asks before anything arrives, because anyone who has the link can offer files. This needs a server running this version or newer, since the server hosts the page.
 
 Links end when the sending app quits. A dropped connection to the server, or a server restart, doesn't end them: the app reconnects them for 15 minutes, and downloads already running carry on, since they go device to browser.
 

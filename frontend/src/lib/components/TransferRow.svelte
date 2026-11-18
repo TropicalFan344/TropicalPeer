@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowUpRight, ArrowDownLeft, X, RotateCcw, FolderOpen, FolderSearch, FileSearch, Route, Zap, Pause, Play, Copy } from '@lucide/svelte'
+  import { ArrowUpRight, ArrowDownLeft, X, RotateCcw, FolderOpen, FolderSearch, FileSearch, Route, Zap, Pause, Play, Copy, Link2 } from '@lucide/svelte'
   import TextBody from './TextBody.svelte'
   import Bed from './Bed.svelte'
   import WaveBand from './WaveBand.svelte'
@@ -147,15 +147,20 @@
           <Route size={13} strokeWidth={1.75} /> {tr('transfer.relayed')}
         </span>
       {/if}
+      {#if t.fromLink}
+        <span class="flex shrink-0 items-center gap-1 text-muted"><Link2 size={13} strokeWidth={1.75} /> {tr('transfer.viaLink')}</span>
+      {/if}
       {#if current}<span class="ml-auto truncate text-muted">{current}</span>{/if}
     </div>
   </div>
 
   <div class="flex shrink-0 items-center gap-1 max-sm:w-full max-sm:pl-11 max-sm:empty:hidden">
     {#if active}
-      <button class="btn-quiet" aria-label={tr('transfer.pauseLabel', { title })} onclick={() => api.pauseTransfer(t.id)}>
-        <Pause size={16} /> {tr('transfer.pause')}
-      </button>
+      {#if !t.fromLink}
+        <button class="btn-quiet" aria-label={tr('transfer.pauseLabel', { title })} onclick={() => api.pauseTransfer(t.id)}>
+          <Pause size={16} /> {tr('transfer.pause')}
+        </button>
+      {/if}
       <button class="btn-quiet" aria-label={tr('transfer.cancelLabel', { title })} onclick={() => api.cancelTransfer(t.id)}>
         <X size={16} /> {tr('common.cancel')}
       </button>
@@ -166,7 +171,7 @@
       <button class="btn-quiet" aria-label={tr('transfer.cancelLabel', { title })} onclick={() => api.cancelTransfer(t.id)}>
         <X size={16} /> {tr('common.cancel')}
       </button>
-    {:else if !sending && t.status === 'done' && t.saved?.length}
+    {:else if !sending && (t.status === 'done' || t.fromLink) && t.saved?.length}
       {#if t.saved.length === 1}
         <button class="btn-quiet" onclick={() => showFile(t.saved[0]!)}>
           <FileSearch size={16} /> {tr(isAndroid ? 'transfer.open' : 'transfer.showFile')}

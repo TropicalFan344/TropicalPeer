@@ -49,7 +49,13 @@ func newChannel(dc *webrtc.DataChannel) *channel {
 	dc.OnClose(func() { c.once.Do(func() { close(c.closed) }) })
 	dc.OnMessage(func(m webrtc.DataChannelMessage) {
 		if !m.IsString {
-			return // the page never sends file data
+			// In line with the control messages, and waiting here when the
+			// queue is full: that's what slows the browser down to the disk.
+			select {
+			case c.msgs <- pageMsg{binary: true, data: m.Data}:
+			case <-c.closed:
+			}
+			return
 		}
 		var pm pageMsg
 		if json.Unmarshal(m.Data, &pm) != nil {

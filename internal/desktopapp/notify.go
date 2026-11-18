@@ -47,6 +47,17 @@ func (a *App) notifyEvent(name string, data any) {
 		if !ok || desktop.AppInFront() {
 			return
 		}
+		if o.FromLink {
+			// Someone nobody can vouch for: accepting takes a look at the
+			// whole list in the app, so a click here only opens it.
+			a.showNote(note{
+				id:      "offer:" + o.ID,
+				title:   a.core.T("offer.wantsLink", "name", o.PeerName, "what", a.filesWhat(o.Files)),
+				body:    a.core.T("offer.reviewInApp"),
+				actions: []noteAction{{"decline", a.core.T("offer.decline")}},
+			})
+			return
+		}
 		a.showNote(note{
 			id:    "offer:" + o.ID,
 			title: a.core.T("offer.wants", "name", o.PeerName, "what", a.filesWhat(o.Files)),

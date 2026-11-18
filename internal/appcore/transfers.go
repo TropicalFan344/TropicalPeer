@@ -61,6 +61,9 @@ type TransferDTO struct {
 	// NoteLost: send: the other device took the files but is too old to
 	// show the note.
 	NoteLost bool `json:"noteLost"`
+	// FromLink: receive: files someone sent back through a share link. It
+	// can't be paused or resumed.
+	FromLink bool `json:"fromLink"`
 }
 
 // TransferProgress is pushed as "transfer:progress" while bytes flow: the

@@ -14,7 +14,9 @@ export function ChooseFolder(arg1:string,arg2:string):Promise<string>;
 
 export function ClearFinishedTransfers():Promise<void>;
 
-export function CreateLink(arg1:Array<string>,arg2:boolean):Promise<appcore.LinkDTO>;
+export function CreateAskLink(arg1:string,arg2:boolean):Promise<appcore.LinkDTO>;
+
+export function CreateLink(arg1:Array<string>,arg2:boolean,arg3:boolean):Promise<appcore.LinkDTO>;
 
 export function GetDevice():Promise<appcore.DeviceInfo>;
 
@@ -81,6 +83,8 @@ export function SetAutoUpdate(arg1:boolean):Promise<void>;
 export function SetDeviceName(arg1:string):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
+
+export function SetLinkReplies(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetLinkUnlimited(arg1:string,arg2:boolean):Promise<void>;
 

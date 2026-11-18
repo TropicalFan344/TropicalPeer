@@ -25,6 +25,9 @@ type LinkDTO struct {
 	Files     []FileDTO    `json:"files"`
 	Total     int64        `json:"total"`
 	Unlimited bool         `json:"unlimited"` // anyone with the link, not just the first person
+	Replies   bool         `json:"replies"`   // people who open it may offer files back
+	Ask       bool         `json:"ask"`       // it only asks for files: nothing to download
+	Purpose   string       `json:"purpose"`   // what it asks for, in the owner's words
 	Ended     string       `json:"ended"`     // why the link stopped working ("" while it works)
 	Offline   bool         `json:"offline"`   // lost the server for now; trying to get back
 	CreatedAt int64        `json:"createdAt"` // unix ms
@@ -35,13 +38,19 @@ type LinkDTO struct {
 type VisitorDTO struct {
 	Session string  `json:"session"`
 	Name    string  `json:"name"`   // generated, e.g. "Orchid Tiger"
-	Status  string  `json:"status"` // connecting, waiting, sending, done, cancelled, failed, refused
+	Status  string  `json:"status"` // connecting, waiting, sending, downloaded, asking, replying, done, cancelled, failed, refused
 	Done    int64   `json:"done"`
 	Total   int64   `json:"total"`
 	Speed   float64 `json:"speed"`
 	Error   string  `json:"error"`
 	SeenAt  int64   `json:"seenAt"`  // unix ms
 	Relayed bool    `json:"relayed"` // connected through the server's relay
+
+	GotFiles   bool  `json:"gotFiles"`   // downloaded the shared files, whatever it does now
+	ReplyDone  int64 `json:"replyDone"`  // the batch it is sending us
+	ReplyTotal int64 `json:"replyTotal"` //
+	SentFiles  int   `json:"sentFiles"`  // its files saved here so far
+	SentBytes  int64 `json:"sentBytes"`  //
 }
 
 type linkState struct {
@@ -72,23 +81,42 @@ func (c *Core) LinksAvailable() bool {
 	return n != nil && n.LinksURL() != ""
 }
 
-// CreateLink opens a link for the files at paths.
-func (c *Core) CreateLink(paths []string, unlimited bool) (LinkDTO, error) {
+// CreateLink opens a link for the files at paths. With replies, people who
+// open it may offer files back.
+func (c *Core) CreateLink(paths []string, unlimited, replies bool) (LinkDTO, error) {
 	sources, err := c.describeFiles(paths)
 	if err != nil {
 		return LinkDTO{}, err
 	}
-	return c.CreateLinkSources(sources, unlimited)
+	return c.CreateLinkSources(sources, unlimited, replies)
+}
+
+// maxLinkPurpose is how long "what are you asking for" can be, in characters.
+const maxLinkPurpose = 120
+
+// CreateAskLink opens a link that asks for files: people who open it can only
+// offer files to this device. purpose (may be empty) says what for.
+func (c *Core) CreateAskLink(purpose string, unlimited bool) (LinkDTO, error) {
+	purpose = strings.Join(strings.Fields(purpose), " ")
+	if r := []rune(purpose); len(r) > maxLinkPurpose {
+		purpose = string(r[:maxLinkPurpose])
+	}
+	return c.openLink(nil, unlimited, linkshare.Options{Collect: true, Purpose: purpose, Replies: c.replyHooks(true), AllowReplies: true})
 }
 
 // CreateLinkSources is CreateLink for files that aren't paths on disk.
-func (c *Core) CreateLinkSources(sources []transfer.Source, unlimited bool) (LinkDTO, error) {
+func (c *Core) CreateLinkSources(sources []transfer.Source, unlimited, replies bool) (LinkDTO, error) {
+	if len(sources) == 0 {
+		return LinkDTO{}, c.errT("transfer.chooseFile")
+	}
+	return c.openLink(sources, unlimited, linkshare.Options{Replies: c.replyHooks(false), AllowReplies: replies})
+}
+
+// openLink starts a link with what opts already says about replies.
+func (c *Core) openLink(sources []transfer.Source, unlimited bool, opts linkshare.Options) (LinkDTO, error) {
 	n := c.n()
 	if n == nil {
 		return LinkDTO{}, c.errT("links.notReady")
-	}
-	if len(sources) == 0 {
-		return LinkDTO{}, c.errT("transfer.chooseFile")
 	}
 	if n.LinksURL() == "" {
 		return LinkDTO{}, c.errT("links.unsupported")
@@ -107,21 +135,23 @@ func (c *Core) CreateLinkSources(sources []transfer.Source, unlimited bool) (Lin
 	if unlimited {
 		limit = linkshare.Unlimited
 	}
-	share, err := n.ShareLink(c.ctx, sources, linkshare.Options{
-		Limit:    limit,
-		OnUpdate: func(v linkshare.Visitor) { c.onVisitor(ls, v) },
-		Log:      log.Printf,
-		OnServer: func(connected bool) {
-			ls.mu.Lock()
-			ls.dto.Offline = !connected
-			ls.mu.Unlock()
-			c.emitLink(ls, true)
-		},
-	})
+	opts.Limit = limit
+	opts.OnUpdate = func(v linkshare.Visitor) { c.onVisitor(ls, v) }
+	opts.Log = log.Printf
+	opts.OnServer = func(connected bool) {
+		ls.mu.Lock()
+		ls.dto.Offline = !connected
+		ls.mu.Unlock()
+		c.emitLink(ls, true)
+	}
+	share, err := n.ShareLink(c.ctx, sources, opts)
 	if err != nil {
 		return LinkDTO{}, errors.New(c.T("links.createFailed", "error", c.friendlyServerError(err)))
 	}
-	dto := LinkDTO{ID: share.ID, URL: share.URL, Unlimited: unlimited, CreatedAt: time.Now().UnixMilli()}
+	dto := LinkDTO{
+		ID: share.ID, URL: share.URL, Unlimited: unlimited, Replies: opts.AllowReplies, Ask: opts.Collect, Purpose: opts.Purpose,
+		Files: []FileDTO{}, CreatedAt: time.Now().UnixMilli(),
+	}
 	for _, s := range sources {
 		dto.Files = append(dto.Files, FileDTO{Name: transfer.SafePath(s.Name), Size: s.Size})
 		dto.Total += s.Size
@@ -188,11 +218,13 @@ func (c *Core) onVisitor(ls *linkState, v linkshare.Visitor) {
 	vd.Name, vd.Status, vd.Done, vd.Total = v.Name, string(v.Status), v.Done, v.Total
 	vd.Error = visitorError(c, v)
 	vd.Relayed = v.Relayed
+	vd.GotFiles, vd.ReplyDone, vd.ReplyTotal = v.Downloaded, v.ReplyDone, v.ReplyTotal
+	vd.SentFiles, vd.SentBytes = v.SentFiles, v.SentBytes
 	vd.Speed = 0
 	if v.Status == linkshare.Sending {
 		vd.Speed = sp.rate
 	}
-	final := v.Status != linkshare.Sending
+	final := v.Status != linkshare.Sending && v.Status != linkshare.Replying
 	ls.mu.Unlock()
 	c.emitLink(ls, final)
 }
@@ -299,6 +331,21 @@ func (c *Core) SetLinkUnlimited(id string, unlimited bool) {
 	ls.share.SetLimit(l)
 	ls.mu.Lock()
 	ls.dto.Unlimited = unlimited
+	ls.mu.Unlock()
+	c.emitLink(ls, true)
+}
+
+// SetLinkReplies turns files sent back through a link on or off.
+func (c *Core) SetLinkReplies(id string, on bool) {
+	c.lk.mu.Lock()
+	ls := c.lk.links[id]
+	c.lk.mu.Unlock()
+	if ls == nil {
+		return
+	}
+	ls.share.SetReplies(on)
+	ls.mu.Lock()
+	ls.dto.Replies = on
 	ls.mu.Unlock()
 	c.emitLink(ls, true)
 }
