@@ -66,7 +66,7 @@
 
   <div class="mt-4 flex items-end gap-2">
     <textarea
-      class="field max-h-40 min-h-12 flex-1 resize-none py-3 leading-snug [field-sizing:content]"
+      class="field max-h-40 min-h-12 min-w-0 flex-1 resize-none py-3 leading-snug [field-sizing:content] [overflow-wrap:anywhere]"
       rows="1"
       placeholder={t('text.placeholder')}
       aria-label={t('text.compose', { name: peer.name })}
