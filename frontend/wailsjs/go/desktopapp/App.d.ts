@@ -72,6 +72,8 @@ export function ResumeTransfer(arg1:string):Promise<appcore.TransferDTO>;
 
 export function RetryTransfer(arg1:string):Promise<appcore.TransferDTO>;
 
+export function SavePasted(arg1:string,arg2:string):Promise<string>;
+
 export function SaveSettings(arg1:appcore.SettingsDTO):Promise<void>;
 
 export function SendFiles(arg1:string,arg2:Array<string>,arg3:string):Promise<appcore.TransferDTO>;

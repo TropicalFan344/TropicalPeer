@@ -370,7 +370,9 @@
   "share": {
     "send": "发送 {what}",
     "choose": "选择设备",
-    "pairFirst": "请先配对一台设备；文件会在这里等你。"
+    "pairFirst": "请先配对一台设备；文件会在这里等你。",
+    "pasteTooBig": "太大了，无法粘贴。请把文件拖到设备上，或改为选择文件。",
+    "pasteFailed": "无法使用粘贴的内容：{error}"
   },
   "settings": {
     "title": "设置",

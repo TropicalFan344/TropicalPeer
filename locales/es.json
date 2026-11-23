@@ -370,7 +370,9 @@
   "share": {
     "send": "Enviar {what}",
     "choose": "Elige un dispositivo",
-    "pairFirst": "Primero empareja un dispositivo; los archivos te esperan aquí."
+    "pairFirst": "Primero empareja un dispositivo; los archivos te esperan aquí.",
+    "pasteTooBig": "Es demasiado grande para pegarlo. Suelta el archivo sobre un dispositivo o elígelo.",
+    "pasteFailed": "No se pudo usar lo que pegaste: {error}"
   },
   "settings": {
     "title": "Ajustes",

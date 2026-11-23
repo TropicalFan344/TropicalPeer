@@ -370,7 +370,9 @@
   "share": {
     "send": "傳送 {what}",
     "choose": "選擇裝置",
-    "pairFirst": "請先配對一台裝置；檔案會在這裡等你。"
+    "pairFirst": "請先配對一台裝置；檔案會在這裡等你。",
+    "pasteTooBig": "太大了，無法貼上。請把檔案拖到裝置上，或改用選擇檔案。",
+    "pasteFailed": "無法使用貼上的內容：{error}"
   },
   "settings": {
     "title": "設定",

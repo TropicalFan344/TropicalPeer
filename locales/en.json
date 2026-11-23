@@ -370,7 +370,9 @@
   "share": {
     "send": "Send {what}",
     "choose": "Choose a device",
-    "pairFirst": "Pair with a device first; the files wait here until you do."
+    "pairFirst": "Pair with a device first; the files wait here until you do.",
+    "pasteTooBig": "That's too big to paste. Drop the file on a device or choose it instead.",
+    "pasteFailed": "Couldn't use what you pasted: {error}"
   },
   "settings": {
     "title": "Settings",

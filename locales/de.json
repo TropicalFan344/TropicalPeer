@@ -370,7 +370,9 @@
   "share": {
     "send": "{what} senden",
     "choose": "Gerät wählen",
-    "pairFirst": "Koppele zuerst ein Gerät; die Dateien warten hier."
+    "pairFirst": "Koppele zuerst ein Gerät; die Dateien warten hier.",
+    "pasteTooBig": "Das ist zu groß zum Einfügen. Zieh die Datei auf ein Gerät oder wähle sie aus.",
+    "pasteFailed": "Das Eingefügte konnte nicht verwendet werden: {error}"
   },
   "settings": {
     "title": "Einstellungen",

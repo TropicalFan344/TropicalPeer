@@ -370,7 +370,9 @@
   "share": {
     "send": "Envoyer {what}",
     "choose": "Choisissez un appareil",
-    "pairFirst": "Associez d'abord un appareil ; les fichiers attendent ici."
+    "pairFirst": "Associez d'abord un appareil ; les fichiers attendent ici.",
+    "pasteTooBig": "C'est trop volumineux pour être collé. Déposez le fichier sur un appareil ou choisissez-le.",
+    "pasteFailed": "Impossible d'utiliser ce que vous avez collé : {error}"
   },
   "settings": {
     "title": "Réglages",

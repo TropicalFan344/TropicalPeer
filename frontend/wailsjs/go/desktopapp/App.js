@@ -142,6 +142,10 @@ export function RetryTransfer(arg1) {
   return window['go']['desktopapp']['App']['RetryTransfer'](arg1);
 }
 
+export function SavePasted(arg1, arg2) {
+  return window['go']['desktopapp']['App']['SavePasted'](arg1, arg2);
+}
+
 export function SaveSettings(arg1) {
   return window['go']['desktopapp']['App']['SaveSettings'](arg1);
 }

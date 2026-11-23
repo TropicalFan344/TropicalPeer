@@ -1,16 +1,21 @@
 <script lang="ts">
-  // Files shared from another app's share menu (Android): one question, which
-  // device gets them. Choosing one starts the send and shows Transfers.
+  // Files shared from another app's share menu (Android), or a picture pasted
+  // on a computer: one question, which device gets them. Choosing one starts
+  // the send and shows Transfers.
   import { Plus, Link2 } from '@lucide/svelte'
   import Dialog from './Dialog.svelte'
   import Bed from './Bed.svelte'
   import AddPeerDialog from './AddPeerDialog.svelte'
   import { app, sendTo, shareLink } from '../state.svelte'
   import { formatAgo, formatSize } from '../format'
-  import type { Peer, PickedFile } from '../api'
+  import type { Peer } from '../api'
   import { i18n, t, what as describe } from '../i18n.svelte'
+  import { pasted, setPreview } from '../paste.svelte'
 
-  const files = $derived(app.shared.filter((f): f is Exclude<PickedFile, string> => typeof f !== 'string'))
+  // A pasted file is a path, with no size to hand.
+  const files = $derived(
+    app.shared.map((f) => (typeof f === 'string' ? { name: f.split(/[\\/]/).pop() ?? f, size: -1 } : f)),
+  )
   const what = $derived(describe(files))
   const total = $derived(files.every((f) => f.size >= 0) ? files.reduce((n, f) => n + f.size, 0) : -1)
 
@@ -24,6 +29,7 @@
 
   function close() {
     app.shared = []
+    setPreview('')
   }
 
   // Or a link, for someone who doesn't have the app.
@@ -44,6 +50,9 @@
 
 {#if app.shared.length && !pairing}
   <Dialog title={t('share.send', { what })} onclose={close}>
+    {#if pasted.preview}
+      <img src={pasted.preview} alt="" class="mb-3 max-h-48 w-full rounded-md bg-surface-2 object-contain" />
+    {/if}
     {#if total >= 0}
       <p class="-mt-2 mb-3 text-sm text-muted">{formatSize(total)}</p>
     {/if}

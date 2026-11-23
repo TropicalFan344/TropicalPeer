@@ -19,6 +19,7 @@
   import { initDrop } from './lib/drop.svelte'
   import { isAndroid } from './lib/api'
   import { initBack } from './lib/back'
+  import { initPaste } from './lib/paste.svelte'
   import { t, applyLanguage } from './lib/i18n.svelte'
   import { swipePages, navIndex, setNavPos } from './lib/nav.svelte'
   import { dur, easeOutExpo } from './lib/motion'
@@ -26,7 +27,10 @@
   onMount(() => {
     applyLanguage()
     initState()
-    if (!isAndroid) initDrop() // files arrive through the picker and share sheet instead
+    if (!isAndroid) {
+      initDrop() // files arrive through the picker and share sheet instead
+      initPaste()
+    }
     initBack()
   })
 

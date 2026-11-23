@@ -211,6 +211,8 @@ export const api = {
   pickFiles: backend.pickFiles,
   pickFolder: backend.pickFolder,
   pickMedia: backend.pickMedia,
+  /** Desktop only: saves a pasted file (base64) and returns its path to send. */
+  savePasted: (name: string, data: string) => call<string>('SavePasted', name, data),
   /** note (may be empty) is shown with the offer on the other device. */
   sendFiles: (peerId: string, files: PickedFile[], note = '') =>
     call<Transfer>(isAndroid ? 'SendDocuments' : 'SendFiles', peerId, files, note),
