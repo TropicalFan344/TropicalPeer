@@ -364,6 +364,10 @@
     "sendText": "Enviar como texto",
     "attachHint": "Escolha acima para enviar com fotos ou arquivos, ou toque na seta para enviar só o texto.",
     "attachHintDesktop": "Solte arquivos aqui para enviá-los com isto.",
+    "attached": "Arquivos colados",
+    "removeAttached": "Remover {name}",
+    "sendAttached": "Enviar",
+    "attachedHint": "Pressione Enter para enviar. O que você escrever vai junto.",
     "dropWithNote": "Solte para enviar com sua mensagem",
     "noteTooLong": "Longo demais para ir com arquivos."
   },

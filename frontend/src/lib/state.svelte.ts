@@ -20,6 +20,13 @@ import {
 import { onShare } from './backend'
 import { t, what as describe } from './i18n.svelte'
 
+/** A file pasted into the compose bar, saved and waiting to go. */
+export interface Attached {
+  path: string
+  name: string
+  preview: string // object URL of the picture; '' if it isn't one
+}
+
 export type Page = 'peers' | 'transfers' | 'links' | 'network' | 'settings'
 
 export const app = $state({
@@ -60,7 +67,8 @@ export const app = $state({
   sharedText: null as string | null,
   // The open compose bar on a computer's peer card (one at a time): its
   // words go as a text, or with files chosen or dropped onto that card.
-  compose: { peerId: '', body: '' },
+  // Pasted pictures wait in it (attached) until the person sends.
+  compose: { peerId: '', body: '', attached: [] as Attached[] },
 })
 
 export async function initState() {
@@ -368,12 +376,21 @@ export function openCompose(peer: Peer, body = '') {
     toast(t('transfer.removedYou', { name: peer.name }), 'info', 6000)
     return
   }
-  if (app.compose.peerId !== peer.id) app.compose = { peerId: peer.id, body }
-  else if (body) app.compose.body = body
+  if (app.compose.peerId !== peer.id) {
+    closeCompose()
+    app.compose = { peerId: peer.id, body, attached: [] }
+  } else if (body) app.compose.body = body
 }
 
 export function closeCompose() {
-  app.compose = { peerId: '', body: '' }
+  for (const a of app.compose.attached) if (a.preview) URL.revokeObjectURL(a.preview)
+  app.compose = { peerId: '', body: '', attached: [] }
+}
+
+/** Takes a pasted file out of the compose bar. */
+export function detach(a: Attached) {
+  if (a.preview) URL.revokeObjectURL(a.preview)
+  app.compose.attached = app.compose.attached.filter((x) => x !== a)
 }
 
 /** The compose bar's words for peer, if its bar is open: they go with files dropped on its card. */

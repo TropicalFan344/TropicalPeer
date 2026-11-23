@@ -364,6 +364,10 @@
     "sendText": "只傳文字",
     "attachHint": "點上面的按鈕會附上這段話一起傳；按箭頭只傳文字。",
     "attachHintDesktop": "拖檔案進來，就會附上這段話。",
+    "attached": "貼上的檔案",
+    "removeAttached": "移除 {name}",
+    "sendAttached": "傳送",
+    "attachedHint": "按 Enter 傳送。你輸入的文字會一起送出。",
     "dropWithNote": "放開就傳，附上這段話",
     "noteTooLong": "太長了，無法附在檔案上。"
   },

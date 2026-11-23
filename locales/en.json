@@ -364,6 +364,10 @@
     "sendText": "Send as text",
     "attachHint": "Choose above to send it with photos or files, or press the arrow to send it on its own.",
     "attachHintDesktop": "Drop files here to send them with this.",
+    "attached": "Pasted files",
+    "removeAttached": "Remove {name}",
+    "sendAttached": "Send",
+    "attachedHint": "Press Enter to send. Words you add go with it.",
     "dropWithNote": "Drop to send with your note",
     "noteTooLong": "Too long to go with files."
   },

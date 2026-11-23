@@ -364,6 +364,10 @@
     "sendText": "텍스트만 보내기",
     "attachHint": "위에서 고르면 이 메시지를 함께 보냅니다. 화살표를 누르면 텍스트만 보냅니다.",
     "attachHintDesktop": "파일을 놓으면 이 메시지와 함께 보냅니다.",
+    "attached": "붙여넣은 파일",
+    "removeAttached": "{name} 빼기",
+    "sendAttached": "보내기",
+    "attachedHint": "Enter를 누르면 보냅니다. 입력한 글도 함께 갑니다.",
     "dropWithNote": "놓으면 메시지와 함께 보냅니다",
     "noteTooLong": "파일과 함께 보내기에는 너무 깁니다."
   },

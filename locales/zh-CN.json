@@ -364,6 +364,10 @@
     "sendText": "只发文字",
     "attachHint": "点上面的按钮会附上这段话一起发；按箭头只发文字。",
     "attachHintDesktop": "拖文件进来，就会附上这段话。",
+    "attached": "粘贴的文件",
+    "removeAttached": "移除 {name}",
+    "sendAttached": "发送",
+    "attachedHint": "按 Enter 发送。你输入的文字会一起发出。",
     "dropWithNote": "松开就发，附上这段话",
     "noteTooLong": "太长了，无法附在文件上。"
   },

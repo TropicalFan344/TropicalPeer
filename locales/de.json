@@ -364,6 +364,10 @@
     "sendText": "Als Text senden",
     "attachHint": "Wähle oben, um es mit Fotos oder Dateien zu senden, oder tippe auf den Pfeil, um es allein zu senden.",
     "attachHintDesktop": "Zieh Dateien hierher, um sie damit zu senden.",
+    "attached": "Eingefügte Dateien",
+    "removeAttached": "{name} entfernen",
+    "sendAttached": "Senden",
+    "attachedHint": "Mit Enter senden. Was du dazuschreibst, geht mit.",
     "dropWithNote": "Loslassen, um mit deiner Nachricht zu senden",
     "noteTooLong": "Zu lang, um mit Dateien gesendet zu werden."
   },

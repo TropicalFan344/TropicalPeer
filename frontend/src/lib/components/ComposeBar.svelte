@@ -1,11 +1,12 @@
 <script lang="ts">
   // A computer's peer card, opened up (💬, right-click or a paste): a few
   // words that go on their own (➤ or Enter), or with files chosen with the
-  // paperclip or dropped onto the card.
+  // paperclip or dropped onto the card. Pasted pictures show above the words
+  // and go with them on ➤ or Enter.
   import { slide } from 'svelte/transition'
-  import { Paperclip, SendHorizontal } from '@lucide/svelte'
+  import { File as FileIcon, Paperclip, SendHorizontal, X } from '@lucide/svelte'
   import { maxNoteBytes, maxTextBytes, textBytes, type Peer } from '../api'
-  import { app, closeCompose, pickAndSend, sendText } from '../state.svelte'
+  import { app, closeCompose, detach, pickAndSend, sendText, sendTo } from '../state.svelte'
   import { formatSize } from '../format'
   import { dur, easeOutExpo } from '../motion'
   import { t } from '../i18n.svelte'
@@ -19,11 +20,22 @@
   const body = $derived(app.compose.body)
   const empty = $derived(body.trim() === '')
   const bytes = $derived(textBytes(body))
-  const tooLongText = $derived(bytes > maxTextBytes)
+  const attached = $derived(app.compose.attached)
+  const withFiles = $derived(attached.length > 0)
+  // With pasted files the words are their note, which has its own limit.
+  const tooLongText = $derived(!withFiles && bytes > maxTextBytes)
   const tooLongNote = $derived(bytes > maxNoteBytes)
+  const cantSend = $derived(sending || (withFiles ? tooLongNote : empty || tooLongText))
 
   async function send() {
-    if (empty || tooLongText || sending) return
+    if (cantSend) return
+    if (withFiles) {
+      sending = true
+      const sent = await sendTo(peer, attached.map((a) => a.path), empty ? '' : body)
+      sending = false
+      if (sent) closeCompose()
+      return
+    }
     sending = true
     error = await sendText(peer, body)
     sending = false
@@ -85,6 +97,33 @@
   transition:slide={{ duration: dur(200), easing: easeOutExpo }}
   onintroend={focus}
 >
+  {#if withFiles}
+    <ul class="mb-2 flex flex-wrap gap-2" aria-label={t('text.attached')}>
+      {#each attached as a (a.path)}
+        <li class="relative">
+          {#if a.preview}
+            <img src={a.preview} alt={a.name} title={a.name} class="size-20 rounded-md border border-line bg-surface-2 object-cover" />
+          {:else}
+            <span class="flex h-20 w-32 flex-col items-center justify-center gap-1 rounded-md border border-line bg-surface-2 px-2 text-xs text-muted" title={a.name}>
+              <FileIcon size={20} />
+              <span class="w-full truncate text-center">{a.name}</span>
+            </span>
+          {/if}
+          <button
+            class="absolute -top-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink"
+            title={t('text.removeAttached', { name: a.name })}
+            aria-label={t('text.removeAttached', { name: a.name })}
+            onclick={() => {
+              detach(a)
+              field?.focus()
+            }}
+          >
+            <X size={14} />
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
   <div class="flex items-end gap-2">
     <textarea
       bind:this={field}
@@ -109,9 +148,9 @@
     </button>
     <button
       class="btn-primary size-10 shrink-0 justify-center p-0"
-      title={t('text.sendText')}
-      aria-label={t('text.sendText')}
-      disabled={empty || tooLongText || sending}
+      title={t(withFiles ? 'text.sendAttached' : 'text.sendText')}
+      aria-label={t(withFiles ? 'text.sendAttached' : 'text.sendText')}
+      disabled={cantSend}
       onclick={send}
     >
       <SendHorizontal size={18} />
@@ -119,7 +158,7 @@
   </div>
   <!-- Quiet until there's something to say: the drop hint only once there
        are words to go with files (the card says it again while files hover). -->
-  {#if error || tooLongText || sending || tooLongNote || !empty}
+  {#if error || tooLongText || sending || tooLongNote || !empty || withFiles}
     <p class="mt-1.5 text-sm {error || tooLongText ? 'text-bad' : 'text-muted'}" role={error ? 'alert' : undefined}>
       {#if error}
         {error}
@@ -129,6 +168,8 @@
         {t('text.sending')}
       {:else if tooLongNote}
         {t('text.noteTooLong')} ({formatSize(bytes)} / {formatSize(maxNoteBytes)})
+      {:else if withFiles}
+        {t('text.attachedHint')}
       {:else}
         {t('text.attachHintDesktop')}
       {/if}

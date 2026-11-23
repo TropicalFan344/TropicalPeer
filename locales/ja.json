@@ -364,6 +364,10 @@
     "sendText": "テキストだけ送る",
     "attachHint": "上のボタンで選ぶと、このメッセージを添えて送ります。矢印でテキストだけ送ります。",
     "attachHintDesktop": "ファイルをドロップすると、このメッセージを添えて送ります。",
+    "attached": "貼り付けたファイル",
+    "removeAttached": "{name} を取り除く",
+    "sendAttached": "送信",
+    "attachedHint": "Enter で送信します。入力した文も一緒に送られます。",
     "dropWithNote": "ドロップでメッセージを添えて送信",
     "noteTooLong": "ファイルに添えるには長すぎます。"
   },
